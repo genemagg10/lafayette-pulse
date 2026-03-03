@@ -4,6 +4,8 @@ Fetches agendas, meeting calendars, and news from lovelafayette.org,
 extracts text content, and stores results in Supabase for classification.
 
 Only processes upcoming/future content — past events are skipped.
+
+Uses direct Supabase REST API (PostgREST) to avoid heavy SDK dependencies.
 """
 
 import os
@@ -16,13 +18,22 @@ from datetime import datetime, date, timedelta
 from urllib.parse import urljoin, urlparse, parse_qs
 
 import requests
-import pdfplumber
 from bs4 import BeautifulSoup
-from supabase import create_client
 
-# Configuration
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+# Note: pdfplumber is available in GitHub Actions but may not be in all
+# environments. PDF extraction is handled conditionally at runtime.
+
+# Configuration — accept multiple env var naming conventions
+SUPABASE_URL = (
+    os.environ.get("SUPABASE_URL")
+    or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+    or ""
+)
+SUPABASE_KEY = (
+    os.environ.get("SUPABASE_SERVICE_KEY")
+    or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    or ""
+)
 
 # Cutoff: only include items from today onward (or within last 7 days for
 # recently-posted items that may still be relevant)
@@ -94,8 +105,8 @@ SOURCES = [
     },
 ]
 
-# HTTP headers
-HEADERS = {
+# HTTP headers for web scraping
+WEB_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (compatible; LafayettePulse/1.0; "
         "+https://vibrant-lafayette.vercel.app)"
@@ -115,38 +126,77 @@ MONTH_NAMES = {
 }
 
 
+# ─── Supabase REST API helpers ────────────────────────────────────────
+
+def supabase_headers() -> dict:
+    """Return headers for Supabase REST API requests."""
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+
+def supabase_select(table: str, params: dict) -> list[dict]:
+    """SELECT from a Supabase table via REST."""
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    resp = requests.get(url, headers=supabase_headers(), params=params, timeout=15)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def supabase_upsert(table: str, data: dict) -> list[dict]:
+    """UPSERT into a Supabase table via REST."""
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    headers = supabase_headers()
+    headers["Prefer"] = "resolution=merge-duplicates,return=representation"
+    resp = requests.post(url, headers=headers, json=data, timeout=15)
+    resp.raise_for_status()
+    return resp.json()
+
+
 def init_supabase():
-    """Initialize Supabase client."""
+    """Validate that Supabase credentials are set."""
     if not SUPABASE_URL or not SUPABASE_KEY:
         print("ERROR: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.")
+        print(f"  SUPABASE_URL = {'(set)' if SUPABASE_URL else '(empty)'}")
+        print(f"  SUPABASE_SERVICE_KEY = {'(set)' if SUPABASE_KEY else '(empty)'}")
         sys.exit(1)
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    # Quick connectivity check
+    try:
+        supabase_select("scraped_sources", {"select": "id", "limit": "1"})
+        print(f"Connected to Supabase: {SUPABASE_URL}")
+    except Exception as e:
+        print(f"ERROR: Cannot connect to Supabase: {e}")
+        sys.exit(1)
 
 
-def is_already_scraped(supabase, url: str) -> bool:
+def is_already_scraped(url: str) -> bool:
     """Check if a URL has already been scraped."""
-    result = (
-        supabase.table("scraped_sources")
-        .select("id")
-        .eq("url", url)
-        .execute()
-    )
-    return len(result.data) > 0
+    results = supabase_select("scraped_sources", {
+        "select": "id",
+        "url": f"eq.{url}",
+    })
+    return len(results) > 0
 
 
-def record_scraped_source(supabase, url: str, filename: str, body: str,
+def record_scraped_source(url: str, filename: str, body: str,
                           meeting_date: str | None, items_extracted: int,
                           status: str = "success"):
     """Record a scraped source for deduplication."""
-    supabase.table("scraped_sources").upsert({
+    data = {
         "url": url,
         "filename": filename,
         "body": body,
         "meeting_date": meeting_date,
         "items_extracted": items_extracted,
         "status": status,
-    }).execute()
+    }
+    supabase_upsert("scraped_sources", data)
 
+
+# ─── Date helpers ─────────────────────────────────────────────────────
 
 def get_cutoff_date() -> date:
     """Return the earliest date we'll accept content for."""
@@ -156,7 +206,6 @@ def get_cutoff_date() -> date:
 def is_future_or_recent(date_str: str | None) -> bool:
     """Check if a date string represents a future or recent date."""
     if not date_str:
-        # If we can't determine the date, include it (let classifier decide)
         return True
     try:
         parsed = datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -168,15 +217,10 @@ def is_future_or_recent(date_str: str | None) -> bool:
 def extract_date_from_text(text: str) -> str | None:
     """Try to extract a date from text/filename strings."""
     patterns = [
-        # YYYY-MM-DD
         (r"(\d{4})-(\d{1,2})-(\d{1,2})", "ymd"),
-        # MM-DD-YYYY or MM/DD/YYYY
         (r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})", "mdy"),
-        # MM.DD.YYYY
         (r"(\d{1,2})\.(\d{1,2})\.(\d{4})", "mdy"),
-        # Month DD, YYYY
         (r"(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})", "named"),
-        # Mon DD, YYYY (abbreviated)
         (r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s+(\d{1,2}),?\s+(\d{4})", "named"),
     ]
 
@@ -199,6 +243,8 @@ def extract_date_from_text(text: str) -> str | None:
     return None
 
 
+# ─── Web scraping helpers ─────────────────────────────────────────────
+
 def resolve_url(href: str, base_url: str) -> str:
     """Resolve a possibly-relative URL against a base URL."""
     if href.startswith("http"):
@@ -209,7 +255,7 @@ def resolve_url(href: str, base_url: str) -> str:
 def fetch_page(url: str) -> BeautifulSoup | None:
     """Fetch a page and return parsed HTML."""
     try:
-        response = requests.get(url, headers=HEADERS, timeout=30,
+        response = requests.get(url, headers=WEB_HEADERS, timeout=30,
                                 allow_redirects=True)
         response.raise_for_status()
         return BeautifulSoup(response.text, "html.parser")
@@ -221,7 +267,12 @@ def fetch_page(url: str) -> BeautifulSoup | None:
 def download_and_extract_pdf(pdf_url: str) -> str | None:
     """Download a PDF and extract its text content."""
     try:
-        response = requests.get(pdf_url, headers=HEADERS, timeout=60)
+        import pdfplumber
+    except Exception:
+        print(f"  Skipping PDF (pdfplumber not available): {pdf_url}")
+        return None
+    try:
+        response = requests.get(pdf_url, headers=WEB_HEADERS, timeout=60)
         response.raise_for_status()
 
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
@@ -250,10 +301,7 @@ def download_and_extract_pdf(pdf_url: str) -> str | None:
 
 
 def extract_html_content(soup: BeautifulSoup, url: str) -> str:
-    """
-    Extract meaningful text content from an HTML page.
-    Removes navigation, headers, footers, etc.
-    """
+    """Extract meaningful text content from an HTML page."""
     # Remove non-content elements
     for tag in soup.find_all(["nav", "header", "footer", "script", "style",
                               "noscript", "iframe"]):
@@ -262,17 +310,9 @@ def extract_html_content(soup: BeautifulSoup, url: str) -> str:
     # Try to find the main content area (CivicPlus patterns)
     content = None
     for selector in [
-        "main",
-        ".page-content",
-        "#page-content",
-        ".content-area",
-        "#content",
-        ".main-content",
-        "#main-content",
-        '[role="main"]',
-        ".interior-content",
-        ".moduleContent",
-        "#moduleContent",
+        "main", ".page-content", "#page-content", ".content-area",
+        "#content", ".main-content", "#main-content", '[role="main"]',
+        ".interior-content", ".moduleContent", "#moduleContent",
     ]:
         content = soup.select_one(selector)
         if content:
@@ -288,10 +328,7 @@ def extract_html_content(soup: BeautifulSoup, url: str) -> str:
 
 
 def scrape_agenda_page(source: dict) -> list[dict]:
-    """
-    Scrape an agenda/minutes page for PDF links.
-    Works for commission and council pages on lovelafayette.org.
-    """
+    """Scrape an agenda/minutes page for PDF links and agenda content."""
     items = []
     soup = fetch_page(source["url"])
     if not soup:
@@ -302,16 +339,12 @@ def scrape_agenda_page(source: dict) -> list[dict]:
         text = link.get_text(strip=True).lower()
         full_text = text + " " + href.lower()
 
-        # Look for PDF links related to agendas
         is_pdf = href.lower().endswith(".pdf")
         is_agenda_link = any(
             kw in full_text for kw in [
-                "agenda", "packet", "staff report", "notice",
-                "public hearing",
+                "agenda", "packet", "staff report", "notice", "public hearing",
             ]
         )
-
-        # Also look for direct agenda page links (non-PDF)
         is_agenda_page_link = (
             not is_pdf
             and any(kw in full_text for kw in ["agenda", "meeting"])
@@ -335,30 +368,36 @@ def scrape_agenda_page(source: dict) -> list[dict]:
             "is_pdf": is_pdf,
         })
 
+    # Always extract the full page content too
+    page_text = extract_html_content(soup, source["url"])
+    if len(page_text) > 100:
+        items.append({
+            "url": source["url"],
+            "filename": f"{source['body'].lower().replace(' ', '-')}-page.html",
+            "body": source["body"],
+            "meeting_date": None,
+            "is_pdf": False,
+            "full_page_text": page_text,
+        })
+
     return items
 
 
 def scrape_agenda_archive(source: dict) -> list[dict]:
-    """
-    Scrape the agenda & minutes archiver page.
-    CivicPlus archiver pages often have filterable lists of agendas by body and year.
-    """
+    """Scrape the agenda & minutes archiver page."""
     items = []
     soup = fetch_page(source["url"])
     if not soup:
         return items
 
-    # Look for all links — agenda archivers have links to agenda documents
     for link in soup.find_all("a", href=True):
         href = link["href"]
         text = link.get_text(strip=True)
         text_lower = text.lower()
 
-        # Skip minutes-only links, focus on agendas
         if "minute" in text_lower and "agenda" not in text_lower:
             continue
 
-        # Look for PDF links or detail page links
         is_pdf = href.lower().endswith(".pdf")
         is_relevant = any(kw in text_lower for kw in [
             "agenda", "packet", "notice", "meeting",
@@ -373,7 +412,6 @@ def scrape_agenda_archive(source: dict) -> list[dict]:
         if not is_future_or_recent(meeting_date):
             continue
 
-        # Try to determine the body from surrounding context
         parent = link.find_parent(["tr", "li", "div", "section"])
         body_name = source["body"]
         if parent:
@@ -399,20 +437,28 @@ def scrape_agenda_archive(source: dict) -> list[dict]:
             "is_pdf": is_pdf,
         })
 
+    # Also get full page content
+    page_text = extract_html_content(soup, source["url"])
+    if len(page_text) > 100:
+        items.append({
+            "url": source["url"],
+            "filename": "agenda-archive-page.html",
+            "body": source["body"],
+            "meeting_date": None,
+            "is_pdf": False,
+            "full_page_text": page_text,
+        })
+
     return items
 
 
 def scrape_calendar(source: dict) -> list[dict]:
-    """
-    Scrape the public meeting calendar page.
-    Extracts upcoming meeting entries with their dates and descriptions.
-    """
+    """Scrape the public meeting calendar page."""
     items = []
     soup = fetch_page(source["url"])
     if not soup:
         return items
 
-    # Look for calendar event entries (CivicPlus calendar patterns)
     event_selectors = [
         ".calendar-event", ".event-item", ".meeting-item",
         ".calendarEvent", ".event-row", "tr", ".list-item",
@@ -425,7 +471,6 @@ def scrape_calendar(source: dict) -> list[dict]:
             events_found = elements
             break
 
-    # If no structured events, extract all links with dates
     if not events_found:
         events_found = soup.find_all(["a", "div", "li"])
 
@@ -438,20 +483,16 @@ def scrape_calendar(source: dict) -> list[dict]:
         if not is_future_or_recent(meeting_date):
             continue
 
-        # Look for any links within the element
         links = element.find_all("a", href=True) if element.name != "a" else [element]
         for link in links:
             href = link["href"]
             link_text = link.get_text(strip=True)
-
-            # Skip navigation/non-content links
             if len(link_text) < 5:
                 continue
 
             resolved_url = resolve_url(href, source["url"])
             is_pdf = href.lower().endswith(".pdf")
 
-            # Determine body from text
             body_name = source["body"]
             text_lower = text.lower()
             body_mapping = {
@@ -475,8 +516,7 @@ def scrape_calendar(source: dict) -> list[dict]:
                 "calendar_text": text[:500],
             })
 
-    # Also extract the full calendar page content as a single item
-    # for Claude to analyze for upcoming meetings
+    # Extract full calendar page for Claude to analyze
     page_text = extract_html_content(soup, source["url"])
     if len(page_text) > 100:
         items.append({
@@ -492,16 +532,12 @@ def scrape_calendar(source: dict) -> list[dict]:
 
 
 def scrape_news_page(source: dict) -> list[dict]:
-    """
-    Scrape a news/announcements page.
-    Extracts news items with dates, filtering for upcoming/current content.
-    """
+    """Scrape a news/announcements page."""
     items = []
     soup = fetch_page(source["url"])
     if not soup:
         return items
 
-    # CivicPlus news component patterns
     news_selectors = [
         ".news-item", ".newsItem", ".news-listing-item",
         ".list-item", "article", ".item-row",
@@ -514,10 +550,8 @@ def scrape_news_page(source: dict) -> list[dict]:
             news_elements = elements
             break
 
-    # Fallback: look for content within main area
     if not news_elements:
         main_content = soup.select_one("main") or soup.select_one("#content") or soup
-        # Try to find distinct news blocks
         news_elements = main_content.find_all(["article", "div", "li"],
                                                class_=True, recursive=True)
         if not news_elements:
@@ -532,12 +566,10 @@ def scrape_news_page(source: dict) -> list[dict]:
         if not is_future_or_recent(meeting_date):
             continue
 
-        # Check for links within the news item
         link = element.find("a", href=True)
         if link:
             resolved_url = resolve_url(link["href"], source["url"])
         else:
-            # Use page URL with a content hash for dedup
             content_hash = hashlib.md5(text[:200].encode()).hexdigest()[:12]
             resolved_url = f"{source['url']}#item-{content_hash}"
 
@@ -570,13 +602,10 @@ def scrape_news_page(source: dict) -> list[dict]:
 
 def save_extracted_text(body: str, meeting_date: str | None,
                         text: str, source_url: str):
-    """
-    Save extracted text to a temp JSON file for classification.
-    """
+    """Save extracted text to a temp JSON file for classification."""
     output_dir = os.path.join(os.path.dirname(__file__), ".agenda_texts")
     os.makedirs(output_dir, exist_ok=True)
 
-    # Use a sanitized filename with hash for uniqueness
     url_hash = hashlib.md5(source_url.encode()).hexdigest()[:8]
     safe_name = re.sub(r"[^\w\-]", "_", f"{body}_{meeting_date or 'unknown'}_{url_hash}")
     filepath = os.path.join(output_dir, f"{safe_name}.json")
@@ -595,15 +624,14 @@ def save_extracted_text(body: str, meeting_date: str | None,
     return filepath
 
 
-def process_item(supabase, item: dict) -> bool:
+def process_item(item: dict) -> bool:
     """Process a single scraped item — extract text and save."""
     url = item["url"]
 
-    if is_already_scraped(supabase, url):
+    if is_already_scraped(url):
         print(f"  Skipping (already scraped): {item['filename']}")
         return False
 
-    # If the item already has full text (from calendar/news page scraping)
     text = item.get("full_page_text") or item.get("news_text") or item.get("calendar_text")
 
     if not text:
@@ -611,7 +639,6 @@ def process_item(supabase, item: dict) -> bool:
             print(f"  Downloading PDF: {item['filename']}")
             text = download_and_extract_pdf(url)
         else:
-            # Fetch the linked page and extract content
             print(f"  Fetching page: {item['filename']}")
             soup = fetch_page(url)
             if soup:
@@ -625,7 +652,6 @@ def process_item(supabase, item: dict) -> bool:
             url,
         )
         record_scraped_source(
-            supabase,
             url=url,
             filename=item["filename"],
             body=item["body"],
@@ -637,7 +663,6 @@ def process_item(supabase, item: dict) -> bool:
     else:
         print(f"  No usable content from: {item['filename']}")
         record_scraped_source(
-            supabase,
             url=url,
             filename=item["filename"],
             body=item["body"],
@@ -655,11 +680,10 @@ def main():
     print(f"Cutoff date: {get_cutoff_date().isoformat()} (only future/recent content)")
     print("=" * 60)
 
-    supabase = init_supabase()
+    init_supabase()
     total_new = 0
     seen_urls = set()
 
-    # Dispatch to appropriate scraper based on source type
     scraper_map = {
         "agenda_page": scrape_agenda_page,
         "agenda_archive": scrape_agenda_archive,
@@ -676,13 +700,12 @@ def main():
         print(f"  Found {len(items)} item(s)")
 
         for item in items:
-            # Deduplicate across sources
             if item["url"] in seen_urls:
                 continue
             seen_urls.add(item["url"])
 
             print(f"  Processing: {item['filename']}")
-            if process_item(supabase, item):
+            if process_item(item):
                 total_new += 1
 
     print(f"\n{'=' * 60}")
