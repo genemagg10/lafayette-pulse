@@ -93,11 +93,15 @@ def init_supabase():
 
 
 def is_already_scraped(url: str) -> bool:
-    results = supabase_select("scraped_sources", {
-        "select": "id",
-        "url": f"eq.{url}",
-    })
-    return len(results) > 0
+    try:
+        results = supabase_select("scraped_sources", {
+            "select": "id",
+            "url": f"eq.{url}",
+        })
+        return len(results) > 0
+    except requests.HTTPError:
+        # If the query fails (e.g. special chars), fall back to not-scraped
+        return False
 
 
 def record_scraped_source(url: str, filename: str, body: str,
@@ -424,8 +428,10 @@ def process_email(msg: email.message.Message, msg_uid: str) -> int:
         pass
 
     # Use Message-ID as a stable unique identifier for dedup
-    message_id = msg.get("Message-ID", "") or f"uid-{msg_uid}"
-    source_url = f"email://{EMAIL_ADDRESS}/{message_id}"
+    # Strip angle brackets and special chars that break PostgREST queries
+    raw_message_id = msg.get("Message-ID", "") or f"uid-{msg_uid}"
+    message_id = raw_message_id.strip().strip("<>")
+    source_url = f"email://{message_id}"
 
     if is_already_scraped(source_url):
         print(f"  Skipping (already processed): {subject[:60]}")
@@ -526,12 +532,16 @@ def main():
 
         for uid in email_uids:
             print(f"\n--- Email UID {uid.decode()} ---")
-            msg = fetch_email(mail, uid)
-            if msg:
-                saved = process_email(msg, uid.decode())
-                total_saved += saved
-            else:
-                print("  Failed to fetch email.")
+            try:
+                msg = fetch_email(mail, uid)
+                if msg:
+                    saved = process_email(msg, uid.decode())
+                    total_saved += saved
+                else:
+                    print("  Failed to fetch email.")
+            except Exception as e:
+                print(f"  Error processing email UID {uid.decode()}: {e}")
+                continue
 
     finally:
         try:
