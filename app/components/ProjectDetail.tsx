@@ -147,14 +147,14 @@ export default function ProjectDetail({
           </div>
         )}
 
-        {project.source_url && (
+        {project.source_url && project.source_url.startsWith("http") && (
           <a
             href={project.source_url}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-forest-600 underline hover:text-forest-800 text-xs"
           >
-            View Source Document
+            View Source
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
             </svg>
@@ -180,7 +180,7 @@ export default function ProjectDetail({
                     {update.source_date
                       ? new Date(update.source_date).toLocaleDateString()
                       : new Date(update.created_at).toLocaleDateString()}
-                    {update.source_url && (
+                    {update.source_url && update.source_url.startsWith("http") && (
                       <>
                         {" "}
                         &middot;{" "}
