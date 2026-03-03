@@ -1,14 +1,16 @@
 """
-Classify extracted agenda text using the Claude API.
-Reads agenda texts saved by scrape-agendas.py, sends them to Claude
-for structured extraction, and stores results in Supabase.
+Classify extracted text using the Claude API.
+Reads texts saved by scrape-agendas.py (from agendas, calendars, and news),
+sends them to Claude for structured extraction, and stores results in Supabase.
+
+Only extracts upcoming/future-relevant items.
 """
 
 import os
 import sys
 import json
 import glob
-from datetime import datetime
+from datetime import datetime, date
 
 import anthropic
 from supabase import create_client
@@ -22,31 +24,43 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
 CLAUDE_MODEL = "claude-sonnet-4-20250514"
 
-SYSTEM_PROMPT = """You are analyzing city government agenda documents for Lafayette, California. Extract ALL items related to these categories:
+SYSTEM_PROMPT = f"""You are analyzing city government documents, meeting calendars, and news for Lafayette, California.
+Today's date is {date.today().isoformat()}.
+
+IMPORTANT: Only extract items that are UPCOMING, CURRENT, or IN-PROGRESS. Skip anything that has already concluded or is purely historical. Focus on what is happening now or in the future.
+
+Extract ALL relevant items related to these categories:
 - bike_ped: Bike lanes, crosswalks, pedestrian signals, ADA improvements, bicycle infrastructure
 - safe_routes: Safe Routes to School programs, school zone safety, walking school buses, crossing guards
 - street_quieting: Speed reduction, traffic calming, speed cushions, chicanes, radar signs, cut-through traffic
-- infrastructure: Road repaving, drainage, signal upgrades, intersection redesigns
+- infrastructure: Road repaving, drainage, signal upgrades, intersection redesigns, construction projects
 - parks_trails: Trail improvements, park renovations, open space, recreation facilities
-- city_council: Notable policy decisions, resolutions, budget items related to transportation or public safety
+- city_council: Notable policy decisions, resolutions, budget items, public hearings, upcoming meetings related to transportation, public safety, or community development
 
 For each item, return JSON:
-{
+{{
   "items": [
-    {
+    {{
       "title": "Short descriptive title",
-      "description": "2-3 sentence summary of what this item involves",
+      "description": "2-3 sentence summary of what this item involves and when it is happening",
       "category": "bike_ped|safe_routes|street_quieting|infrastructure|parks_trails|city_council",
       "location": "Street names or area mentioned, if any",
       "funding": "Dollar amounts or funding sources mentioned, if any",
-      "timeline": "Any dates or timeline mentioned",
+      "timeline": "Any dates or timeline mentioned (meetings, deadlines, construction dates)",
       "status": "proposed|approved|in_progress|completed based on context",
-      "tags": ["relevant", "keyword", "tags"]
-    }
+      "tags": ["relevant", "keyword", "tags"],
+      "source_type": "agenda|news|calendar|report"
+    }}
   ]
-}
+}}
 
-Only include items relevant to these categories. Skip routine administrative items, personnel matters, consent calendar items unrelated to infrastructure, etc. Return ONLY valid JSON with no other text."""
+Guidelines:
+- Only include items relevant to the categories above
+- Skip routine administrative items, personnel matters, consent calendar items unrelated to infrastructure
+- For calendar/meeting entries, extract the meeting purpose, date, and any agenda topics
+- For news items, extract project announcements, construction updates, public notices
+- If a document mentions an upcoming public hearing or community meeting, include it
+- Return ONLY valid JSON with no other text"""
 
 
 def init_clients():
@@ -64,14 +78,14 @@ def init_clients():
 
 
 def classify_text(claude, text: str, body: str) -> list[dict]:
-    """Send agenda text to Claude for classification and extraction."""
+    """Send text to Claude for classification and extraction."""
     # Truncate very long documents to stay within context limits
     max_chars = 100000
     if len(text) > max_chars:
         text = text[:max_chars] + "\n\n[Document truncated...]"
 
-    user_message = f"""Analyze this agenda document from the {body} of Lafayette, California.
-Extract all relevant items as described in your instructions.
+    user_message = f"""Analyze this document from the {body} of Lafayette, California.
+Extract all upcoming/current relevant items as described in your instructions.
 
 DOCUMENT TEXT:
 {text}"""
@@ -86,7 +100,6 @@ DOCUMENT TEXT:
 
         response_text = response.content[0].text.strip()
 
-        # Parse JSON response
         # Handle potential markdown code blocks
         if response_text.startswith("```"):
             lines = response_text.split("\n")
@@ -111,7 +124,6 @@ def fuzzy_match_project(supabase, title: str, location: str | None) -> int | Non
     Uses simple string comparison on title and location.
     Returns the project ID if a match is found, None otherwise.
     """
-    # Fetch existing projects
     result = supabase.table("projects").select("id, title, location_name").execute()
 
     if not result.data:
@@ -140,7 +152,6 @@ def fuzzy_match_project(supabase, title: str, location: str | None) -> int | Non
                 "the", "a", "an", "of", "in", "on", "at", "to", "for", "and",
             }
 
-            # If there are 2+ significant words in common and locations overlap
             common_words = title_words & project_words
             if len(common_words) >= 2 and (
                 location_lower in project_location
@@ -165,6 +176,7 @@ def store_item(supabase, item: dict, body: str, meeting_date: str | None,
     timeline = item.get("timeline")
     status = item.get("status", "proposed")
     tags = item.get("tags", [])
+    source_type = item.get("source_type", "agenda")
 
     # Validate category
     valid_categories = [
@@ -179,6 +191,11 @@ def store_item(supabase, item: dict, body: str, meeting_date: str | None,
     if status not in valid_statuses:
         status = "proposed"
 
+    # Validate source_type
+    valid_source_types = ["agenda", "minutes", "committee", "budget", "report", "news", "manual"]
+    if source_type not in valid_source_types:
+        source_type = "agenda"
+
     # Check for existing project match
     existing_project_id = fuzzy_match_project(supabase, title, location)
 
@@ -189,7 +206,7 @@ def store_item(supabase, item: dict, body: str, meeting_date: str | None,
             "project_id": existing_project_id,
             "update_text": description,
             "source_url": source_url,
-            "source_type": "agenda",
+            "source_type": source_type,
             "source_date": meeting_date,
         }).execute()
 
@@ -221,7 +238,7 @@ def store_item(supabase, item: dict, body: str, meeting_date: str | None,
             "timeline_text": timeline,
             "funding_source": funding,
             "source_url": source_url,
-            "source_type": "agenda",
+            "source_type": source_type,
             "tags": tags,
         }
 
@@ -245,13 +262,13 @@ def store_item(supabase, item: dict, body: str, meeting_date: str | None,
 
 def main():
     print("=" * 60)
-    print("Vibrant Lafayette — Claude Classification")
+    print("Lafayette Pulse — Claude Classification")
     print(f"Run time: {datetime.now().isoformat()}")
     print("=" * 60)
 
     supabase, claude = init_clients()
 
-    # Find extracted agenda texts
+    # Find extracted texts
     texts_dir = os.path.join(os.path.dirname(__file__), ".agenda_texts")
     if not os.path.exists(texts_dir):
         print("No extracted texts found. Run scrape-agendas.py first.")

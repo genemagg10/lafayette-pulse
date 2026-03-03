@@ -1,13 +1,14 @@
-name: Weekly Lafayette Agenda Scrape
+name: Lafayette Pulse — Scrape & Classify
 
 on:
   schedule:
     - cron: '0 17 * * 1'   # Every Monday at 9am PST (5pm UTC)
-  workflow_dispatch:         # Manual trigger for testing
+  workflow_dispatch:         # Manual trigger via GitHub Actions UI
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -19,14 +20,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
 
-      - name: Run agenda scraper
+      - name: Scrape Lafayette sources
         run: python scripts/scrape-agendas.py
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
-      - name: Run classification
+      - name: Classify with Claude
         run: python scripts/classify-with-claude.py
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
