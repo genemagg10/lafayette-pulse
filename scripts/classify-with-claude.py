@@ -41,13 +41,41 @@ IMPORTANT: Only extract items that are UPCOMING, CURRENT, or IN-PROGRESS. Skip a
 
 The content you receive is extracted from emails sent by the City of Lafayette. The emails often contain links to city web pages, agendas, meeting details, and project information. Pay attention to these links.
 
-Extract ALL relevant items related to these categories:
-- bike_ped: Bike lanes, crosswalks, pedestrian signals, ADA improvements, bicycle infrastructure
-- safe_routes: Safe Routes to School programs, school zone safety, walking school buses, crossing guards
-- street_quieting: Speed reduction, traffic calming, speed cushions, chicanes, radar signs, cut-through traffic
-- infrastructure: Road repaving, drainage, signal upgrades, intersection redesigns, construction projects
-- parks_trails: Trail improvements, park renovations, open space, recreation facilities
-- city_council: Notable policy decisions, resolutions, budget items, public hearings, upcoming meetings related to transportation, public safety, or community development
+The emails come from these City of Lafayette subscription topics:
+  Affordable Housing (BMR), All Public Meetings, Arts & Culture, Banner Advisory Board,
+  Capital Projects Assessment Committee, City Council, City Council Subcommittees,
+  Code Enforcement Appeals Board, Community Center Foundation, Creeks Committee,
+  Crime Prevention Commission, Design Review Commission, DSIMPIC,
+  Emergency Preparedness Commission, Environmental Task Force, General Plan Update,
+  Lamorinda Fee & Finance Authority, Lamorinda Program Management Committee,
+  Lamorinda School Bus, Parks Trails & Recreation Commission, Planning Commission,
+  Project - Terraces of Lafayette, Public Art Committee, Public Events,
+  SB 9 Objective Standards, Senior Services Commission,
+  Transportation & Circulation Commission, Youth Services Commission,
+  Zoning Administrator, City Jobs, Internships, Volunteer Opportunities,
+  Almost Daily Briefing, BART Bike Station/Pathway Project, Fiscal Sustainability,
+  General News, The Weekly Roundup, Vistas Newsletter.
+
+Classify every item into ONE of these categories:
+- transportation: Bike lanes, crosswalks, pedestrian safety, traffic calming, safe routes to school, speed cushions, radar signs, cut-through traffic, BART pathway, school buses, transit, ADA improvements, complete streets
+- government: City Council meetings, resolutions, policy decisions, budget items, public hearings, Planning Commission, Design Review Commission, Zoning Administrator, commissions & boards, Lamorinda committees, DSIMPIC
+- development: Capital projects, affordable housing (BMR), General Plan Update, SB 9, building permits, Terraces of Lafayette, intersection redesigns, road repaving, drainage, fiscal sustainability
+- parks_environment: Trail improvements, park renovations, open space, recreation facilities, Creeks Committee, Environmental Task Force, environmental initiatives
+- public_safety: Crime Prevention Commission, Emergency Preparedness Commission, code enforcement, public safety programs
+- community: Arts & culture, public art, public events, youth services, senior services, community center, Banner Advisory Board
+- jobs: City jobs, internships, volunteer opportunities
+- news: Almost Daily Briefing, Weekly Roundup, Vistas Newsletter, general news, city announcements
+
+For each item, also assign a subcategory tag as the FIRST tag in the tags array.
+Known subcategory tags by category:
+- transportation: bike_ped, safe_routes, traffic_calming, transit, school_bus
+- government: city_council, planning, design_review, commissions, public_meetings
+- development: housing, capital_projects, general_plan, zoning
+- parks_environment: parks_trails, creeks, environment, recreation
+- public_safety: crime_prevention, emergency_prep, code_enforcement
+- community: arts_culture, events, youth, seniors
+- jobs: city_jobs, internships, volunteer
+- news: briefing, newsletter, general_news
 
 For each item, return JSON:
 {{
@@ -55,12 +83,12 @@ For each item, return JSON:
     {{
       "title": "Short descriptive title",
       "description": "2-3 sentence summary of what this item involves and when it is happening",
-      "category": "bike_ped|safe_routes|street_quieting|infrastructure|parks_trails|city_council",
+      "category": "transportation|government|development|parks_environment|public_safety|community|jobs|news",
       "location": "Street names or area mentioned, if any",
       "funding": "Dollar amounts or funding sources mentioned, if any",
       "timeline": "Any dates or timeline mentioned (meetings, deadlines, construction dates)",
       "status": "proposed|approved|in_progress|completed based on context",
-      "tags": ["relevant", "keyword", "tags"],
+      "tags": ["subcategory_tag", "other", "relevant", "tags"],
       "source_type": "agenda|news|calendar|report",
       "source_url": "The most relevant http/https URL from the document for this specific item, or null if none found"
     }}
@@ -68,11 +96,11 @@ For each item, return JSON:
 }}
 
 Guidelines:
-- Only include items relevant to the categories above
-- Skip routine administrative items, personnel matters, consent calendar items unrelated to infrastructure
+- Extract ALL noteworthy items — not just infrastructure.  Include meetings, events, job postings, news summaries, and community programs.
 - For calendar/meeting entries, extract the meeting purpose, date, and any agenda topics
 - For news items, extract project announcements, construction updates, public notices
 - If a document mentions an upcoming public hearing or community meeting, include it
+- The FIRST tag must be a known subcategory tag from the list above
 - IMPORTANT: For source_url, look for http/https links in the document text (especially in the LINKS FOUND IN EMAIL section) that are most relevant to each extracted item. Use the most specific link available (e.g. a link to a specific agenda page rather than a generic homepage)
 - Return ONLY valid JSON with no other text"""
 
@@ -245,11 +273,12 @@ def store_item(item: dict, body: str, meeting_date: str | None,
         source_url = item_url
 
     valid_categories = [
-        "bike_ped", "safe_routes", "street_quieting",
-        "city_council", "infrastructure", "parks_trails",
+        "transportation", "government", "development",
+        "parks_environment", "public_safety", "community",
+        "jobs", "news",
     ]
     if category not in valid_categories:
-        category = "city_council"
+        category = "government"
 
     valid_statuses = ["proposed", "approved", "in_progress", "completed", "on_hold"]
     if status not in valid_statuses:
