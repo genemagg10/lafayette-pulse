@@ -4,6 +4,8 @@ Reads texts saved by scrape-agendas.py (from agendas, calendars, and news),
 sends them to Claude for structured extraction, and stores results in Supabase.
 
 Only extracts upcoming/future-relevant items.
+
+Uses direct Supabase REST API (PostgREST) to avoid heavy SDK dependencies.
 """
 
 import os
@@ -13,7 +15,7 @@ import glob
 from datetime import datetime, date
 
 import anthropic
-from supabase import create_client
+import requests
 
 from geocode import geocode
 
@@ -71,8 +73,44 @@ Guidelines:
 - Return ONLY valid JSON with no other text"""
 
 
+# ─── Supabase REST API helpers ────────────────────────────────────────
+
+def supabase_headers() -> dict:
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+
+def supabase_select(table: str, params: dict) -> list[dict]:
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    resp = requests.get(url, headers=supabase_headers(), params=params, timeout=15)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def supabase_insert(table: str, data: dict) -> list[dict]:
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    resp = requests.post(url, headers=supabase_headers(), json=data, timeout=15)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def supabase_update(table: str, data: dict, match_col: str, match_val) -> list[dict]:
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    params = {match_col: f"eq.{match_val}"}
+    headers = supabase_headers()
+    resp = requests.patch(url, headers=headers, json=data, params=params, timeout=15)
+    resp.raise_for_status()
+    return resp.json()
+
+
+# ─── Core logic ───────────────────────────────────────────────────────
+
 def init_clients():
-    """Initialize Supabase and Anthropic clients."""
+    """Initialize and validate clients."""
     if not SUPABASE_URL or not SUPABASE_KEY:
         print("ERROR: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.")
         sys.exit(1)
@@ -80,14 +118,12 @@ def init_clients():
         print("ERROR: ANTHROPIC_API_KEY must be set.")
         sys.exit(1)
 
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
     claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    return supabase, claude
+    return claude
 
 
 def classify_text(claude, text: str, body: str) -> list[dict]:
     """Send text to Claude for classification and extraction."""
-    # Truncate very long documents to stay within context limits
     max_chars = 100000
     if len(text) > max_chars:
         text = text[:max_chars] + "\n\n[Document truncated...]"
@@ -126,32 +162,25 @@ DOCUMENT TEXT:
         return []
 
 
-def fuzzy_match_project(supabase, title: str, location: str | None) -> int | None:
-    """
-    Check if an extracted item matches an existing project.
-    Uses simple string comparison on title and location.
-    Returns the project ID if a match is found, None otherwise.
-    """
-    result = supabase.table("projects").select("id, title, location_name").execute()
+def fuzzy_match_project(title: str, location: str | None) -> int | None:
+    """Check if an extracted item matches an existing project."""
+    projects = supabase_select("projects", {
+        "select": "id,title,location_name",
+    })
 
-    if not result.data:
+    if not projects:
         return None
 
     title_lower = title.lower().strip()
     location_lower = (location or "").lower().strip()
 
-    for project in result.data:
+    for project in projects:
         project_title = project["title"].lower().strip()
         project_location = (project.get("location_name") or "").lower().strip()
 
-        # Check for title similarity: one contains the other
-        if (
-            title_lower in project_title
-            or project_title in title_lower
-        ):
+        if title_lower in project_title or project_title in title_lower:
             return project["id"]
 
-        # Check for location overlap with significant words
         if location_lower and project_location:
             title_words = set(title_lower.split()) - {
                 "the", "a", "an", "of", "in", "on", "at", "to", "for", "and",
@@ -170,12 +199,9 @@ def fuzzy_match_project(supabase, title: str, location: str | None) -> int | Non
     return None
 
 
-def store_item(supabase, item: dict, body: str, meeting_date: str | None,
+def store_item(item: dict, body: str, meeting_date: str | None,
                source_url: str) -> bool:
-    """
-    Store a classified item in the database.
-    Creates a new project or adds an update to an existing one.
-    """
+    """Store a classified item in the database."""
     title = item.get("title", "Untitled")
     description = item.get("description", "")
     category = item.get("category", "city_council")
@@ -186,7 +212,6 @@ def store_item(supabase, item: dict, body: str, meeting_date: str | None,
     tags = item.get("tags", [])
     source_type = item.get("source_type", "agenda")
 
-    # Validate category
     valid_categories = [
         "bike_ped", "safe_routes", "street_quieting",
         "city_council", "infrastructure", "parks_trails",
@@ -194,40 +219,32 @@ def store_item(supabase, item: dict, body: str, meeting_date: str | None,
     if category not in valid_categories:
         category = "city_council"
 
-    # Validate status
     valid_statuses = ["proposed", "approved", "in_progress", "completed", "on_hold"]
     if status not in valid_statuses:
         status = "proposed"
 
-    # Validate source_type
     valid_source_types = ["agenda", "minutes", "committee", "budget", "report", "news", "manual"]
     if source_type not in valid_source_types:
         source_type = "agenda"
 
-    # Check for existing project match
-    existing_project_id = fuzzy_match_project(supabase, title, location)
+    existing_project_id = fuzzy_match_project(title, location)
 
     if existing_project_id:
-        # Add update to existing project
         print(f"  Matched to existing project #{existing_project_id}: {title}")
-        supabase.table("project_updates").insert({
+        supabase_insert("project_updates", {
             "project_id": existing_project_id,
             "update_text": description,
             "source_url": source_url,
             "source_type": source_type,
             "source_date": meeting_date,
-        }).execute()
-
-        # Touch the project's updated_at
-        supabase.table("projects").update({
+        })
+        supabase_update("projects", {
             "updated_at": datetime.now().isoformat(),
-        }).eq("id", existing_project_id).execute()
+        }, "id", existing_project_id)
 
     else:
-        # Create new project
         print(f"  Creating new project: {title}")
 
-        # Geocode the location
         lat, lng = None, None
         if location:
             coords = geocode(location)
@@ -250,11 +267,10 @@ def store_item(supabase, item: dict, body: str, meeting_date: str | None,
             "tags": tags,
         }
 
-        result = supabase.table("projects").insert(project_data).execute()
-        new_project_id = result.data[0]["id"] if result.data else None
+        result = supabase_insert("projects", project_data)
+        new_project_id = result[0]["id"] if result else None
 
-        # Also create an agenda item
-        supabase.table("agenda_items").insert({
+        supabase_insert("agenda_items", {
             "date": meeting_date or datetime.now().strftime("%Y-%m-%d"),
             "body": body,
             "title": title,
@@ -263,7 +279,7 @@ def store_item(supabase, item: dict, body: str, meeting_date: str | None,
             "linked_project": new_project_id,
             "source_url": source_url,
             "tags": tags,
-        }).execute()
+        })
 
     return True
 
@@ -274,7 +290,7 @@ def main():
     print(f"Run time: {datetime.now().isoformat()}")
     print("=" * 60)
 
-    supabase, claude = init_clients()
+    claude = init_clients()
 
     # Find extracted texts
     texts_dir = os.path.join(os.path.dirname(__file__), ".agenda_texts")
@@ -301,19 +317,17 @@ def main():
         source_url = data["source_url"]
         text = data["text"]
 
-        # Classify with Claude
         items = classify_text(claude, text, body)
 
-        # Store each item
         for item in items:
-            store_item(supabase, item, body, meeting_date, source_url)
+            store_item(item, body, meeting_date, source_url)
             total_items += 1
 
         # Update scraped_sources with item count
-        supabase.table("scraped_sources").update({
+        supabase_update("scraped_sources", {
             "items_extracted": len(items),
             "status": "success",
-        }).eq("url", source_url).execute()
+        }, "url", source_url)
 
         # Remove processed file
         os.remove(filepath)
