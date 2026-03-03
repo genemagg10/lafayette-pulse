@@ -6,13 +6,13 @@ import CategoryFilter from "./components/CategoryFilter";
 import StatusFilter from "./components/StatusFilter";
 import SearchBar from "./components/SearchBar";
 import ProjectMap from "./components/ProjectMap";
-import ProjectList from "./components/ProjectList";
+import GroupedProjectList from "./components/GroupedProjectList";
 import ProjectDetail from "./components/ProjectDetail";
 import AgendaFeed from "./components/AgendaFeed";
 import { CATEGORIES, type ProjectCategory, type ProjectStatus } from "@/lib/categories";
 import type { Project } from "@/lib/types";
 
-type Tab = "map" | "list" | "agenda";
+type ContentTab = "projects" | "agenda";
 
 export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -23,7 +23,8 @@ export default function Home() {
   const [activeStatus, setActiveStatus] = useState<ProjectStatus | null>(null);
   const [search, setSearch] = useState("");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>("map");
+  const [showMap, setShowMap] = useState(false);
+  const [contentTab, setContentTab] = useState<ContentTab>("projects");
 
   // Fetch projects when filters change
   useEffect(() => {
@@ -77,8 +78,12 @@ export default function Home() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header activeProjectCount={projects.length} />
+    <div className="min-h-screen flex flex-col bg-cream-50">
+      <Header
+        activeProjectCount={projects.length}
+        showMap={showMap}
+        onToggleMap={() => setShowMap((v) => !v)}
+      />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4">
         {/* Filters row */}
@@ -99,122 +104,78 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Mobile tab selector */}
-        <div className="flex sm:hidden gap-1 bg-cream-200 rounded-lg p-1">
-          {(["map", "list", "agenda"] as Tab[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-1.5 text-sm font-body rounded-md transition-colors capitalize ${
-                activeTab === tab
-                  ? "bg-white text-forest-800 shadow-sm"
-                  : "text-forest-500"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        {/* Desktop: two-column layout */}
-        <div className="hidden sm:grid sm:grid-cols-5 gap-4" style={{ minHeight: "65vh" }}>
-          {/* Map */}
-          <div className="col-span-3">
-            <div className="h-full min-h-[500px]">
-              <ProjectMap
-                projects={projects}
-                onSelectProject={setSelectedProject}
-                selectedProjectId={selectedProject?.id}
-              />
-            </div>
-          </div>
-
-          {/* Sidebar: Detail or List + Agenda */}
-          <div className="col-span-2 space-y-4 overflow-y-auto max-h-[75vh]">
-            {selectedProject && (
-              <ProjectDetail
-                projectId={selectedProject.id}
-                onClose={() => setSelectedProject(null)}
-              />
-            )}
-
-            <div>
-              <h2 className="font-heading font-semibold text-forest-800 text-lg mb-3">
-                Projects ({projects.length})
-              </h2>
-              {loading ? (
-                <div className="space-y-3 animate-pulse">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="bg-white rounded-lg p-4 h-20" />
-                  ))}
-                </div>
-              ) : (
-                <ProjectList
-                  projects={projects}
-                  onSelectProject={setSelectedProject}
-                  selectedProjectId={selectedProject?.id}
-                />
-              )}
-            </div>
-
-            <div>
-              <h2 className="font-heading font-semibold text-forest-800 text-lg mb-3">
-                Agenda Feed
-              </h2>
-              <AgendaFeed activeCategories={activeCategories} />
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile: tabbed views */}
-        <div className="sm:hidden">
-          {activeTab === "map" && (
-            <div className="h-[60vh]">
+        {/* Optional map panel */}
+        {showMap && (
+          <div className="rounded-xl overflow-hidden shadow-md border border-cream-200">
+            <div className="h-[50vh] sm:h-[55vh]">
               <ProjectMap
                 projects={projects}
                 onSelectProject={(p) => {
                   setSelectedProject(p);
-                  setActiveTab("list");
+                  setContentTab("projects");
                 }}
                 selectedProjectId={selectedProject?.id}
               />
             </div>
-          )}
+          </div>
+        )}
 
-          {activeTab === "list" && (
-            <div className="space-y-4">
-              {selectedProject && (
-                <ProjectDetail
-                  projectId={selectedProject.id}
-                  onClose={() => setSelectedProject(null)}
-                />
-              )}
-              {loading ? (
-                <div className="space-y-3 animate-pulse">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="bg-white rounded-lg p-4 h-20" />
-                  ))}
-                </div>
-              ) : (
-                <ProjectList
-                  projects={projects}
-                  onSelectProject={setSelectedProject}
-                  selectedProjectId={selectedProject?.id}
-                />
-              )}
-            </div>
-          )}
-
-          {activeTab === "agenda" && (
-            <AgendaFeed activeCategories={activeCategories} />
-          )}
+        {/* Content tabs */}
+        <div className="flex items-center gap-1 border-b border-cream-200">
+          {(["projects", "agenda"] as ContentTab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setContentTab(tab)}
+              className={`px-4 py-2 text-sm font-body font-medium border-b-2 transition-colors ${
+                contentTab === tab
+                  ? "border-forest-700 text-forest-800"
+                  : "border-transparent text-forest-400 hover:text-forest-600 hover:border-cream-300"
+              }`}
+            >
+              {tab === "projects" ? `Projects (${projects.length})` : "Agenda Feed"}
+            </button>
+          ))}
         </div>
+
+        {/* Project detail (if selected) */}
+        {selectedProject && contentTab === "projects" && (
+          <div className="max-w-3xl">
+            <ProjectDetail
+              projectId={selectedProject.id}
+              onClose={() => setSelectedProject(null)}
+            />
+          </div>
+        )}
+
+        {/* Main content */}
+        {contentTab === "projects" && (
+          <div>
+            {loading ? (
+              <div className="space-y-4 animate-pulse">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="bg-white rounded-lg p-4 h-16" />
+                ))}
+              </div>
+            ) : (
+              <GroupedProjectList
+                projects={projects}
+                onSelectProject={setSelectedProject}
+                selectedProjectId={selectedProject?.id}
+                activeCategories={activeCategories}
+              />
+            )}
+          </div>
+        )}
+
+        {contentTab === "agenda" && (
+          <AgendaFeed activeCategories={activeCategories} />
+        )}
       </main>
 
       <footer className="bg-forest-800 text-cream-200 py-4 text-center text-xs font-body">
         <p>
           Vibrant Lafayette &middot; Community Project Tracker &middot; Data
-          sourced from City of Lafayette public agendas
+          sourced from City of Lafayette public notifications
         </p>
       </footer>
     </div>
