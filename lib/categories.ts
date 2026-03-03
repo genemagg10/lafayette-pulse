@@ -64,6 +64,25 @@ export const CATEGORIES = {
 
 export type ProjectCategory = keyof typeof CATEGORIES;
 
+// ─── Legacy category migration ─────────────────────────────────────
+// Maps old DB category values to the new system.  Applied client-side
+// so the UI works even before 003_expand_categories.sql has run.
+
+const LEGACY_MAP: Record<string, ProjectCategory> = {
+  bike_ped: "transportation",
+  safe_routes: "transportation",
+  street_quieting: "transportation",
+  city_council: "government",
+  infrastructure: "development",
+  parks_trails: "parks_environment",
+};
+
+/** Convert a possibly-legacy category string to the current enum. */
+export function migrateCategory(raw: string): ProjectCategory {
+  if (raw in CATEGORIES) return raw as ProjectCategory;
+  return LEGACY_MAP[raw] ?? "government";
+}
+
 // ─── Subcategories ─────────────────────────────────────────────────
 // Used for nested grouping inside the project list.  The classifier
 // includes these as the first element of the `tags` array so the UI
