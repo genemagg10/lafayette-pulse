@@ -68,28 +68,54 @@ def supabase_select(table: str, params: dict) -> list[dict]:
     return resp.json()
 
 
-def supabase_upsert(table: str, data: dict) -> list[dict]:
+def supabase_upsert(table: str, data: dict, on_conflict: str = "url") -> list[dict]:
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     headers = supabase_headers()
     headers["Prefer"] = "resolution=merge-duplicates,return=representation"
-    resp = requests.post(url, headers=headers, json=data, timeout=15)
+    resp = requests.post(url, headers=headers, json=data,
+                         params={"on_conflict": on_conflict}, timeout=15)
     resp.raise_for_status()
     return resp.json()
 
 
+def check_table_exists(table: str) -> bool:
+    """Check if a table exists by querying it."""
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/{table}"
+        resp = requests.get(url, headers=supabase_headers(),
+                            params={"select": "id", "limit": "0"}, timeout=10)
+        return resp.status_code != 404
+    except Exception:
+        return False
+
+
 def init_supabase():
-    """Validate Supabase credentials and connectivity."""
+    """Validate Supabase credentials and check all required tables."""
     if not SUPABASE_URL or not SUPABASE_KEY:
         print("ERROR: SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.")
         print(f"  SUPABASE_URL = {'(set)' if SUPABASE_URL else '(empty)'}")
         print(f"  SUPABASE_SERVICE_KEY = {'(set)' if SUPABASE_KEY else '(empty)'}")
         sys.exit(1)
+
+    # Check connectivity
     try:
-        supabase_select("scraped_sources", {"select": "id", "limit": "1"})
+        url = f"{SUPABASE_URL}/rest/v1/"
+        resp = requests.get(url, headers=supabase_headers(), timeout=10)
         print(f"  Connected to Supabase: {SUPABASE_URL}")
     except Exception as e:
         print(f"ERROR: Cannot connect to Supabase: {e}")
         sys.exit(1)
+
+    # Check required tables
+    required = ["scraped_sources", "projects", "project_updates", "agenda_items"]
+    missing = [t for t in required if not check_table_exists(t)]
+    if missing:
+        print(f"\nERROR: Missing database tables: {', '.join(missing)}")
+        print("Please run the migration SQL in your Supabase SQL Editor:")
+        print("  File: supabase/migrations/001_initial_schema.sql")
+        print("  Go to: https://supabase.com/dashboard → SQL Editor → paste & run")
+        sys.exit(1)
+    print(f"  All required tables verified: {', '.join(required)}")
 
 
 def is_already_scraped(url: str) -> bool:

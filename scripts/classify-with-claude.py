@@ -109,6 +109,17 @@ def supabase_update(table: str, data: dict, match_col: str, match_val) -> list[d
 
 # ─── Core logic ───────────────────────────────────────────────────────
 
+def check_table_exists(table: str) -> bool:
+    """Check if a table exists by querying it."""
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/{table}"
+        resp = requests.get(url, headers=supabase_headers(),
+                            params={"select": "id", "limit": "0"}, timeout=10)
+        return resp.status_code != 404
+    except Exception:
+        return False
+
+
 def init_clients():
     """Initialize and validate clients."""
     if not SUPABASE_URL or not SUPABASE_KEY:
@@ -117,6 +128,17 @@ def init_clients():
     if not ANTHROPIC_API_KEY:
         print("ERROR: ANTHROPIC_API_KEY must be set.")
         sys.exit(1)
+
+    # Check required tables
+    required = ["projects", "project_updates", "agenda_items", "scraped_sources"]
+    missing = [t for t in required if not check_table_exists(t)]
+    if missing:
+        print(f"\nERROR: Missing database tables: {', '.join(missing)}")
+        print("Please run the migration SQL in your Supabase SQL Editor:")
+        print("  File: supabase/migrations/001_initial_schema.sql")
+        print("  Go to: https://supabase.com/dashboard → SQL Editor → paste & run")
+        sys.exit(1)
+    print(f"  All required tables verified: {', '.join(required)}")
 
     claude = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     return claude
