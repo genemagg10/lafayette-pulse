@@ -45,7 +45,7 @@ export default function AgendaFeed({ activeCategories }: AgendaFeedProps) {
   return (
     <div className="space-y-3">
       <div className="bg-cream-100 rounded-lg p-3 text-xs font-body text-forest-500 border border-cream-200">
-        Auto-scanned from City of Lafayette agendas weekly. Items are
+        Auto-collected daily from City of Lafayette notifications. Items are
         classified by category and linked to tracked projects when possible.
       </div>
 

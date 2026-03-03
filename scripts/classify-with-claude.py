@@ -39,6 +39,8 @@ Today's date is {date.today().isoformat()}.
 
 IMPORTANT: Only extract items that are UPCOMING, CURRENT, or IN-PROGRESS. Skip anything that has already concluded or is purely historical. Focus on what is happening now or in the future.
 
+The content you receive is extracted from emails sent by the City of Lafayette. The emails often contain links to city web pages, agendas, meeting details, and project information. Pay attention to these links.
+
 Extract ALL relevant items related to these categories:
 - bike_ped: Bike lanes, crosswalks, pedestrian signals, ADA improvements, bicycle infrastructure
 - safe_routes: Safe Routes to School programs, school zone safety, walking school buses, crossing guards
@@ -59,7 +61,8 @@ For each item, return JSON:
       "timeline": "Any dates or timeline mentioned (meetings, deadlines, construction dates)",
       "status": "proposed|approved|in_progress|completed based on context",
       "tags": ["relevant", "keyword", "tags"],
-      "source_type": "agenda|news|calendar|report"
+      "source_type": "agenda|news|calendar|report",
+      "source_url": "The most relevant http/https URL from the document for this specific item, or null if none found"
     }}
   ]
 }}
@@ -70,6 +73,7 @@ Guidelines:
 - For calendar/meeting entries, extract the meeting purpose, date, and any agenda topics
 - For news items, extract project announcements, construction updates, public notices
 - If a document mentions an upcoming public hearing or community meeting, include it
+- IMPORTANT: For source_url, look for http/https links in the document text (especially in the LINKS FOUND IN EMAIL section) that are most relevant to each extracted item. Use the most specific link available (e.g. a link to a specific agenda page rather than a generic homepage)
 - Return ONLY valid JSON with no other text"""
 
 
@@ -233,6 +237,12 @@ def store_item(item: dict, body: str, meeting_date: str | None,
     status = item.get("status", "proposed")
     tags = item.get("tags", [])
     source_type = item.get("source_type", "agenda")
+
+    # Prefer the URL Claude extracted from the document content over the
+    # email:// URI passed in as the fallback source_url
+    item_url = item.get("source_url")
+    if item_url and item_url.startswith(("http://", "https://")):
+        source_url = item_url
 
     valid_categories = [
         "bike_ped", "safe_routes", "street_quieting",
