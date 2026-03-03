@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORIES, STATUS_STYLES } from "@/lib/categories";
+import { CATEGORIES, STATUS_STYLES, migrateCategory } from "@/lib/categories";
 import type { Project, ProjectUpdate } from "@/lib/types";
 
 interface ProjectWithUpdates extends Project {
@@ -25,7 +25,10 @@ export default function ProjectDetail({
     fetch(`/api/projects/${projectId}`)
       .then((res) => res.json())
       .then((data) => {
-        setProject(data);
+        setProject({
+          ...data,
+          category: migrateCategory(data.category),
+        });
         setLoading(false);
       })
       .catch(() => setLoading(false));

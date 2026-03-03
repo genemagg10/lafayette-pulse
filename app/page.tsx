@@ -9,7 +9,7 @@ import ProjectMap from "./components/ProjectMap";
 import GroupedProjectList from "./components/GroupedProjectList";
 import ProjectDetail from "./components/ProjectDetail";
 import AgendaFeed from "./components/AgendaFeed";
-import { CATEGORIES, type ProjectCategory, type ProjectStatus } from "@/lib/categories";
+import { CATEGORIES, migrateCategory, type ProjectCategory, type ProjectStatus } from "@/lib/categories";
 import type { Project } from "@/lib/types";
 
 type ContentTab = "projects" | "agenda";
@@ -47,7 +47,12 @@ export default function Home() {
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          setProjects(data);
+          // Remap legacy category values (bike_ped → transportation, etc.)
+          const migrated = data.map((p: Project) => ({
+            ...p,
+            category: migrateCategory(p.category),
+          }));
+          setProjects(migrated);
         }
         setLoading(false);
       })
