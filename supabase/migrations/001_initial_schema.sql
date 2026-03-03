@@ -5,12 +5,14 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 -- CATEGORIES REFERENCE
 -- ============================================
 CREATE TYPE project_category AS ENUM (
-  'bike_ped',           -- Bike & Pedestrian Safety
-  'safe_routes',        -- Safe Routes to School
-  'street_quieting',    -- Street Quieting / Traffic Calming
-  'city_council',       -- City Council Updates
-  'infrastructure',     -- Road & Infrastructure
-  'parks_trails'        -- Parks & Trails
+  'transportation',     -- Transportation & Circulation (bike, ped, traffic calming, transit)
+  'government',         -- City Government (council, commissions, boards, planning)
+  'development',        -- Development & Housing (capital projects, housing, general plan)
+  'parks_environment',  -- Parks & Environment (parks, trails, creeks, environmental)
+  'public_safety',      -- Public Safety (crime prevention, emergency prep, code enforcement)
+  'community',          -- Community & Culture (arts, events, youth, seniors)
+  'jobs',               -- Jobs & Volunteering (city jobs, internships, volunteers)
+  'news'                -- News & Updates (briefings, newsletters, announcements)
 );
 
 CREATE TYPE project_status AS ENUM (

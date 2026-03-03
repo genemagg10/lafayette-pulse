@@ -1,10 +1,12 @@
 export type ProjectCategory =
-  | "bike_ped"
-  | "safe_routes"
-  | "street_quieting"
-  | "city_council"
-  | "infrastructure"
-  | "parks_trails";
+  | "transportation"
+  | "government"
+  | "development"
+  | "parks_environment"
+  | "public_safety"
+  | "community"
+  | "jobs"
+  | "news";
 
 export type ProjectStatus =
   | "proposed"
