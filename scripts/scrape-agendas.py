@@ -121,10 +121,13 @@ def init_supabase():
 def is_already_scraped(url: str) -> bool:
     try:
         results = supabase_select("scraped_sources", {
-            "select": "id",
+            "select": "id,status",
             "url": f"eq.{url}",
         })
-        return len(results) > 0
+        if not results:
+            return False
+        # Allow re-processing of items that failed classification
+        return results[0].get("status") not in ("classify_failed", "failed")
     except requests.HTTPError:
         # If the query fails (e.g. special chars), fall back to not-scraped
         return False
