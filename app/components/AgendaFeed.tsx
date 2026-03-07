@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORIES } from "@/lib/categories";
+import { CATEGORIES, migrateCategory } from "@/lib/categories";
 import type { AgendaItem, ProjectCategory } from "@/lib/types";
 
 interface AgendaFeedProps {
@@ -21,7 +21,12 @@ export default function AgendaFeed({ activeCategories }: AgendaFeedProps) {
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          setItems(data);
+          setItems(
+            data.map((item: AgendaItem) => ({
+              ...item,
+              category: item.category ? migrateCategory(item.category) : null,
+            })),
+          );
         }
         setLoading(false);
       })
