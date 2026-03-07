@@ -262,7 +262,7 @@ def store_item(item: dict, body: str, meeting_date: str | None,
     """Store a classified item in the database."""
     title = item.get("title", "Untitled")
     description = item.get("description", "")
-    category = item.get("category", "city_council")
+    category = item.get("category", "government")
     location = item.get("location")
     funding = item.get("funding")
     timeline = item.get("timeline")
@@ -276,19 +276,21 @@ def store_item(item: dict, body: str, meeting_date: str | None,
     if item_url and item_url.startswith(("http://", "https://")):
         source_url = item_url
 
-    valid_categories = [
+    # ── Validate all enum fields before DB insert ──
+    valid_categories = {
         "transportation", "government", "development",
         "parks_environment", "public_safety", "community",
         "jobs", "news",
-    ]
+    }
     if category not in valid_categories:
+        print(f"    Remapping invalid category '{category}' → 'government'")
         category = "government"
 
-    valid_statuses = ["proposed", "approved", "in_progress", "completed", "on_hold"]
+    valid_statuses = {"proposed", "approved", "in_progress", "completed", "on_hold"}
     if status not in valid_statuses:
         status = "proposed"
 
-    valid_source_types = ["agenda", "minutes", "committee", "budget", "report", "news", "manual", "calendar"]
+    valid_source_types = {"agenda", "minutes", "committee", "budget", "report", "news", "manual", "calendar"}
     if source_type not in valid_source_types:
         source_type = "agenda"
 
@@ -390,8 +392,12 @@ def main():
         items = classify_text(claude, text, body)
 
         for item in items:
-            store_item(item, body, meeting_date, source_url)
-            total_items += 1
+            try:
+                store_item(item, body, meeting_date, source_url)
+                total_items += 1
+            except requests.HTTPError as e:
+                print(f"    Failed to store item '{item.get('title', '?')}': {e}")
+                continue
 
         # Update scraped_sources with item count
         supabase_update("scraped_sources", {
