@@ -26,6 +26,8 @@ export default function Home() {
   const [showMap, setShowMap] = useState(false);
   const [contentTab, setContentTab] = useState<ContentTab>("projects");
 
+  const [error, setError] = useState<string | null>(null);
+
   // Fetch projects when filters change
   useEffect(() => {
     const params = new URLSearchParams();
@@ -43,8 +45,12 @@ export default function Home() {
     const url = `/api/projects${queryString ? `?${queryString}` : ""}`;
 
     setLoading(true);
+    setError(null);
     fetch(url)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
         if (Array.isArray(data)) {
           // Remap legacy category values (bike_ped → transportation, etc.)
@@ -53,10 +59,15 @@ export default function Home() {
             category: migrateCategory(p.category),
           }));
           setProjects(migrated);
+        } else {
+          setError(data?.error || "API returned unexpected data");
         }
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
   }, [activeCategories, activeStatus, search]);
 
   const toggleCategory = useCallback((category: ProjectCategory) => {
@@ -149,6 +160,13 @@ export default function Home() {
               projectId={selectedProject.id}
               onClose={() => setSelectedProject(null)}
             />
+          </div>
+        )}
+
+        {/* Error banner */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-body">
+            Failed to load projects: {error}
           </div>
         )}
 
