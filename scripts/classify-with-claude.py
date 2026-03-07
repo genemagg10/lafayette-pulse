@@ -391,22 +391,38 @@ def main():
 
         items = classify_text(claude, text, body)
 
+        stored_count = 0
         for item in items:
             try:
                 store_item(item, body, meeting_date, source_url)
+                stored_count += 1
                 total_items += 1
             except requests.HTTPError as e:
                 print(f"    Failed to store item '{item.get('title', '?')}': {e}")
                 continue
 
-        # Update scraped_sources with item count
-        supabase_update("scraped_sources", {
-            "items_extracted": len(items),
-            "status": "success",
-        }, "url", source_url)
-
-        # Remove processed file
-        os.remove(filepath)
+        # Only mark as success and remove file if items were actually stored
+        if stored_count > 0:
+            supabase_update("scraped_sources", {
+                "items_extracted": stored_count,
+                "status": "success",
+            }, "url", source_url)
+            os.remove(filepath)
+            print(f"  Stored {stored_count}/{len(items)} item(s).")
+        elif len(items) > 0:
+            # Items extracted but all failed to store — keep file for retry
+            supabase_update("scraped_sources", {
+                "items_extracted": 0,
+                "status": "classify_failed",
+            }, "url", source_url)
+            print(f"  WARNING: All {len(items)} item(s) failed to store. File kept for retry.")
+        else:
+            # No items extracted — mark as done
+            supabase_update("scraped_sources", {
+                "items_extracted": 0,
+                "status": "success",
+            }, "url", source_url)
+            os.remove(filepath)
         print()
 
     print(f"{'=' * 60}")
