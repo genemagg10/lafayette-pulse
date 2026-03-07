@@ -61,7 +61,7 @@ For each item, return JSON:
       "timeline": "Any dates or timeline mentioned (meetings, deadlines, construction dates)",
       "status": "proposed|approved|in_progress|completed based on context",
       "tags": ["relevant", "keyword", "tags"],
-      "source_type": "agenda|news|calendar|report",
+      "source_type": "agenda|minutes|committee|budget|report|news|calendar|manual",
       "source_url": "The most relevant http/https URL from the document for this specific item, or null if none found"
     }}
   ]
@@ -98,6 +98,8 @@ def supabase_select(table: str, params: dict) -> list[dict]:
 def supabase_insert(table: str, data: dict) -> list[dict]:
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     resp = requests.post(url, headers=supabase_headers(), json=data, timeout=15)
+    if not resp.ok:
+        print(f"    Supabase INSERT error ({resp.status_code}) on {table}: {resp.text}")
     resp.raise_for_status()
     return resp.json()
 
@@ -107,6 +109,8 @@ def supabase_update(table: str, data: dict, match_col: str, match_val) -> list[d
     params = {match_col: f"eq.{match_val}"}
     headers = supabase_headers()
     resp = requests.patch(url, headers=headers, json=data, params=params, timeout=15)
+    if not resp.ok:
+        print(f"    Supabase UPDATE error ({resp.status_code}) on {table}: {resp.text}")
     resp.raise_for_status()
     return resp.json()
 
@@ -255,9 +259,14 @@ def store_item(item: dict, body: str, meeting_date: str | None,
     if status not in valid_statuses:
         status = "proposed"
 
-    valid_source_types = ["agenda", "minutes", "committee", "budget", "report", "news", "manual"]
+    valid_source_types = ["agenda", "minutes", "committee", "budget", "report", "news", "manual", "calendar"]
     if source_type not in valid_source_types:
         source_type = "agenda"
+
+    # Ensure tags is a list of strings (Claude may return unexpected types)
+    if not isinstance(tags, list):
+        tags = [str(tags)] if tags else []
+    tags = [str(t) for t in tags if t is not None]
 
     existing_project_id = fuzzy_match_project(title, location)
 
