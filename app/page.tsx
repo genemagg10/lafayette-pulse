@@ -107,11 +107,6 @@ export default function Home() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4">
         {/* Filters row */}
         <div className="space-y-3">
-          <CategoryFilter
-            activeCategories={activeCategories}
-            onToggle={toggleCategory}
-            counts={categoryCounts}
-          />
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <SearchBar value={search} onChange={setSearch} />
@@ -121,6 +116,11 @@ export default function Home() {
               onSelect={setActiveStatus}
             />
           </div>
+          <CategoryFilter
+            activeCategories={activeCategories}
+            onToggle={toggleCategory}
+            counts={categoryCounts}
+          />
         </div>
 
         {/* Optional map panel */}
