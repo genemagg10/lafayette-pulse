@@ -29,8 +29,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        heading: ["Fraunces", "serif"],
-        body: ["DM Sans", "sans-serif"],
+        heading: ["var(--font-dm-sans)", "DM Sans", "sans-serif"],
+        body: ["var(--font-dm-sans)", "DM Sans", "sans-serif"],
       },
     },
   },
