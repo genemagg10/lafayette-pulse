@@ -8,13 +8,16 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get("category");
   const since = searchParams.get("since");
+  const until = searchParams.get("until");
   const body = searchParams.get("body");
   const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100);
+  // upcoming=true → soonest first; archive (until) → most recent first
+  const ascending = searchParams.get("upcoming") === "true";
 
   let query = supabase
     .from("agenda_items")
     .select("*")
-    .order("date", { ascending: false })
+    .order("date", { ascending })
     .limit(limit);
 
   if (category) {
@@ -24,6 +27,10 @@ export async function GET(request: NextRequest) {
 
   if (since) {
     query = query.gte("date", since);
+  }
+
+  if (until) {
+    query = query.lt("date", until);
   }
 
   if (body) {
