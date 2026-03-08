@@ -11,13 +11,22 @@ interface AgendaFeedProps {
 export default function AgendaFeed({ activeCategories }: AgendaFeedProps) {
   const [items, setItems] = useState<AgendaItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<"upcoming" | "archive">("upcoming");
 
   useEffect(() => {
-    const categoryParam =
-      activeCategories.size > 0
-        ? `?category=${Array.from(activeCategories).join(",")}`
-        : "";
-    fetch(`/api/agenda-items${categoryParam}`)
+    setLoading(true);
+    const today = new Date().toISOString().split("T")[0];
+    const params = new URLSearchParams();
+    if (activeCategories.size > 0) {
+      params.set("category", Array.from(activeCategories).join(","));
+    }
+    if (view === "upcoming") {
+      params.set("since", today);
+      params.set("upcoming", "true");
+    } else {
+      params.set("until", today);
+    }
+    fetch(`/api/agenda-items?${params}`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -31,7 +40,7 @@ export default function AgendaFeed({ activeCategories }: AgendaFeedProps) {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [activeCategories]);
+  }, [activeCategories, view]);
 
   if (loading) {
     return (
@@ -49,14 +58,34 @@ export default function AgendaFeed({ activeCategories }: AgendaFeedProps) {
 
   return (
     <div className="space-y-3">
-      <div className="bg-cream-100 rounded-lg p-3 text-xs font-body text-forest-500 border border-cream-200">
-        Auto-collected daily from City of Lafayette notifications. Items are
-        classified by category and linked to tracked projects when possible.
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setView("upcoming")}
+          className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
+            view === "upcoming"
+              ? "bg-forest-700 text-white"
+              : "bg-cream-100 text-forest-500 hover:bg-cream-200"
+          }`}
+        >
+          Upcoming
+        </button>
+        <button
+          onClick={() => setView("archive")}
+          className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
+            view === "archive"
+              ? "bg-forest-700 text-white"
+              : "bg-cream-100 text-forest-500 hover:bg-cream-200"
+          }`}
+        >
+          Archive
+        </button>
       </div>
 
-      {items.length === 0 ? (
+      {items.length === 0 && !loading ? (
         <div className="text-center py-8 text-forest-400 font-body">
-          No agenda items match your filters.
+          {view === "upcoming"
+            ? "No upcoming events match your filters."
+            : "No past events match your filters."}
         </div>
       ) : (
         items.map((item) => {
