@@ -74,6 +74,7 @@ export default function AgendaFeed({ activeCategories }: AgendaFeedProps) {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-xs font-body text-forest-400">
+                    <span className="uppercase tracking-wide text-forest-400 text-xs">Meeting </span>
                     <span className="font-semibold text-forest-700 text-sm">
                       {new Date(item.date).toLocaleDateString("en-US", {
                         month: "short",

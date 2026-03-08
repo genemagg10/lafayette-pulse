@@ -90,7 +90,8 @@ For each item, return JSON:
       "status": "proposed|approved|in_progress|completed based on context",
       "tags": ["relevant", "keyword", "tags"],
       "source_type": "agenda|minutes|committee|budget|report|news|calendar|manual",
-      "source_url": "The most relevant http/https URL from the document for this specific item, or null if none found"
+      "source_url": "The most relevant http/https URL from the document for this specific item, or null if none found",
+      "event_date": "The actual meeting or event date in YYYY-MM-DD format, or null if not explicitly stated"
     }}
   ]
 }}
@@ -102,6 +103,7 @@ Guidelines:
 - If a document mentions an upcoming public hearing or community meeting, include it
 - The FIRST tag must be a known subcategory tag from the list above
 - IMPORTANT: For source_url, look for http/https links in the document text (especially in the LINKS FOUND IN EMAIL section) that are most relevant to each extracted item. Use the most specific link available (e.g. a link to a specific agenda page rather than a generic homepage)
+- IMPORTANT: For event_date, extract the specific date the meeting or event will occur (e.g. "Tuesday, March 10, 2026" → "2026-03-10"). Do NOT use the email received date. If no specific event date is mentioned, return null.
 - Return ONLY valid JSON with no other text"""
 
 
@@ -275,6 +277,12 @@ def store_item(item: dict, body: str, meeting_date: str | None,
     item_url = item.get("source_url")
     if item_url and item_url.startswith(("http://", "https://")):
         source_url = item_url
+
+    # Prefer the event date Claude extracted from the content (more accurate)
+    # over the scraper's regex-based meeting_date which can fall back to email received date
+    item_event_date = item.get("event_date")
+    if item_event_date and len(item_event_date) == 10:
+        meeting_date = item_event_date
 
     # ── Validate all enum fields before DB insert ──
     valid_categories = {
