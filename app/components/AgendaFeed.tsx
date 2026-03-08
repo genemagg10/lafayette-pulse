@@ -107,7 +107,7 @@ export default function AgendaFeed({ activeCategories }: AgendaFeedProps) {
                 </p>
               )}
 
-              <div className="flex items-center gap-2 mt-2">
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
                 {item.tags.map((tag) => (
                   <span
                     key={tag}
@@ -116,10 +116,15 @@ export default function AgendaFeed({ activeCategories }: AgendaFeedProps) {
                     {tag}
                   </span>
                 ))}
-                {item.linked_project && (
-                  <span className="text-xs font-body text-forest-600 underline cursor-pointer hover:text-forest-800">
-                    View Project
-                  </span>
+                {item.source_url && (
+                  <a
+                    href={item.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-body text-forest-600 underline hover:text-forest-800"
+                  >
+                    View Source ↗
+                  </a>
                 )}
               </div>
             </div>
