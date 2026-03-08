@@ -1,15 +1,17 @@
 "use client";
 
 interface HeaderProps {
-  activeProjectCount: number;
   showMap: boolean;
   onToggleMap: () => void;
+  showCalendar: boolean;
+  onToggleCalendar: () => void;
 }
 
 export default function Header({
-  activeProjectCount,
   showMap,
   onToggleMap,
+  showCalendar,
+  onToggleCalendar,
 }: HeaderProps) {
   return (
     <header className="bg-forest-800 text-cream-50 shadow-lg">
@@ -28,7 +30,7 @@ export default function Header({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-4 text-sm">
+          <div className="flex items-center gap-2 sm:gap-3 text-sm">
             <button
               onClick={onToggleMap}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-body transition-all border ${
@@ -47,12 +49,24 @@ export default function Header({
               </svg>
               {showMap ? "Hide Map" : "Map"}
             </button>
-            <div className="hidden sm:flex items-center gap-2 bg-forest-700 rounded-full px-4 py-1.5">
-              <span className="font-heading font-bold text-lg">
-                {activeProjectCount}
-              </span>
-              <span className="text-cream-200 font-body">Active Projects</span>
-            </div>
+            <button
+              onClick={onToggleCalendar}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-body transition-all border ${
+                showCalendar
+                  ? "bg-cream-50 text-forest-800 border-cream-50"
+                  : "bg-forest-700/60 text-cream-200 border-forest-600 hover:bg-forest-700"
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              {showCalendar ? "Hide Calendar" : "Calendar"}
+            </button>
             <div className="bg-forest-700/60 rounded-full px-3 py-1 text-cream-200 font-body text-xs">
               Updated Daily
             </div>

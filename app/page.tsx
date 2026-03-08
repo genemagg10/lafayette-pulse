@@ -9,6 +9,7 @@ import ProjectMap from "./components/ProjectMap";
 import GroupedProjectList from "./components/GroupedProjectList";
 import ProjectDetail from "./components/ProjectDetail";
 import AgendaFeed from "./components/AgendaFeed";
+import AgendaCalendar from "./components/AgendaCalendar";
 import { CATEGORIES, migrateCategory, type ProjectCategory, type ProjectStatus } from "@/lib/categories";
 import type { Project } from "@/lib/types";
 
@@ -24,6 +25,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [showMap, setShowMap] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [contentTab, setContentTab] = useState<ContentTab>("projects");
 
   const [error, setError] = useState<string | null>(null);
@@ -96,9 +98,10 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-cream-50">
       <Header
-        activeProjectCount={projects.length}
         showMap={showMap}
         onToggleMap={() => setShowMap((v) => !v)}
+        showCalendar={showCalendar}
+        onToggleCalendar={() => setShowCalendar((v) => !v)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4">
@@ -134,6 +137,11 @@ export default function Home() {
               />
             </div>
           </div>
+        )}
+
+        {/* Optional calendar panel */}
+        {showCalendar && (
+          <AgendaCalendar activeCategories={activeCategories} />
         )}
 
         {/* Content tabs */}
