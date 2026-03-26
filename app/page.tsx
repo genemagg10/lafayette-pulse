@@ -205,7 +205,7 @@ export default function Home() {
 
       <footer className="bg-forest-800 text-cream-200 py-4 text-center text-xs font-body">
         <p>
-          Vibrant Lafayette &middot; Community Project Tracker &middot; Data
+          Lafayette Pulse &middot; Community Project Tracker &middot; Data
           sourced from City of Lafayette public notifications
         </p>
       </footer>

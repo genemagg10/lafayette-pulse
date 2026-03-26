@@ -1,4 +1,4 @@
-# Vibrant Lafayette — Community Project Tracker
+# Lafayette Pulse — Community Project Tracker
 
 A full-stack web application that automatically monitors City of Lafayette, California government agendas, extracts relevant projects and initiatives, and displays them on an interactive map-based dashboard.
 

@@ -9,7 +9,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Vibrant Lafayette — Community Project Tracker",
+  title: "Lafayette Pulse — Community Project Tracker",
   description:
     "Track bike safety, pedestrian improvements, Safe Routes to School, traffic calming, and city projects in Lafayette, California.",
   keywords: [
