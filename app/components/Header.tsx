@@ -23,7 +23,7 @@ export default function Header({
             </span>
             <div>
               <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight">
-                Vibrant Lafayette
+                Lafayette Pulse
               </h1>
               <p className="text-cream-200 text-xs sm:text-sm font-body tracking-widest uppercase">
                 Community Project Tracker
