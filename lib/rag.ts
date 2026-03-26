@@ -1,5 +1,5 @@
 import { getEmbedding } from "./embeddings";
-import { getSupabaseAdmin } from "./supabase";
+import { getSupabase } from "./supabase";
 
 export interface ChatSource {
   title: string;
@@ -30,7 +30,7 @@ export async function retrieveContext(
     filterAfter?: string;
   }
 ): Promise<RetrievalResult> {
-  const supabase = getSupabaseAdmin();
+  const supabase = getSupabase();
   const queryEmbedding = await getEmbedding(query);
 
   const { data: chunks, error } = await supabase.rpc("match_documents", {
@@ -41,7 +41,12 @@ export async function retrieveContext(
     filter_after: options?.filterAfter ?? null,
   });
 
-  if (error || !chunks || chunks.length === 0) {
+  if (error) {
+    console.error("Supabase match_documents error:", error);
+    return { context: "", sources: [] };
+  }
+
+  if (!chunks || chunks.length === 0) {
     return { context: "", sources: [] };
   }
 

@@ -34,7 +34,14 @@ export default function ChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { messages, sendMessage, status } = useChat({ transport });
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const { messages, sendMessage, status, error } = useChat({
+    transport,
+    onError(err) {
+      console.error("Chat error:", err);
+      setErrorMsg("Something went wrong. Please try again.");
+    },
+  });
 
   const isLoading = status === "streaming" || status === "submitted";
 
@@ -50,15 +57,22 @@ export default function ChatWidget() {
     }
   }, [isOpen]);
 
+  // Clear error when user types
+  useEffect(() => {
+    if (errorMsg && input) setErrorMsg(null);
+  }, [input, errorMsg]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const text = input.trim();
     if (!text || isLoading) return;
+    setErrorMsg(null);
     setInput("");
     await sendMessage({ text });
   };
 
   const handleSuggestionClick = async (question: string) => {
+    setErrorMsg(null);
     setInput("");
     await sendMessage({ text: question });
   };
@@ -183,6 +197,13 @@ export default function ChatWidget() {
                     </div>
                   );
                 })}
+                {(errorMsg || error) && (
+                  <div className="flex justify-start mb-3">
+                    <div className="max-w-[85%] rounded-2xl rounded-bl-md px-4 py-3 text-sm bg-red-50 text-red-700 border border-red-200">
+                      {errorMsg || error?.message || "Something went wrong. Please try again."}
+                    </div>
+                  </div>
+                )}
                 {isLoading &&
                   messages.length > 0 &&
                   messages[messages.length - 1]?.role === "user" && (
