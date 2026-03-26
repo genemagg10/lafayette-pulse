@@ -92,3 +92,11 @@ export interface ProjectsApiParams {
   search?: string;
   bbox?: string;
 }
+
+export interface ChatSource {
+  title: string;
+  sourceUrl: string | null;
+  meetingBody: string | null;
+  meetingDate: string | null;
+  category: string | null;
+}
