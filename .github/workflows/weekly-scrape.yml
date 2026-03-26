@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '0 10 * * *'   # Daily at 2am PST (10am UTC)
   workflow_dispatch:         # Manual trigger via GitHub Actions UI
+    inputs:
+      embeddings_only:
+        description: 'Only run embedding generation (skip scraping/classification)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   collect-and-classify:
@@ -25,6 +31,7 @@ jobs:
         run: pip install -r scripts/requirements.txt
 
       - name: Collect emails from city notifications
+        if: ${{ !inputs.embeddings_only }}
         working-directory: scripts
         run: python scrape-agendas.py
         env:
@@ -34,10 +41,19 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
       - name: Classify with Claude & generate embeddings
+        if: ${{ !inputs.embeddings_only }}
         working-directory: scripts
         run: python classify-with-claude.py
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Generate embeddings for existing data
+        working-directory: scripts
+        run: python generate-embeddings.py
+        env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
