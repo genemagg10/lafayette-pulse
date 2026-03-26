@@ -24,6 +24,8 @@ export const metadata: Metadata = {
   ],
 };
 
+import ChatWidget from "./components/ChatWidget";
+
 export default function RootLayout({
   children,
 }: {
@@ -41,6 +43,7 @@ export default function RootLayout({
       </head>
       <body className="bg-cream-50 text-forest-800 font-body antialiased">
         {children}
+        <ChatWidget />
       </body>
     </html>
   );

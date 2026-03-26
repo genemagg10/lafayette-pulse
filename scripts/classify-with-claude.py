@@ -19,6 +19,23 @@ import requests
 
 from geocode import geocode
 
+# Optional: OpenAI for embedding generation
+try:
+    import openai as _openai_module
+    _openai_client = None
+
+    def _get_openai():
+        global _openai_client
+        if _openai_client is None:
+            api_key = os.environ.get("OPENAI_API_KEY", "")
+            if api_key:
+                _openai_client = _openai_module.OpenAI(api_key=api_key)
+        return _openai_client
+
+    HAS_OPENAI = True
+except ImportError:
+    HAS_OPENAI = False
+
 # Configuration — accept multiple env var naming conventions
 SUPABASE_URL = (
     os.environ.get("SUPABASE_URL")
@@ -143,6 +160,57 @@ def supabase_update(table: str, data: dict, match_col: str, match_val) -> list[d
         print(f"    Supabase UPDATE error ({resp.status_code}) on {table}: {resp.text}")
     resp.raise_for_status()
     return resp.json()
+
+
+# ─── Embedding helpers ────────────────────────────────────────────────
+
+def generate_and_store_embedding(
+    text: str,
+    source_table: str,
+    source_id: int,
+    metadata: dict,
+) -> bool:
+    """Generate an embedding for text and store it in document_chunks."""
+    if not HAS_OPENAI:
+        return False
+    client = _get_openai()
+    if not client:
+        return False
+
+    try:
+        truncated = text[:8000]
+        response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input=truncated,
+        )
+        embedding = response.data[0].embedding
+
+        chunk_data = {
+            "content": text,
+            "embedding": json.dumps(embedding),
+            "source_table": source_table,
+            "source_id": source_id,
+            **metadata,
+        }
+
+        url = f"{SUPABASE_URL}/rest/v1/document_chunks"
+        headers = supabase_headers()
+        headers["Prefer"] = "return=representation,resolution=merge-duplicates"
+        resp = requests.post(
+            url,
+            headers=headers,
+            json=chunk_data,
+            params={"on_conflict": "source_table,source_id"},
+            timeout=15,
+        )
+        if resp.ok:
+            return True
+        else:
+            print(f"    Embedding store error ({resp.status_code}): {resp.text[:100]}")
+            return False
+    except Exception as e:
+        print(f"    Embedding generation error: {e}")
+        return False
 
 
 # ─── Core logic ───────────────────────────────────────────────────────
@@ -311,7 +379,7 @@ def store_item(item: dict, body: str, meeting_date: str | None,
 
     if existing_project_id:
         print(f"  Matched to existing project #{existing_project_id}: {title}")
-        supabase_insert("project_updates", {
+        update_result = supabase_insert("project_updates", {
             "project_id": existing_project_id,
             "update_text": description,
             "source_url": source_url,
@@ -321,6 +389,18 @@ def store_item(item: dict, body: str, meeting_date: str | None,
         supabase_update("projects", {
             "updated_at": datetime.now().isoformat(),
         }, "id", existing_project_id)
+
+        # Generate embedding for the update
+        if update_result:
+            update_id = update_result[0]["id"]
+            embed_text = f"Project: {title}\nDate: {meeting_date or 'N/A'}\n{description}"
+            generate_and_store_embedding(embed_text, "project_updates", update_id, {
+                "category": category,
+                "meeting_body": body,
+                "meeting_date": meeting_date,
+                "project_title": title,
+                "source_url": source_url,
+            })
 
     else:
         print(f"  Creating new project: {title}")
@@ -350,7 +430,7 @@ def store_item(item: dict, body: str, meeting_date: str | None,
         result = supabase_insert("projects", project_data)
         new_project_id = result[0]["id"] if result else None
 
-        supabase_insert("agenda_items", {
+        agenda_result = supabase_insert("agenda_items", {
             "date": meeting_date or datetime.now().strftime("%Y-%m-%d"),
             "body": body,
             "title": title,
@@ -360,6 +440,30 @@ def store_item(item: dict, body: str, meeting_date: str | None,
             "source_url": source_url,
             "tags": tags,
         })
+
+        # Generate embeddings for new project and agenda item
+        if new_project_id:
+            embed_text = f"{title}\n{description}"
+            if location:
+                embed_text += f"\nLocation: {location}"
+            if timeline:
+                embed_text += f"\nTimeline: {timeline}"
+            generate_and_store_embedding(embed_text, "projects", new_project_id, {
+                "category": category,
+                "project_title": title,
+                "source_url": source_url,
+            })
+
+        if agenda_result:
+            agenda_id = agenda_result[0]["id"]
+            embed_text = f"{title}\nMeeting body: {body}\nDate: {meeting_date or 'N/A'}\n{description}"
+            generate_and_store_embedding(embed_text, "agenda_items", agenda_id, {
+                "category": category,
+                "meeting_body": body,
+                "meeting_date": meeting_date,
+                "project_title": title,
+                "source_url": source_url,
+            })
 
     return True
 
