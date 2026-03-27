@@ -1,0 +1,80 @@
+name: Lafayette Pulse — Granicus Historical Backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_id:
+        description: 'Starting clip_id (default: 7000 for ~2 years back)'
+        required: false
+        type: number
+        default: 7000
+      end_id:
+        description: 'Ending clip_id (default: 8200)'
+        required: false
+        type: number
+        default: 8200
+      batch_size:
+        description: 'Batch size for progress checkpoints'
+        required: false
+        type: number
+        default: 100
+      resume:
+        description: 'Resume from last saved progress'
+        required: false
+        type: boolean
+        default: false
+      classify:
+        description: 'Run classification after backfill (uses Claude API credits)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # 6 hours — backfill is slow due to rate limiting
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Run Granicus backfill
+        working-directory: scripts
+        run: |
+          ARGS="--start-id ${{ inputs.start_id }} --end-id ${{ inputs.end_id }} --batch-size ${{ inputs.batch_size }}"
+          if [ "${{ inputs.resume }}" = "true" ]; then
+            ARGS="$ARGS --resume"
+          fi
+          python backfill-granicus.py $ARGS
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
+      - name: Classify backfilled data with Claude
+        if: ${{ inputs.classify }}
+        working-directory: scripts
+        run: python classify-with-claude.py
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Generate embeddings
+        if: ${{ inputs.classify }}
+        working-directory: scripts
+        run: python generate-embeddings.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

@@ -14,7 +14,7 @@ on:
 jobs:
   collect-and-classify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
         with:
@@ -29,6 +29,14 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r scripts/requirements.txt
+
+      - name: Poll Granicus RSS feeds
+        if: ${{ !inputs.embeddings_only }}
+        working-directory: scripts
+        run: python scrape-granicus.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
       - name: Collect emails from city notifications
         if: ${{ !inputs.embeddings_only }}
