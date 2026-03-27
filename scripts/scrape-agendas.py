@@ -159,8 +159,12 @@ MONTH_NAMES = {
 
 
 def extract_date_from_text(text: str) -> str | None:
-    """Try to extract a date from text."""
-    patterns = [
+    """
+    Try to extract a meeting/event date from text.
+    Prioritizes dates found near meeting-related keywords over the first
+    date in the text, to avoid picking up the email send date.
+    """
+    date_patterns = [
         (r"(\d{4})-(\d{1,2})-(\d{1,2})", "ymd"),
         (r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})", "mdy"),
         (r"(January|February|March|April|May|June|July|August|September|"
@@ -168,21 +172,64 @@ def extract_date_from_text(text: str) -> str | None:
         (r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)"
          r"\.?\s+(\d{1,2}),?\s+(\d{4})", "named"),
     ]
-    for pattern, fmt in patterns:
+
+    def parse_match(match, fmt):
+        g = match.groups()
+        try:
+            if fmt == "ymd":
+                return f"{g[0]}-{int(g[1]):02d}-{int(g[2]):02d}"
+            elif fmt == "mdy":
+                return f"{g[2]}-{int(g[0]):02d}-{int(g[1]):02d}"
+            elif fmt == "named":
+                m = MONTH_NAMES.get(g[0].lower().rstrip("."))
+                if m:
+                    return f"{g[2]}-{m:02d}-{int(g[1]):02d}"
+        except (ValueError, IndexError):
+            pass
+        return None
+
+    # Strategy 1: Look for dates near meeting-related keywords
+    # This avoids picking up the email send date when the actual meeting
+    # date is mentioned elsewhere in the text
+    meeting_keywords = [
+        r"(?:meeting|hearing|session|agenda|scheduled|convene|adjourn)"
+        r"[^.]{0,60}",
+        r"(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
+        r"[,\s]+",
+        r"(?:dated|date:)\s*",
+    ]
+    for keyword_pattern in meeting_keywords:
+        for date_pattern, fmt in date_patterns:
+            combined = keyword_pattern + date_pattern
+            match = re.search(combined, text, re.IGNORECASE)
+            if match:
+                # Adjust groups — skip the keyword capture groups
+                # Find the date pattern match within the combined match
+                date_match = re.search(date_pattern, match.group(0), re.IGNORECASE)
+                if date_match:
+                    result = parse_match(date_match, fmt)
+                    if result:
+                        return result
+
+    # Strategy 2: Look for dates preceded by a day of week (strong signal)
+    for date_pattern, fmt in date_patterns:
+        day_prefix = r"(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+"
+        match = re.search(day_prefix + date_pattern, text, re.IGNORECASE)
+        if match:
+            date_match = re.search(date_pattern, match.group(0), re.IGNORECASE)
+            if date_match:
+                result = parse_match(date_match, fmt)
+                if result:
+                    return result
+
+    # Strategy 3: Fallback to first date found in text
+    for pattern, fmt in date_patterns:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            g = match.groups()
-            try:
-                if fmt == "ymd":
-                    return f"{g[0]}-{int(g[1]):02d}-{int(g[2]):02d}"
-                elif fmt == "mdy":
-                    return f"{g[2]}-{int(g[0]):02d}-{int(g[1]):02d}"
-                elif fmt == "named":
-                    m = MONTH_NAMES.get(g[0].lower().rstrip("."))
-                    if m:
-                        return f"{g[2]}-{m:02d}-{int(g[1]):02d}"
-            except (ValueError, IndexError):
-                continue
+            result = parse_match(match, fmt)
+            if result:
+                return result
+
     return None
 
 
