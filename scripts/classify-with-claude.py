@@ -187,7 +187,7 @@ def generate_and_store_embedding(
 
         chunk_data = {
             "content": text,
-            "embedding": json.dumps(embedding),
+            "embedding": embedding,
             "source_table": source_table,
             "source_id": source_id,
             **metadata,
