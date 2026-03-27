@@ -165,7 +165,7 @@ def process_table(source_table: str, select_fields: str, metadata_fn):
             metadata = metadata_fn(record)
             chunk_data = {
                 "content": text,
-                "embedding": json.dumps(embedding),
+                "embedding": embedding,
                 "source_table": source_table,
                 "source_id": record["id"],
                 **metadata,
