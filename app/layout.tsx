@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -44,6 +45,11 @@ export default function RootLayout({
       <body className="bg-cream-50 text-forest-800 font-body antialiased">
         {children}
         <ChatWidget />
+        <Script
+          data-goatcounter="https://genemaggio.goatcounter.com/count"
+          src="//gc.zgo.at/count.js"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
