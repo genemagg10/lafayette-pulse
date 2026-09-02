@@ -20,6 +20,11 @@ export type WhoTab = (typeof WHO_TABS)[number]["id"];
 
 export const MORE_LINKS = [
   { href: "/projects", label: "Project archive", description: "City projects by category" },
+  {
+    href: "/ask",
+    label: "Ask Lafayette AI",
+    description: "Questions about projects and meetings",
+  },
   { href: "/more", label: "Health & freshness", description: "Backend status and last scrape" },
 ] as const;
 

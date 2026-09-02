@@ -32,7 +32,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         hideMobileBrand ? "pulse-shell-map" : ""
       } ${focus ? "pulse-shell-focus" : ""}`}
     >
-      <header className="hidden md:flex sticky top-0 z-40 h-14 items-center bg-surface border-b border-line">
+      <header className="hidden md:flex sticky top-0 z-40 h-chrome items-center bg-surface border-b border-line">
         <div className="w-full px-4 flex items-center gap-6">
           <Brand />
           <nav className="flex items-center gap-1" aria-label="Primary">
@@ -73,7 +73,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <div
         className={`flex-1 min-h-0 ${
-          focus ? "overflow-hidden" : "pb-14 md:pb-0"
+          focus ? "overflow-hidden" : "pb-chrome md:pb-0"
         }`}
       >
         {children}
@@ -106,7 +106,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 h-14 bg-surface text-ink border-t border-line"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 h-chrome bg-surface text-ink border-t border-line"
         aria-label="Primary"
       >
         <div className="h-full grid grid-cols-5">
@@ -129,7 +129,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               onClick={() => setMoreOpen((v) => !v)}
               aria-expanded={moreOpen}
               className={`flex-1 flex flex-col items-center justify-center text-[11px] font-body ${
-                pathname === "/projects" || pathname === "/more"
+                pathname === "/projects" ||
+                pathname === "/more" ||
+                pathname === "/ask"
                   ? "text-forest-800 font-semibold bg-canvas"
                   : "text-forest-500"
               }`}

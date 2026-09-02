@@ -49,7 +49,7 @@ export default function MapWorkspace() {
   return (
     <FocusFrame>
       <div className="relative h-full min-h-0">
-        <div className={`h-full min-h-0 ${panelOpen ? "md:pr-[340px]" : ""}`}>
+        <div className={`h-full min-h-0 ${panelOpen ? "md:pr-map-panel" : ""}`}>
           <ProjectMap
             projects={projects}
             layers={layers}
@@ -64,7 +64,7 @@ export default function MapWorkspace() {
         </div>
 
         <aside
-          className={`hidden md:flex flex-col absolute top-0 right-0 h-full w-[340px] bg-surface border-l border-line ${
+          className={`hidden md:flex flex-col absolute top-0 right-0 h-full w-map-panel bg-surface border-l border-line ${
             panelOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >

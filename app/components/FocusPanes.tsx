@@ -23,11 +23,11 @@ export default function FocusPanes({
 }: FocusPanesProps) {
   return (
     <div className="h-full min-h-0">
-      <div className="hidden lg:grid h-full min-h-0 lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)_minmax(280px,340px)]">
+      <div className="hidden lg:grid h-full min-h-0 lg:grid-cols-[minmax(240px,theme(width.master))_minmax(0,1fr)_minmax(280px,theme(width.detail))]">
         <aside className="min-h-0 overflow-y-auto border-r border-line bg-surface p-3">
           {master}
         </aside>
-        <section className="min-w-0 min-h-[420px] h-full overflow-hidden flex flex-col bg-canvas p-3">
+        <section className="min-w-0 min-h-viz h-full overflow-hidden flex flex-col bg-canvas p-3">
           {viz}
         </section>
         <aside className="min-h-0 overflow-y-auto border-l border-line bg-surface p-3">
@@ -81,7 +81,7 @@ export default function FocusPanes({
             </button>
             <span className="font-heading text-sm text-forest-800">{vizLabel}</span>
           </div>
-          <div className="flex-1 min-h-[420px] p-3 flex flex-col">{viz}</div>
+          <div className="flex-1 min-h-viz p-3 flex flex-col">{viz}</div>
         </div>
       )}
     </div>

@@ -48,6 +48,15 @@ export default function MorePage() {
           </p>
         </Link>
         <Link
+          href="/ask"
+          className="bg-surface border border-line p-4 hover:border-accent"
+        >
+          <h2 className="font-heading font-semibold text-forest-800">Ask Lafayette AI</h2>
+          <p className="text-sm font-body text-forest-600 mt-1">
+            Chat lives here — not as a floating button on every page.
+          </p>
+        </Link>
+        <Link
           href="/who?tab=measures"
           className="bg-surface border border-line p-4 hover:border-accent"
         >
