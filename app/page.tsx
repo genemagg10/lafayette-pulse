@@ -18,7 +18,7 @@ import PulseTile, { type TileId } from "./components/PulseTile";
 import OrganizationExplorer from "./components/OrganizationExplorer";
 import PeopleExplorer from "./components/PeopleExplorer";
 import InvolvementBoard from "./components/InvolvementBoard";
-import MeasuresPlaceholder from "./components/MeasuresPlaceholder";
+import MeasuresExplorer from "./components/MeasuresExplorer";
 import BoardTabs from "./components/BoardTabs";
 import { CATEGORIES, migrateCategory, type ProjectCategory, type ProjectStatus } from "@/lib/categories";
 import { formatFreshness } from "@/lib/freshness";
@@ -201,6 +201,7 @@ export default function Home() {
   const orgCount = health?.counts.organizations ?? null;
   const membershipCount = health?.counts.memberships ?? null;
   const seatHolderCount = health?.counts.seat_holders ?? null;
+  const measureCount = health?.counts.measures ?? null;
   const civicCountsDown = freshness.unavailable;
   const projectCount = health?.counts.projects ?? (error ? null : projects.length);
   const secondaryClass = moreOpen ? undefined : "max-md:hidden";
@@ -343,11 +344,22 @@ export default function Home() {
             id="measures"
             title="Measures"
             icon="🗳️"
-            summary="Coming soon"
+            summary={
+              civicCountsDown
+                ? "Temporarily unavailable"
+                : measureCount == null
+                  ? "—"
+                  : measureCount === 0
+                    ? "No measures extracted yet"
+                    : countLabel(measureCount, "measures")
+            }
             expanded={expanded.has("measures")}
             onToggle={() => toggleTile("measures")}
           >
-            <MeasuresPlaceholder />
+            <MeasuresExplorer
+              count={measureCount}
+              unavailable={civicCountsDown}
+            />
           </PulseTile>
 
           <button

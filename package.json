@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:stances": "node --experimental-strip-types --test scripts/test-stances.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",

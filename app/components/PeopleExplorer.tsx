@@ -6,6 +6,7 @@ import type { Person } from "@/lib/types";
 import type { EgoGraphResponse } from "@/lib/civic-graph";
 import GraphLegend from "./graph/GraphLegend";
 import PersonAvatar from "./PersonAvatar";
+import OnTheRecord, { type OnTheRecordItem } from "./OnTheRecord";
 
 const CivicGraph = dynamic(() => import("./graph/CivicGraph"), { ssr: false });
 
@@ -55,6 +56,7 @@ export default function PeopleExplorer({
   const [detailLoading, setDetailLoading] = useState(false);
   const [hops, setHops] = useState<1 | 2>(1);
   const [currentOnly, setCurrentOnly] = useState(true);
+  const [onTheRecord, setOnTheRecord] = useState<OnTheRecordItem[]>([]);
   const selectedPersonIdRef = useRef(selectedPersonId);
   selectedPersonIdRef.current = selectedPersonId;
 
@@ -120,6 +122,7 @@ export default function PeopleExplorer({
     if (!selectedId) {
       setDetail(null);
       setEgo(null);
+      setOnTheRecord([]);
       return;
     }
     const egoParams = new URLSearchParams({
@@ -139,14 +142,21 @@ export default function PeopleExplorer({
         if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
         return data as EgoGraphResponse;
       }),
+      fetch(`/api/people/${selectedId}/stances`).then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) return [] as OnTheRecordItem[];
+        return Array.isArray(data?.items) ? (data.items as OnTheRecordItem[]) : [];
+      }),
     ])
-      .then(([person, graph]) => {
+      .then(([person, graph, stances]) => {
         setDetail(person);
         setEgo(graph);
+        setOnTheRecord(stances);
       })
       .catch(() => {
         setDetail(null);
         setEgo(null);
+        setOnTheRecord([]);
       })
       .finally(() => setDetailLoading(false));
   }, [selectedId, hops, currentOnly]);
@@ -331,6 +341,7 @@ export default function PeopleExplorer({
                 </ul>
               </div>
             )}
+            <OnTheRecord items={onTheRecord} />
           </div>
         ) : (
           <p className="text-sm font-body text-forest-500">

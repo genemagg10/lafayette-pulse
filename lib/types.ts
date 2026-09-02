@@ -110,6 +110,8 @@ export interface HealthCounts {
   organizations: number | null;
   memberships: number | null;
   seat_holders: number | null;
+  measures: number | null;
+  stances: number | null;
 }
 
 export interface HealthResponse {
@@ -220,6 +222,10 @@ export interface Measure {
   source_url: string | null;
   created_at: string;
   updated_at: string;
+  support_count?: number;
+  oppose_count?: number;
+  endorse_count?: number;
+  stance_count?: number;
 }
 
 export const ORG_TYPE_LABELS: Record<OrgType, string> = {
