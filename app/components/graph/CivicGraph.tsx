@@ -8,12 +8,12 @@ import Sigma from "sigma";
 import { NodeSquareProgram } from "@sigma/node-square";
 import {
   CURRENT_EDGE_COLOR,
-  formatTenureRange,
   isCurrentTenure,
   nodeColor,
   nodeType,
   PAST_EDGE_COLOR,
 } from "@/lib/civic-graph";
+import { whyLinkedTooltipLines, type WhyLinkedEntity } from "@/lib/why-linked";
 import { NodeDiamondProgram } from "./NodeDiamondProgram";
 import type { OrgType, SeatType } from "@/lib/types";
 
@@ -40,6 +40,13 @@ export interface RenderableEdge {
   shared?: number;
   jaccard?: number;
   shared_names?: string[];
+  shared_entities?: WhyLinkedEntity[];
+  shared_subjects?: string[];
+  source_url?: string | null;
+  organization_id?: string | null;
+  org_name?: string | null;
+  evidence_quote?: string | null;
+  measure_title?: string | null;
   color?: string;
   dashed?: boolean;
   polarity?: string;
@@ -214,6 +221,32 @@ function edgeFromAttrs(
     shared_names: Array.isArray(attrs.shared_names)
       ? attrs.shared_names.filter((name): name is string => typeof name === "string")
       : undefined,
+    shared_entities: Array.isArray(attrs.shared_entities)
+      ? (attrs.shared_entities as WhyLinkedEntity[])
+      : undefined,
+    shared_subjects: Array.isArray(attrs.shared_subjects)
+      ? attrs.shared_subjects.filter((name): name is string => typeof name === "string")
+      : undefined,
+    source_url:
+      typeof attrs.source_url === "string" || attrs.source_url === null
+        ? (attrs.source_url as string | null)
+        : undefined,
+    organization_id:
+      typeof attrs.organization_id === "string" || attrs.organization_id === null
+        ? (attrs.organization_id as string | null)
+        : undefined,
+    org_name:
+      typeof attrs.org_name === "string" || attrs.org_name === null
+        ? (attrs.org_name as string | null)
+        : undefined,
+    evidence_quote:
+      typeof attrs.evidence_quote === "string" || attrs.evidence_quote === null
+        ? (attrs.evidence_quote as string | null)
+        : undefined,
+    measure_title:
+      typeof attrs.measure_title === "string" || attrs.measure_title === null
+        ? (attrs.measure_title as string | null)
+        : undefined,
     color: typeof attrs.color === "string" ? attrs.color : undefined,
     dashed: Boolean(attrs.dashed),
     polarity: typeof attrs.polarity === "string" ? attrs.polarity : undefined,
@@ -221,48 +254,6 @@ function edgeFromAttrs(
     co_stance: typeof attrs.co_stance === "number" ? attrs.co_stance : undefined,
     opposed: typeof attrs.opposed === "number" ? attrs.opposed : undefined,
   };
-}
-
-function tooltipLines(edge: RenderableEdge): string[] {
-  if (edge.stance_kind || edge.polarity || edge.co_stance != null || edge.opposed != null) {
-    const lines: string[] = [];
-    if (edge.stance_kind === "co-stance" || (edge.co_stance != null && (edge.opposed ?? 0) <= (edge.co_stance ?? 0))) {
-      lines.push("Co-stance");
-    } else if (edge.stance_kind === "opposed-on-issues" || (edge.opposed ?? 0) > 0) {
-      lines.push("Opposed on issues");
-    } else if (edge.polarity === "support") {
-      lines.push("Support");
-    } else if (edge.polarity === "oppose") {
-      lines.push("Oppose");
-    } else if (edge.polarity === "endorse") {
-      lines.push("Endorse");
-    }
-    if (edge.co_stance != null) {
-      lines.push(`${edge.co_stance} co-stance`);
-    }
-    if (edge.opposed != null) {
-      lines.push(`${edge.opposed} opposed on issues`);
-    }
-    if (edge.shared != null && edge.co_stance == null) {
-      lines.push(`${edge.shared} shared issue${edge.shared === 1 ? "" : "s"}`);
-    }
-    return lines;
-  }
-  if (edge.shared != null || edge.jaccard != null) {
-    const lines: string[] = [];
-    if (edge.shared != null) {
-      lines.push(
-        `${edge.shared} shared member${edge.shared === 1 ? "" : "s"}`
-      );
-    }
-    if (edge.jaccard != null) {
-      lines.push(`Jaccard ${edge.jaccard.toFixed(2)}`);
-    }
-    return lines;
-  }
-  const role =
-    edge.role || (edge.kind === "seat_holder" ? "Seat" : "Member");
-  return [role, formatTenureRange(edge.start_date, edge.end_date)];
 }
 
 export default function CivicGraph({
@@ -332,6 +323,13 @@ export default function CivicGraph({
         shared: edge.shared,
         jaccard: edge.jaccard,
         shared_names: edge.shared_names,
+        shared_entities: edge.shared_entities,
+        shared_subjects: edge.shared_subjects,
+        source_url: edge.source_url ?? null,
+        organization_id: edge.organization_id ?? null,
+        org_name: edge.org_name ?? null,
+        evidence_quote: edge.evidence_quote ?? null,
+        measure_title: edge.measure_title ?? null,
         polarity: edge.polarity,
         stance_kind: edge.stance_kind,
         co_stance: edge.co_stance,
@@ -363,7 +361,10 @@ export default function CivicGraph({
       const attrs = graph.getEdgeAttributes(edgeKey);
       const source = graph.source(edgeKey);
       const target = graph.target(edgeKey);
-      const lines = tooltipLines(edgeFromAttrs(source, target, attrs));
+      const lines = whyLinkedTooltipLines(edgeFromAttrs(source, target, attrs)).slice(
+        0,
+        2
+      );
       if (lines.length === 0) {
         hideTooltip();
         return;

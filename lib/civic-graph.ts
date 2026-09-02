@@ -1,9 +1,15 @@
 import type { OrgType, SeatType } from "@/lib/types";
 
 export type GraphNodeKind = "person" | "organization" | "seat";
-export type GraphEdgeKind = "membership" | "seat_holder";
+export type GraphEdgeKind = "membership" | "seat_holder" | "shared_board";
 export type InvolvementEntity = "person" | "org";
 export type InvolvementMetric = "degree" | "formal";
+
+export interface SharedEntity {
+  id: string;
+  label: string;
+  kind: "person" | "organization";
+}
 
 export interface EgoCenter {
   id: string;
@@ -29,6 +35,13 @@ export interface CivicGraphEdge {
   is_primary: boolean;
   start_date: string | null;
   end_date: string | null;
+  source_url?: string | null;
+  organization_id?: string | null;
+  org_name?: string | null;
+  shared?: number;
+  jaccard?: number;
+  shared_names?: string[];
+  shared_entities?: SharedEntity[];
 }
 
 export interface EgoGraphResponse {
@@ -81,6 +94,7 @@ export interface OrgAffinityEdge {
   shared: number;
   jaccard: number;
   shared_names: string[];
+  shared_entities: SharedEntity[];
 }
 
 export interface OrgAffinityResponse {

@@ -1,14 +1,20 @@
 "use client";
 
-import { Suspense, useCallback, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import BoardRedirect from "../components/BoardRedirect";
 import BoardTabs from "../components/BoardTabs";
 import FocusFrame from "../components/FocusFrame";
-import InvolvementBoard from "../components/InvolvementBoard";
 import MeasuresExplorer from "../components/MeasuresExplorer";
 import OrganizationExplorer from "../components/OrganizationExplorer";
 import PeopleExplorer from "../components/PeopleExplorer";
-import { WHO_TABS, parseWhoTab, type WhoTab } from "@/lib/layout-ia";
+import {
+  WHO_FOOTPRINT_REDIRECT,
+  WHO_TABS,
+  isRetiredFootprintTab,
+  parseWhoTab,
+  type WhoTab,
+} from "@/lib/layout-ia";
 import { useHealth } from "@/lib/use-health";
 
 function WhoWorkspace() {
@@ -18,25 +24,49 @@ function WhoWorkspace() {
   const tab = parseWhoTab(searchParams.get("tab"));
   const { health, freshness } = useHealth();
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isRetiredFootprintTab(searchParams.get("tab"))) return;
+    router.replace(WHO_FOOTPRINT_REDIRECT, { scroll: false });
+  }, [router, searchParams]);
 
   const setTab = useCallback(
     (next: WhoTab) => {
       const params = new URLSearchParams(searchParams.toString());
       params.set("tab", next);
+      if (next === "people" && !params.get("rank")) {
+        params.set("rank", "footprint");
+      }
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [pathname, router, searchParams]
   );
 
+  const goToPerson = useCallback(
+    (id: string) => {
+      setSelectedPersonId(id);
+      setTab("people");
+    },
+    [setTab]
+  );
+
+  const goToOrg = useCallback(
+    (id: string) => {
+      setSelectedOrgId(id);
+      setTab("orgs");
+    },
+    [setTab]
+  );
+
   const civicCountsDown = freshness.unavailable;
   const peopleCount = health?.counts.people ?? null;
   const orgCount = health?.counts.organizations ?? null;
-  const membershipCount = health?.counts.memberships ?? null;
-  const seatHolderCount = health?.counts.seat_holders ?? null;
   const measureCount = health?.counts.measures ?? null;
 
   return (
     <FocusFrame>
+      <BoardRedirect />
       <div className="h-full min-h-0 flex flex-col">
         <div className="flex-shrink-0 px-3 py-2 border-b border-line bg-surface overflow-x-auto">
           <BoardTabs
@@ -53,29 +83,22 @@ function WhoWorkspace() {
               unavailable={civicCountsDown}
               selectedPersonId={selectedPersonId}
               onSelectPerson={setSelectedPersonId}
+              onSelectOrg={goToOrg}
             />
           )}
           {tab === "orgs" && (
             <OrganizationExplorer
               count={orgCount}
               unavailable={civicCountsDown}
+              selectedOrgId={selectedOrgId}
+              onSelectOrg={setSelectedOrgId}
+              onSelectPerson={goToPerson}
             />
           )}
           {tab === "measures" && (
             <MeasuresExplorer
               count={measureCount}
               unavailable={civicCountsDown}
-            />
-          )}
-          {tab === "footprint" && (
-            <InvolvementBoard
-              memberships={membershipCount}
-              seatHolders={seatHolderCount}
-              unavailable={civicCountsDown}
-              onSelectPerson={(id) => {
-                setSelectedPersonId(id);
-                setTab("people");
-              }}
             />
           )}
         </div>

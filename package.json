@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:stances": "node --experimental-strip-types --test scripts/test-stances.ts",
-    "test:calendar": "node --experimental-strip-types --test scripts/test-calendar-items.ts"
+    "test:calendar": "node --experimental-strip-types --test scripts/test-calendar-items.ts",
+    "test:why-linked": "node --experimental-strip-types --test scripts/test-why-linked.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",

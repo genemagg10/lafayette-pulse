@@ -14,7 +14,7 @@ import {
   type InvolvementMetric,
   type InvolvementResponse,
   type OrgAffinityResponse,
-} from "@/lib/civic-graph";
+} from "./civic-graph";
 
 export interface PersonRow {
   id: string;
@@ -194,6 +194,7 @@ export function buildEgoGraph(
       is_primary: membership.is_primary,
       start_date: membership.start_date,
       end_date: membership.end_date,
+      source_url: membership.source_url,
     });
   }
 
@@ -217,6 +218,11 @@ export function buildEgoGraph(
       is_primary: true,
       start_date: holder.start_date,
       end_date: holder.end_date,
+      source_url: holder.source_url,
+      organization_id: seat.organization_id,
+      org_name: seat.organization_id
+        ? orgsById.get(seat.organization_id)?.name ?? null
+        : null,
     });
     if (seat.organization_id) {
       addOrg(seat.organization_id);
@@ -237,6 +243,9 @@ export function buildEgoGraph(
           is_primary: true,
           start_date: holder.start_date,
           end_date: holder.end_date,
+          source_url: holder.source_url,
+          organization_id: seat.organization_id,
+          org_name: orgsById.get(seat.organization_id)?.name ?? null,
         });
       }
     }
@@ -285,12 +294,40 @@ export function buildEgoGraph(
     const alterSet = new Set(alterIds);
     for (const alterId of alterIds) {
       const person = peopleById.get(alterId)!;
+      const orgIds = sharedOrgs.get(alterId) ?? new Set<string>();
+      const sharedEntities = Array.from(orgIds)
+        .map((orgId) => {
+          const org = orgsById.get(orgId);
+          return org
+            ? {
+                id: org.id,
+                label: org.name,
+                kind: "organization" as const,
+              }
+            : null;
+        })
+        .filter((row): row is { id: string; label: string; kind: "organization" } =>
+          Boolean(row)
+        )
+        .sort((a, b) => a.label.localeCompare(b.label));
       addNode({
         id: person.id,
         kind: "person",
         label: person.full_name,
-        size: Math.max(1, sharedOrgs.get(alterId)?.size ?? 1),
+        size: Math.max(1, orgIds.size),
         photo_url: person.photo_url,
+      });
+      edges.push({
+        source: center.id,
+        target: person.id,
+        kind: "shared_board",
+        role: null,
+        is_primary: false,
+        start_date: null,
+        end_date: null,
+        shared: sharedEntities.length,
+        shared_names: sharedEntities.map((row) => row.label),
+        shared_entities: sharedEntities,
       });
     }
 
@@ -307,6 +344,7 @@ export function buildEgoGraph(
         is_primary: membership.is_primary,
         start_date: membership.start_date,
         end_date: membership.end_date,
+        source_url: membership.source_url,
       });
     }
 
@@ -332,6 +370,9 @@ export function buildEgoGraph(
         is_primary: true,
         start_date: holder.start_date,
         end_date: holder.end_date,
+        source_url: holder.source_url,
+        organization_id: orgId,
+        org_name: orgsById.get(orgId)?.name ?? null,
       });
     }
   }
@@ -539,16 +580,21 @@ export function buildOrgAffinity(
       const right = ranked[j];
       const { shared, jaccard } = jaccardSets(left.members, right.members);
       if (shared < minShared || jaccard < minJaccard) continue;
-      const sharedNames = Array.from(left.members)
+      const sharedEntities = Array.from(left.members)
         .filter((id) => right.members.has(id))
-        .map((id) => peopleById.get(id)?.full_name ?? "Unknown")
-        .sort((a, b) => a.localeCompare(b));
+        .map((id) => ({
+          id,
+          label: peopleById.get(id)?.full_name ?? "Unknown",
+          kind: "person" as const,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label));
       edges.push({
         source: left.org.id,
         target: right.org.id,
         shared,
         jaccard: Number(jaccard.toFixed(3)),
-        shared_names: sharedNames,
+        shared_names: sharedEntities.map((row) => row.label),
+        shared_entities: sharedEntities,
       });
     }
   }
@@ -564,6 +610,34 @@ export function buildOrgAffinity(
     nodes,
     edges,
   };
+}
+
+export function orgFootprintScores(
+  snapshot: GraphSnapshot,
+  currentOnly = true
+): Map<string, number> {
+  const scores = new Map<string, { members: number; seats: number }>();
+  const bump = (orgId: string, key: "members" | "seats") => {
+    const row = scores.get(orgId) ?? { members: 0, seats: 0 };
+    row[key] += 1;
+    scores.set(orgId, row);
+  };
+  for (const membership of snapshot.memberships) {
+    if (!tenureOk(membership.end_date, currentOnly)) continue;
+    bump(membership.organization_id, "members");
+  }
+  const seatsById = indexById(snapshot.seats);
+  for (const holder of snapshot.seatHolders) {
+    if (!tenureOk(holder.end_date, currentOnly)) continue;
+    const orgId = seatsById.get(holder.seat_id)?.organization_id;
+    if (orgId) bump(orgId, "seats");
+  }
+  return new Map(
+    Array.from(scores.entries()).map(([id, row]) => [
+      id,
+      involvementScore(row.members, row.seats, "degree"),
+    ])
+  );
 }
 
 export function currentMemberCounts(

@@ -74,10 +74,18 @@ export async function GET(request: NextRequest) {
         snapshot,
         people.map((person) => person.id)
       );
-      items = people.map((person) => ({
-        ...person,
-        ...summary.get(person.id),
-      }));
+      items = people.map((person) => {
+        const roles = summary.get(person.id);
+        const membership_count = roles?.membership_count ?? 0;
+        const seat_count = roles?.seat_count ?? 0;
+        return {
+          ...person,
+          ...roles,
+          membership_count,
+          seat_count,
+          footprint_score: membership_count + seat_count,
+        };
+      });
     }
 
     if (sort === "footprint") {

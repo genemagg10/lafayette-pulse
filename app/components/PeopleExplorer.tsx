@@ -8,6 +8,13 @@ import GraphLegend from "./graph/GraphLegend";
 import PersonAvatar from "./PersonAvatar";
 import OnTheRecord, { type OnTheRecordItem } from "./OnTheRecord";
 import FocusPanes, { type MobileStep } from "./FocusPanes";
+import FootprintChip from "./FootprintChip";
+import WhyLinkedPanel from "./WhyLinkedPanel";
+import type { RenderableEdge } from "./graph/CivicGraph";
+import {
+  buildWhyLinkedModel,
+  toggleWhyLinkedEdge,
+} from "@/lib/why-linked";
 
 const CivicGraph = dynamic(() => import("./graph/CivicGraph"), { ssr: false });
 
@@ -36,6 +43,7 @@ interface PeopleExplorerProps {
   unavailable?: boolean;
   selectedPersonId?: string | null;
   onSelectPerson?: (id: string) => void;
+  onSelectOrg?: (id: string) => void;
 }
 
 export default function PeopleExplorer({
@@ -43,6 +51,7 @@ export default function PeopleExplorer({
   unavailable,
   selectedPersonId,
   onSelectPerson,
+  onSelectOrg,
 }: PeopleExplorerProps) {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -59,6 +68,7 @@ export default function PeopleExplorer({
   const [currentOnly, setCurrentOnly] = useState(true);
   const [onTheRecord, setOnTheRecord] = useState<OnTheRecordItem[]>([]);
   const [mobileStep, setMobileStep] = useState<MobileStep>("list");
+  const [selectedEdge, setSelectedEdge] = useState<RenderableEdge | null>(null);
   const selectedPersonIdRef = useRef(selectedPersonId);
   selectedPersonIdRef.current = selectedPersonId;
 
@@ -75,6 +85,14 @@ export default function PeopleExplorer({
     setSelectedId(id);
     onSelectPerson?.(id);
     setMobileStep("detail");
+  };
+
+  const selectFromWhyLinked = (id: string, kind: "person" | "organization") => {
+    if (kind === "person") {
+      selectPerson(id);
+      return;
+    }
+    onSelectOrg?.(id);
   };
 
   useEffect(() => {
@@ -162,6 +180,7 @@ export default function PeopleExplorer({
         setOnTheRecord([]);
       })
       .finally(() => setDetailLoading(false));
+    setSelectedEdge(null);
   }, [selectedId, hops, currentOnly]);
 
   const empty = !listLoading && !listError && items.length === 0;
@@ -176,6 +195,11 @@ export default function PeopleExplorer({
     () => items.find((person) => person.id === selectedId) || detail,
     [items, selectedId, detail]
   );
+
+  const whyLinkedModel = useMemo(() => {
+    if (!selectedEdge) return null;
+    return buildWhyLinkedModel(selectedEdge, ego?.nodes ?? []);
+  }, [selectedEdge, ego]);
 
   if (unavailable && (count == null || count === 0) && items.length === 0 && !listLoading) {
     return (
@@ -212,6 +236,9 @@ export default function PeopleExplorer({
           />
           Has a formal seat
         </label>
+        <p className="text-[11px] font-body text-ink-muted">
+          Ranked by board footprint
+        </p>
       </div>
       {listLoading ? (
         <div className="space-y-2 animate-pulse">
@@ -245,7 +272,7 @@ export default function PeopleExplorer({
                     photoUrl={person.photo_url}
                     size={32}
                   />
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="font-heading font-semibold text-sm text-ink">
                       {person.full_name}
                     </div>
@@ -261,6 +288,12 @@ export default function PeopleExplorer({
                         : "No current boards"}
                     </div>
                   </div>
+                  <FootprintChip
+                    score={
+                      person.footprint_score ??
+                      (person.membership_count ?? 0) + (person.seat_count ?? 0)
+                    }
+                  />
                 </button>
               </li>
             );
@@ -270,7 +303,7 @@ export default function PeopleExplorer({
     </div>
   );
 
-  const detailPane =
+  const personDetail =
     detailLoading && !detail ? (
       <div className="h-24 bg-surface-muted rounded-md animate-pulse" />
     ) : selected ? (
@@ -354,6 +387,20 @@ export default function PeopleExplorer({
       </p>
     );
 
+  const detailPane = (
+    <div className="space-y-3">
+      {personDetail}
+      {whyLinkedModel && (
+        <WhyLinkedPanel
+          model={whyLinkedModel}
+          className="hidden lg:block"
+          onClose={() => setSelectedEdge(null)}
+          onSelectEntity={selectFromWhyLinked}
+        />
+      )}
+    </div>
+  );
+
   const vizPane = (
     <div className="flex flex-col h-full min-h-[420px] gap-2">
       <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
@@ -385,7 +432,11 @@ export default function PeopleExplorer({
             heightClassName="h-full min-h-[420px]"
             onNodeClick={(id, kind) => {
               if (kind === "person") selectPerson(id);
+              if (kind === "organization") onSelectOrg?.(id);
             }}
+            onEdgeClick={(edge) =>
+              setSelectedEdge((current) => toggleWhyLinkedEdge(current, edge))
+            }
           />
         )}
       </div>
@@ -394,13 +445,23 @@ export default function PeopleExplorer({
   );
 
   return (
-    <FocusPanes
-      master={master}
-      viz={vizPane}
-      detail={detailPane}
-      vizLabel="Network"
-      mobileStep={mobileStep}
-      onMobileStep={setMobileStep}
-    />
+    <>
+      <FocusPanes
+        master={master}
+        viz={vizPane}
+        detail={detailPane}
+        vizLabel="Network"
+        mobileStep={mobileStep}
+        onMobileStep={setMobileStep}
+      />
+      {whyLinkedModel && (
+        <WhyLinkedPanel
+          model={whyLinkedModel}
+          variant="sheet"
+          onClose={() => setSelectedEdge(null)}
+          onSelectEntity={selectFromWhyLinked}
+        />
+      )}
+    </>
   );
 }
