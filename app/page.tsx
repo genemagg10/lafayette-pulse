@@ -114,9 +114,9 @@ export default function Home() {
         const data = await res.json().catch(() => null);
         if (!res.ok) {
           const message =
-            data && typeof data === "object" && "error" in data
+            data && typeof data === "object" && "error" in data && data.error
               ? String(data.error)
-              : `API error: ${res.status}`;
+              : `HTTP ${res.status} from /api/projects`;
           throw new Error(message);
         }
         return data;
@@ -196,7 +196,7 @@ export default function Home() {
             </p>
             {error && (
               <p className="text-xs font-body text-forest-600 mt-2">
-                Projects API: {error}
+                {error}
               </p>
             )}
             <p className="text-sm font-body mt-3">
