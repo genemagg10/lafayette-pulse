@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { isDayKey, ptBoundIso } from "@/lib/calendar-time";
-import { parseLimit, safeList } from "@/lib/safe-list";
+import { jsonNoStore, parseLimit, safeList } from "@/lib/safe-list";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,6 +44,6 @@ export async function GET(request: NextRequest) {
       return query;
     });
   } catch {
-    return NextResponse.json([]);
+    return jsonNoStore([]);
   }
 }
