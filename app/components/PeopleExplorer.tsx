@@ -297,11 +297,15 @@ export default function PeopleExplorer({ count, unavailable }: PeopleExplorerPro
           </label>
         </div>
 
-        <CivicGraph
-          nodes={ego?.nodes ?? []}
-          edges={ego?.edges ?? []}
-          centerId={ego?.center.id}
-        />
+        {detailLoading && !ego ? (
+          <div className="h-[320px] sm:h-[380px] bg-cream-100 rounded-lg animate-pulse" />
+        ) : (
+          <CivicGraph
+            nodes={ego?.nodes ?? []}
+            edges={ego?.edges ?? []}
+            centerId={ego?.center.id}
+          />
+        )}
         <GraphLegend />
       </div>
     </div>

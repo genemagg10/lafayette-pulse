@@ -240,24 +240,28 @@ export default function OrganizationExplorer({
         {affinityError && (
           <p className="text-sm font-body text-forest-500">{affinityError}</p>
         )}
-        <CivicGraph
-          nodes={(affinity?.nodes ?? []).map((node) => ({
-            id: node.id,
-            kind: "organization" as const,
-            label: node.label,
-            org_type: node.org_type,
-            size: node.size,
-          }))}
-          edges={(affinity?.edges ?? []).map((edge) => ({
-            source: edge.source,
-            target: edge.target,
-            kind: "membership",
-            shared: edge.shared,
-            jaccard: edge.jaccard,
-          }))}
-          onNodeClick={(id) => setSelectedId(id)}
-          heightClassName="h-[300px] sm:h-[360px]"
-        />
+        {!affinity && !affinityError ? (
+          <div className="h-[300px] sm:h-[360px] bg-cream-100 rounded-lg animate-pulse" />
+        ) : (
+          <CivicGraph
+            nodes={(affinity?.nodes ?? []).map((node) => ({
+              id: node.id,
+              kind: "organization" as const,
+              label: node.label,
+              org_type: node.org_type,
+              size: node.size,
+            }))}
+            edges={(affinity?.edges ?? []).map((edge) => ({
+              source: edge.source,
+              target: edge.target,
+              kind: "membership",
+              shared: edge.shared,
+              jaccard: edge.jaccard,
+            }))}
+            onNodeClick={(id) => setSelectedId(id)}
+            heightClassName="h-[300px] sm:h-[360px]"
+          />
+        )}
         <GraphLegend affinity showSeats={false} />
       </div>
     </div>
