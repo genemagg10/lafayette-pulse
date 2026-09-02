@@ -9,6 +9,7 @@ import { sanitizeIlike } from "@/lib/civic-graph";
 import {
   currentMemberCounts,
   loadGraphSnapshot,
+  orgFootprintScores,
   type OrganizationRow,
 } from "@/lib/civic-graph-data";
 
@@ -28,13 +29,15 @@ export async function GET(request: NextRequest) {
       "";
     const q = qRaw ? sanitizeIlike(qRaw) : "";
     const orgType = request.nextUrl.searchParams.get("org_type")?.trim();
+    const sort =
+      request.nextUrl.searchParams.get("sort") === "name" ? "name" : "footprint";
     const limit = parseLimit(request, 50, 100);
     const offset = parseOffset(request);
 
-    let query = supabase
-      .from("organizations")
-      .select("*", { count: "exact" })
-      .order("name", { ascending: true });
+    let query = supabase.from("organizations").select("*", { count: "exact" });
+    if (sort === "name") {
+      query = query.order("name", { ascending: true });
+    }
 
     if (orgType) {
       query = query.eq("org_type", orgType);
@@ -45,19 +48,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { data, error, count } = await query.range(offset, offset + limit - 1);
+    const pageQuery =
+      sort === "name" ? query.range(offset, offset + limit - 1) : query;
+    const { data, error, count } = await pageQuery;
     if (error) return jsonNoStore({ error: error.message }, 500);
 
     const organizations = (data ?? []) as OrganizationRow[];
     const snapshot = await loadGraphSnapshot(supabase);
     const currentCounts = currentMemberCounts(snapshot, true);
     const allCounts = currentMemberCounts(snapshot, false);
+    const footprints = orgFootprintScores(snapshot, true);
 
-    const items = organizations.map((org) => ({
+    let items = organizations.map((org) => ({
       ...org,
       current_member_count: currentCounts.get(org.id) ?? 0,
       member_count: allCounts.get(org.id) ?? 0,
+      footprint_score: footprints.get(org.id) ?? currentCounts.get(org.id) ?? 0,
     }));
+
+    if (sort === "footprint") {
+      items.sort((a, b) => {
+        if (b.footprint_score !== a.footprint_score) {
+          return b.footprint_score - a.footprint_score;
+        }
+        return a.name.localeCompare(b.name);
+      });
+      items = items.slice(offset, offset + limit);
+    }
 
     return jsonNoStore({
       items,

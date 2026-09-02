@@ -171,6 +171,7 @@ export interface Organization {
   updated_at: string;
   member_count?: number;
   current_member_count?: number;
+  footprint_score?: number;
 }
 
 export interface PersonRoleSummary {
@@ -191,6 +192,7 @@ export interface Person {
   updated_at: string;
   membership_count?: number;
   seat_count?: number;
+  footprint_score?: number;
   current_roles?: PersonRoleSummary[];
 }
 

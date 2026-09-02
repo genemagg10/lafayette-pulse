@@ -13,7 +13,13 @@ import BoardTabs from "./BoardTabs";
 import CoStanceMatrix from "./CoStanceMatrix";
 import GraphLegend from "./graph/GraphLegend";
 import FocusPanes, { type MobileStep } from "./FocusPanes";
+import FootprintChip from "./FootprintChip";
+import WhyLinkedPanel from "./WhyLinkedPanel";
 import type { RenderableEdge } from "./graph/CivicGraph";
+import {
+  buildWhyLinkedModel,
+  toggleWhyLinkedEdge,
+} from "@/lib/why-linked";
 
 const CivicGraph = dynamic(() => import("./graph/CivicGraph"), { ssr: false });
 
@@ -46,11 +52,17 @@ interface OrgDetail extends Organization {
 interface OrganizationExplorerProps {
   count: number | null;
   unavailable?: boolean;
+  selectedOrgId?: string | null;
+  onSelectOrg?: (id: string) => void;
+  onSelectPerson?: (id: string) => void;
 }
 
 export default function OrganizationExplorer({
   count,
   unavailable,
+  selectedOrgId,
+  onSelectOrg,
+  onSelectPerson,
 }: OrganizationExplorerProps) {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -59,7 +71,7 @@ export default function OrganizationExplorer({
   const [total, setTotal] = useState<number | null>(count);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(selectedOrgId ?? null);
   const [detail, setDetail] = useState<OrgDetail | null>(null);
   const [affinity, setAffinity] = useState<OrgAffinityResponse | null>(null);
   const [affinityError, setAffinityError] = useState<string | null>(null);
@@ -77,6 +89,10 @@ export default function OrganizationExplorer({
   const [mobileStep, setMobileStep] = useState<MobileStep>("list");
 
   useEffect(() => {
+    if (selectedOrgId) setSelectedId(selectedOrgId);
+  }, [selectedOrgId]);
+
+  useEffect(() => {
     const timer = setTimeout(() => setDebounced(query.trim()), 250);
     return () => clearTimeout(timer);
   }, [query]);
@@ -92,7 +108,11 @@ export default function OrganizationExplorer({
   }, [minShared]);
 
   useEffect(() => {
-    const params = new URLSearchParams({ limit: "50", offset: "0" });
+    const params = new URLSearchParams({
+      limit: "50",
+      offset: "0",
+      sort: "footprint",
+    });
     if (debounced) params.set("q", debounced);
     if (orgType) params.set("org_type", orgType);
     setListLoading(true);
@@ -113,6 +133,7 @@ export default function OrganizationExplorer({
         setTotal(typeof data?.total === "number" ? data.total : nextItems.length);
         setListLoading(false);
         setSelectedId((current) => {
+          if (selectedOrgId) return selectedOrgId;
           if (current && nextItems.some((org) => org.id === current)) return current;
           const council =
             nextItems.find((org) => /city council/i.test(org.name) || org.slug === "city-council") ||
@@ -216,6 +237,7 @@ export default function OrganizationExplorer({
       shared: edge.shared,
       jaccard: edge.jaccard,
       shared_names: edge.shared_names,
+      shared_entities: edge.shared_entities,
     }));
     if (stanceLayer && coStance) {
       const present = new Set(graphNodes.map((node) => node.id));
@@ -230,6 +252,7 @@ export default function OrganizationExplorer({
           co_stance: cell.co_stance,
           opposed: cell.opposed,
           shared: cell.shared,
+          shared_subjects: cell.shared_subjects,
           color: cell.kind === "co-stance" ? STANCE_TEAL : STANCE_VERMILLION,
           dashed: cell.kind === "opposed-on-issues",
         });
@@ -241,6 +264,18 @@ export default function OrganizationExplorer({
       isolates: affinity.nodes.filter((node) => !connected.has(node.id)),
     };
   }, [affinity, stanceLayer, coStance]);
+
+  const whyLinkedModel = useMemo(() => {
+    if (!selectedEdge) return null;
+    return buildWhyLinkedModel(selectedEdge, [
+      ...graphNodes.map((node) => ({
+        id: node.id,
+        label: node.label,
+        kind: "organization" as const,
+      })),
+      ...(selectedEdge.shared_entities ?? []),
+    ]);
+  }, [selectedEdge, graphNodes]);
 
   const trulyEmpty =
     !listLoading && !listError && !debounced && !orgType && (count === 0 || total === 0);
@@ -263,14 +298,19 @@ export default function OrganizationExplorer({
   }
 
   const currentMembers = (detail?.members ?? []).filter((row) => row.is_current && row.person);
-  const sourceName =
-    affinity?.nodes.find((node) => node.id === selectedEdge?.source)?.label ?? "Organization";
-  const targetName =
-    affinity?.nodes.find((node) => node.id === selectedEdge?.target)?.label ?? "Organization";
 
   const selectOrg = (id: string) => {
     setSelectedId(id);
+    onSelectOrg?.(id);
     setMobileStep("detail");
+  };
+
+  const selectFromWhyLinked = (id: string, kind: "person" | "organization") => {
+    if (kind === "organization") {
+      selectOrg(id);
+      return;
+    }
+    onSelectPerson?.(id);
   };
 
   const tabs = (
@@ -312,6 +352,9 @@ export default function OrganizationExplorer({
         placeholder="Search organizations…"
         className="w-full px-3 py-2 rounded-md border border-line-strong bg-surface font-body text-sm text-ink placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
       />
+      <p className="text-[11px] font-body text-ink-muted">
+        Ranked by board footprint
+      </p>
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
@@ -373,9 +416,19 @@ export default function OrganizationExplorer({
                     <span className="font-heading font-semibold text-sm text-ink">
                       {org.name}
                     </span>
-                    <span className="text-[10px] uppercase tracking-wide text-ink-muted flex-shrink-0">
-                      {ORG_TYPE_LABELS[org.org_type as OrgType] || org.org_type}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <FootprintChip
+                        score={
+                          org.footprint_score ??
+                          org.current_member_count ??
+                          org.member_count ??
+                          0
+                        }
+                      />
+                      <span className="text-[10px] uppercase tracking-wide text-ink-muted">
+                        {ORG_TYPE_LABELS[org.org_type as OrgType] || org.org_type}
+                      </span>
+                    </div>
                   </div>
                   <p className="text-[11px] font-body text-ink-muted mt-0.5">
                     {org.current_member_count ?? org.member_count ?? 0} current members
@@ -422,50 +475,13 @@ export default function OrganizationExplorer({
           Select an organization to see overlapping membership.
         </p>
       )}
-      {selectedEdge && (
-        <div className="rounded-md border border-line bg-surface p-3 space-y-2">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h4 className="font-heading font-semibold text-sm text-ink">
-                {selectedEdge.stance_kind === "co-stance"
-                  ? "Co-stance"
-                  : selectedEdge.stance_kind === "opposed-on-issues"
-                    ? "Opposed on issues"
-                    : "Shared membership"}
-              </h4>
-              <p className="text-xs font-body text-ink-muted mt-0.5">
-                {sourceName} · {targetName}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSelectedEdge(null)}
-              className="text-xs font-body text-ink-muted hover:text-ink"
-            >
-              Close
-            </button>
-          </div>
-          <p className="text-sm font-body text-forest-700">
-            {selectedEdge.stance_kind
-              ? `${selectedEdge.co_stance ?? 0} co-stance · ${selectedEdge.opposed ?? 0} opposed on issues`
-              : `${selectedEdge.shared ?? 0} shared${
-                  selectedEdge.jaccard != null
-                    ? ` · Jaccard ${selectedEdge.jaccard.toFixed(2)}`
-                    : ""
-                }`}
-          </p>
-          {selectedEdge.shared_names && selectedEdge.shared_names.length > 0 ? (
-            <ul className="text-sm font-body text-forest-700 space-y-0.5">
-              {selectedEdge.shared_names.map((name) => (
-                <li key={name}>{name}</li>
-              ))}
-            </ul>
-          ) : !selectedEdge.stance_kind ? (
-            <p className="text-sm font-body text-ink-muted">
-              Shared names are not available for this edge.
-            </p>
-          ) : null}
-        </div>
+      {whyLinkedModel && (
+        <WhyLinkedPanel
+          model={whyLinkedModel}
+          className="hidden lg:block"
+          onClose={() => setSelectedEdge(null)}
+          onSelectEntity={selectFromWhyLinked}
+        />
       )}
       {isolates.length > 0 && (
         <aside className="rounded-md border border-line bg-surface-muted p-3">
@@ -553,7 +569,9 @@ export default function OrganizationExplorer({
             }))}
             edges={graphEdges}
             onNodeClick={(id) => selectOrg(id)}
-            onEdgeClick={setSelectedEdge}
+            onEdgeClick={(edge) =>
+              setSelectedEdge((current) => toggleWhyLinkedEdge(current, edge))
+            }
             heightClassName="h-full min-h-[420px]"
           />
         )}
@@ -563,14 +581,24 @@ export default function OrganizationExplorer({
   );
 
   return (
-    <FocusPanes
-      master={master}
-      viz={vizPane}
-      detail={detailPane}
-      vizLabel="Affinity"
-      mobileStep={mobileStep}
-      onMobileStep={setMobileStep}
-    />
+    <>
+      <FocusPanes
+        master={master}
+        viz={vizPane}
+        detail={detailPane}
+        vizLabel="Affinity"
+        mobileStep={mobileStep}
+        onMobileStep={setMobileStep}
+      />
+      {whyLinkedModel && (
+        <WhyLinkedPanel
+          model={whyLinkedModel}
+          variant="sheet"
+          onClose={() => setSelectedEdge(null)}
+          onSelectEntity={selectFromWhyLinked}
+        />
+      )}
+    </>
   );
 }
 

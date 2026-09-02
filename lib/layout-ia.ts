@@ -13,10 +13,12 @@ export const WHO_TABS = [
   { id: "people", label: "People" },
   { id: "orgs", label: "Organizations" },
   { id: "measures", label: "Measures" },
-  { id: "footprint", label: "Footprint" },
 ] as const;
 
 export type WhoTab = (typeof WHO_TABS)[number]["id"];
+
+export const FOOTPRINT_RANK_QUERY = "footprint";
+export const WHO_FOOTPRINT_REDIRECT = "/who?tab=people&rank=footprint";
 
 export const MORE_LINKS = [
   { href: "/projects", label: "Project archive", description: "City projects by category" },
@@ -41,7 +43,7 @@ export const BOARD_REDIRECTS: Record<string, string> = {
   "tile-organizations": "/who?tab=orgs",
   measures: "/who?tab=measures",
   "tile-measures": "/who?tab=measures",
-  footprint: "/who?tab=footprint",
+  footprint: WHO_FOOTPRINT_REDIRECT,
   projects: "/projects",
   "tile-projects": "/projects",
 };
@@ -49,8 +51,11 @@ export const BOARD_REDIRECTS: Record<string, string> = {
 export function parseWhoTab(value: string | null | undefined): WhoTab {
   if (value === "orgs" || value === "organizations") return "orgs";
   if (value === "measures") return "measures";
-  if (value === "footprint") return "footprint";
   return "people";
+}
+
+export function isRetiredFootprintTab(value: string | null | undefined): boolean {
+  return value === "footprint";
 }
 
 export function isFocusPath(pathname: string | null): boolean {
@@ -73,5 +78,8 @@ export function resolveBoardRedirect(
   const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
   const tile = (params.get("tile") || params.get("board") || "").toLowerCase();
   if (tile && BOARD_REDIRECTS[tile]) return BOARD_REDIRECTS[tile];
+  if ((params.get("tab") || "").toLowerCase() === "footprint") {
+    return WHO_FOOTPRINT_REDIRECT;
+  }
   return null;
 }
