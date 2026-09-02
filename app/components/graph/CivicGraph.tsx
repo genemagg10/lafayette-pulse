@@ -8,6 +8,7 @@ import Sigma from "sigma";
 import { NodeSquareProgram } from "@sigma/node-square";
 import {
   CURRENT_EDGE_COLOR,
+  formatTenureRange,
   isCurrentTenure,
   nodeColor,
   nodeType,
@@ -35,6 +36,7 @@ export interface RenderableEdge {
   end_date?: string | null;
   shared?: number;
   jaccard?: number;
+  shared_names?: string[];
 }
 
 interface CivicGraphProps {
@@ -43,6 +45,13 @@ interface CivicGraphProps {
   centerId?: string | null;
   heightClassName?: string;
   onNodeClick?: (id: string, kind: RenderableNode["kind"]) => void;
+  onEdgeClick?: (edge: RenderableEdge) => void;
+}
+
+function radiusForKind(kind: string): number {
+  if (kind === "seat") return 58;
+  if (kind === "organization") return 128;
+  return 186;
 }
 
 function layoutGraph(graph: Graph, centerId?: string | null) {
@@ -69,16 +78,48 @@ function layoutGraph(graph: Graph, centerId?: string | null) {
       const kind = (attrs.kind as string) || "person";
       (rings[kind] || rings.person).push(id);
     });
-    const place = (ids: string[], radius: number) => {
+    const place = (ids: string[], radius: number, angleOffset = 0) => {
       ids.forEach((id, index) => {
-        const angle = (2 * Math.PI * index) / Math.max(ids.length, 1) - Math.PI / 2;
+        const angle =
+          (2 * Math.PI * index) / Math.max(ids.length, 1) - Math.PI / 2 + angleOffset;
         graph.setNodeAttribute(id, "x", Math.cos(angle) * radius);
         graph.setNodeAttribute(id, "y", Math.sin(angle) * radius);
       });
     };
-    place(rings.seat, 36);
-    place(rings.organization, 70);
-    place(rings.person, 108);
+    // Offset rings so the Mayor diamond is not on the same ray as City Council.
+    place(rings.seat, radiusForKind("seat"), 0);
+    place(
+      rings.organization,
+      radiusForKind("organization"),
+      Math.PI / Math.max(rings.organization.length * 2, 3)
+    );
+    place(rings.person, radiusForKind("person"), Math.PI / 8);
+
+    forceAtlas2.assign(graph, {
+      iterations: 20,
+      settings: {
+        ...forceAtlas2.inferSettings(graph),
+        gravity: 0.35,
+        scalingRatio: 16,
+        strongGravityMode: false,
+        adjustSizes: true,
+        barnesHutOptimize: graph.order > 40,
+      },
+    });
+
+    graph.setNodeAttribute(centerId, "x", 0);
+    graph.setNodeAttribute(centerId, "y", 0);
+    graph.forEachNode((id, attrs) => {
+      if (id === centerId) return;
+      const x = Number(attrs.x) || 0;
+      const y = Number(attrs.y) || 0;
+      const dist = Math.hypot(x, y);
+      if (dist < 0.001) return;
+      const r = radiusForKind((attrs.kind as string) || "person");
+      graph.setNodeAttribute(id, "x", (x / dist) * r);
+      graph.setNodeAttribute(id, "y", (y / dist) * r);
+    });
+    return;
   }
 
   forceAtlas2.assign(graph, {
@@ -93,21 +134,72 @@ function layoutGraph(graph: Graph, centerId?: string | null) {
   });
 }
 
+function edgeFromAttrs(
+  source: string,
+  target: string,
+  attrs: Record<string, unknown>
+): RenderableEdge {
+  return {
+    source,
+    target,
+    kind: typeof attrs.kind === "string" ? attrs.kind : undefined,
+    role: typeof attrs.role === "string" ? attrs.role : attrs.role === null ? null : undefined,
+    is_primary: Boolean(attrs.is_primary),
+    start_date:
+      typeof attrs.start_date === "string" || attrs.start_date === null
+        ? (attrs.start_date as string | null)
+        : undefined,
+    end_date:
+      typeof attrs.end_date === "string" || attrs.end_date === null
+        ? (attrs.end_date as string | null)
+        : undefined,
+    shared: typeof attrs.shared === "number" ? attrs.shared : undefined,
+    jaccard: typeof attrs.jaccard === "number" ? attrs.jaccard : undefined,
+    shared_names: Array.isArray(attrs.shared_names)
+      ? attrs.shared_names.filter((name): name is string => typeof name === "string")
+      : undefined,
+  };
+}
+
+function tooltipLines(edge: RenderableEdge): string[] {
+  if (edge.shared != null || edge.jaccard != null) {
+    const lines: string[] = [];
+    if (edge.shared != null) {
+      lines.push(
+        `${edge.shared} shared member${edge.shared === 1 ? "" : "s"}`
+      );
+    }
+    if (edge.jaccard != null) {
+      lines.push(`Jaccard ${edge.jaccard.toFixed(2)}`);
+    }
+    return lines;
+  }
+  const role =
+    edge.role || (edge.kind === "seat_holder" ? "Seat" : "Member");
+  return [role, formatTenureRange(edge.start_date, edge.end_date)];
+}
+
 export default function CivicGraph({
   nodes,
   edges,
   centerId,
   heightClassName = "h-[320px] sm:h-[380px]",
   onNodeClick,
+  onEdgeClick,
 }: CivicGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const lastMouseRef = useRef({ x: 0, y: 0 });
   const clickRef = useRef(onNodeClick);
   clickRef.current = onNodeClick;
+  const edgeClickRef = useRef(onEdgeClick);
+  edgeClickRef.current = onEdgeClick;
 
   useEffect(() => {
     const container = containerRef.current;
     const overlay = overlayRef.current;
+    const tooltip = tooltipRef.current;
     if (!container) return;
 
     const graph = new Graph({ multi: true, type: "undirected" });
@@ -133,8 +225,14 @@ export default function CivicGraph({
       graph.addEdge(edge.source, edge.target, {
         kind: edge.kind ?? "membership",
         role: edge.role ?? null,
+        is_primary: Boolean(edge.is_primary),
+        start_date: edge.start_date ?? null,
+        end_date: edge.end_date ?? null,
+        shared: edge.shared,
+        jaccard: edge.jaccard,
+        shared_names: edge.shared_names,
         current,
-        size: seated || (edge.shared ?? 0) > 1 ? 2.4 * Math.min(affinityWeight, 3) : 1.1,
+        size: seated || (edge.shared ?? 0) > 1 ? 2.4 * Math.min(affinityWeight, 3) : 1.4,
         color: current ? CURRENT_EDGE_COLOR : PAST_EDGE_COLOR,
         hidden: !current && !edge.shared && !edge.jaccard,
         forceLabel: false,
@@ -143,9 +241,38 @@ export default function CivicGraph({
 
     layoutGraph(graph, centerId);
 
+    const hideTooltip = () => {
+      if (!tooltip) return;
+      tooltip.classList.add("hidden");
+      tooltip.replaceChildren();
+    };
+
+    const showTooltip = (edgeKey: string, clientX: number, clientY: number) => {
+      if (!tooltip) return;
+      const attrs = graph.getEdgeAttributes(edgeKey);
+      const source = graph.source(edgeKey);
+      const target = graph.target(edgeKey);
+      const lines = tooltipLines(edgeFromAttrs(source, target, attrs));
+      if (lines.length === 0) {
+        hideTooltip();
+        return;
+      }
+      const rect = container.getBoundingClientRect();
+      tooltip.replaceChildren();
+      for (const line of lines) {
+        const row = document.createElement("div");
+        row.textContent = line;
+        tooltip.appendChild(row);
+      }
+      tooltip.style.left = `${clientX - rect.left + 12}px`;
+      tooltip.style.top = `${clientY - rect.top + 12}px`;
+      tooltip.classList.remove("hidden");
+    };
+
     const renderer = new Sigma(graph, container, {
       allowInvalidContainer: true,
       renderEdgeLabels: false,
+      enableEdgeEvents: true,
       labelFont: "var(--font-dm-sans), DM Sans, sans-serif",
       labelSize: 11,
       labelWeight: "600",
@@ -197,10 +324,41 @@ export default function CivicGraph({
       const kind = graph.getNodeAttribute(node, "kind") as RenderableNode["kind"];
       clickRef.current?.(node, kind);
     });
+    renderer.on("clickEdge", ({ edge }) => {
+      const attrs = graph.getEdgeAttributes(edge);
+      edgeClickRef.current?.(
+        edgeFromAttrs(graph.source(edge), graph.target(edge), attrs)
+      );
+    });
+    renderer.on("enterEdge", ({ edge }) => {
+      const original = Number(graph.getEdgeAttribute(edge, "size") || 1.4);
+      graph.setEdgeAttribute(edge, "hoverSize", original);
+      graph.setEdgeAttribute(edge, "size", Math.max(original * 1.6, 2.4));
+      showTooltip(edge, lastMouseRef.current.x, lastMouseRef.current.y);
+    });
+    renderer.on("leaveEdge", ({ edge }) => {
+      const hoverSize = graph.getEdgeAttribute(edge, "hoverSize");
+      if (typeof hoverSize === "number") {
+        graph.setEdgeAttribute(edge, "size", hoverSize);
+      }
+      hideTooltip();
+    });
+    renderer.on("clickStage", hideTooltip);
+
+    const onMove = (ev: MouseEvent) => {
+      lastMouseRef.current = { x: ev.clientX, y: ev.clientY };
+      if (!tooltip || tooltip.classList.contains("hidden")) return;
+      const rect = container.getBoundingClientRect();
+      tooltip.style.left = `${ev.clientX - rect.left + 12}px`;
+      tooltip.style.top = `${ev.clientY - rect.top + 12}px`;
+    };
+    container.addEventListener("mousemove", onMove);
 
     drawDashed();
 
     return () => {
+      container.removeEventListener("mousemove", onMove);
+      hideTooltip();
       renderer.kill();
       graph.clear();
     };
@@ -218,8 +376,12 @@ export default function CivicGraph({
 
   return (
     <div className={`relative ${heightClassName} rounded-lg border border-cream-200 bg-cream-50 overflow-hidden`}>
-      <div ref={containerRef} className="absolute inset-0" />
+      <div ref={containerRef} className="absolute inset-0 cursor-pointer" />
       <canvas ref={overlayRef} className="absolute inset-0 pointer-events-none" />
+      <div
+        ref={tooltipRef}
+        className="absolute z-10 hidden pointer-events-none max-w-[240px] rounded-md bg-forest-900 text-cream-50 text-[11px] font-body leading-snug px-2 py-1.5 shadow-lg"
+      />
     </div>
   );
 }

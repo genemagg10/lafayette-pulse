@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { Person } from "@/lib/types";
 import type { EgoGraphResponse } from "@/lib/civic-graph";
 import GraphLegend from "./graph/GraphLegend";
+import PersonAvatar from "./PersonAvatar";
 
 const CivicGraph = dynamic(() => import("./graph/CivicGraph"), { ssr: false });
 
@@ -31,22 +32,31 @@ interface PersonDetail extends Person {
 interface PeopleExplorerProps {
   count: number | null;
   unavailable?: boolean;
+  selectedPersonId?: string | null;
+  onSelectPerson?: (id: string) => void;
 }
 
-export default function PeopleExplorer({ count, unavailable }: PeopleExplorerProps) {
+export default function PeopleExplorer({
+  count,
+  unavailable,
+  selectedPersonId,
+  onSelectPerson,
+}: PeopleExplorerProps) {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [hasSeat, setHasSeat] = useState<"all" | "seated">("all");
+  const [hasSeat, setHasSeat] = useState<"all" | "seated">("seated");
   const [items, setItems] = useState<Person[]>([]);
   const [total, setTotal] = useState<number | null>(count);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(selectedPersonId ?? null);
   const [detail, setDetail] = useState<PersonDetail | null>(null);
   const [ego, setEgo] = useState<EgoGraphResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [hops, setHops] = useState<1 | 2>(1);
   const [currentOnly, setCurrentOnly] = useState(true);
+  const selectedPersonIdRef = useRef(selectedPersonId);
+  selectedPersonIdRef.current = selectedPersonId;
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query.trim()), 250);
@@ -54,7 +64,20 @@ export default function PeopleExplorer({ count, unavailable }: PeopleExplorerPro
   }, [query]);
 
   useEffect(() => {
-    const params = new URLSearchParams({ limit: "50", offset: "0" });
+    if (selectedPersonId) setSelectedId(selectedPersonId);
+  }, [selectedPersonId]);
+
+  const selectPerson = (id: string) => {
+    setSelectedId(id);
+    onSelectPerson?.(id);
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams({
+      limit: "50",
+      offset: "0",
+      sort: "footprint",
+    });
     if (debounced) params.set("q", debounced);
     if (hasSeat === "seated") params.set("has_seat", "true");
     setListLoading(true);
@@ -77,9 +100,8 @@ export default function PeopleExplorer({ count, unavailable }: PeopleExplorerPro
         setTotal(typeof data?.total === "number" ? data.total : nextItems.length);
         setListLoading(false);
         setSelectedId((current) => {
-          if (current && nextItems.some((person) => person.id === current)) {
-            return current;
-          }
+          if (selectedPersonIdRef.current) return selectedPersonIdRef.current;
+          if (current) return current;
           const preferred =
             nextItems.find((person) => /anduri/i.test(person.full_name)) ||
             nextItems[0] ||
@@ -189,7 +211,7 @@ export default function PeopleExplorer({ count, unavailable }: PeopleExplorerPro
           <p className="text-sm font-body text-forest-500">{listError}</p>
         ) : empty ? (
           <p className="text-sm font-body text-forest-500">
-            No people match this search.
+            No people match these filters.
           </p>
         ) : (
           <ul className="max-h-[420px] overflow-y-auto divide-y divide-cream-200 rounded-lg border border-cream-200">
@@ -199,24 +221,31 @@ export default function PeopleExplorer({ count, unavailable }: PeopleExplorerPro
                 <li key={person.id}>
                   <button
                     type="button"
-                    onClick={() => setSelectedId(person.id)}
-                    className={`w-full text-left px-3 py-2.5 transition-colors ${
+                    onClick={() => selectPerson(person.id)}
+                    className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2.5 ${
                       active ? "bg-forest-50" : "hover:bg-cream-50"
                     }`}
                   >
-                    <div className="font-heading font-semibold text-sm text-forest-800">
-                      {person.full_name}
-                    </div>
-                    <div className="text-[11px] font-body text-forest-500 mt-0.5 truncate">
-                      {person.current_roles && person.current_roles.length > 0
-                        ? person.current_roles
-                            .map((role) =>
-                              role.role
-                                ? `${role.role}, ${role.org_name}`
-                                : role.org_name
-                            )
-                            .join(" · ")
-                        : "No current boards"}
+                    <PersonAvatar
+                      name={person.full_name}
+                      photoUrl={person.photo_url}
+                      size={32}
+                    />
+                    <div className="min-w-0">
+                      <div className="font-heading font-semibold text-sm text-forest-800">
+                        {person.full_name}
+                      </div>
+                      <div className="text-[11px] font-body text-forest-500 mt-0.5 truncate">
+                        {person.current_roles && person.current_roles.length > 0
+                          ? person.current_roles
+                              .map((role) =>
+                                role.role
+                                  ? `${role.role}, ${role.org_name}`
+                                  : role.org_name
+                              )
+                              .join(" · ")
+                          : "No current boards"}
+                      </div>
                     </div>
                   </button>
                 </li>
@@ -231,9 +260,40 @@ export default function PeopleExplorer({ count, unavailable }: PeopleExplorerPro
           <div className="h-24 bg-cream-100 rounded-lg animate-pulse" />
         ) : selected ? (
           <div className="rounded-lg border border-cream-200 bg-cream-50/60 p-3 space-y-2">
-            <h3 className="font-heading font-semibold text-forest-800">
-              {selected.full_name}
-            </h3>
+            <div className="flex items-start gap-3">
+              <PersonAvatar
+                name={selected.full_name}
+                photoUrl={selected.photo_url}
+                size={48}
+              />
+              <div className="min-w-0">
+                <h3 className="font-heading font-semibold text-forest-800">
+                  {selected.full_name}
+                </h3>
+                {(detail?.email || detail?.website) && (
+                  <div className="mt-1 flex flex-wrap gap-3 text-xs font-body text-forest-500">
+                    {detail?.email && (
+                      <a
+                        href={`mailto:${detail.email}`}
+                        className="underline hover:text-forest-800"
+                      >
+                        {detail.email}
+                      </a>
+                    )}
+                    {detail?.website && (
+                      <a
+                        href={detail.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:text-forest-800"
+                      >
+                        Website ↗
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
             {detail?.bio && (
               <p className="text-sm font-body text-forest-600 leading-relaxed">
                 {detail.bio}
@@ -304,6 +364,9 @@ export default function PeopleExplorer({ count, unavailable }: PeopleExplorerPro
             nodes={ego?.nodes ?? []}
             edges={ego?.edges ?? []}
             centerId={ego?.center.id}
+            onNodeClick={(id, kind) => {
+              if (kind === "person") selectPerson(id);
+            }}
           />
         )}
         <GraphLegend />

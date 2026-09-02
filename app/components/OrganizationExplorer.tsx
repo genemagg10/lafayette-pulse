@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { ORG_TYPE_LABELS, type Organization, type OrgType } from "@/lib/types";
 import type { OrgAffinityResponse } from "@/lib/civic-graph";
 import GraphLegend from "./graph/GraphLegend";
+import type { RenderableEdge } from "./graph/CivicGraph";
 
 const CivicGraph = dynamic(() => import("./graph/CivicGraph"), { ssr: false });
+
+const ORG_TYPES = Object.keys(ORG_TYPE_LABELS) as OrgType[];
+const DEFAULT_JACCARD = 0.15;
 
 interface OrgMember {
   id: string;
@@ -41,6 +45,7 @@ export default function OrganizationExplorer({
 }: OrganizationExplorerProps) {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
+  const [orgType, setOrgType] = useState<OrgType | "">("");
   const [items, setItems] = useState<Organization[]>([]);
   const [total, setTotal] = useState<number | null>(count);
   const [listLoading, setListLoading] = useState(true);
@@ -49,6 +54,9 @@ export default function OrganizationExplorer({
   const [detail, setDetail] = useState<OrgDetail | null>(null);
   const [affinity, setAffinity] = useState<OrgAffinityResponse | null>(null);
   const [affinityError, setAffinityError] = useState<string | null>(null);
+  const [minJaccard, setMinJaccard] = useState(DEFAULT_JACCARD);
+  const [debouncedJaccard, setDebouncedJaccard] = useState(DEFAULT_JACCARD);
+  const [selectedEdge, setSelectedEdge] = useState<RenderableEdge | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query.trim()), 250);
@@ -56,8 +64,14 @@ export default function OrganizationExplorer({
   }, [query]);
 
   useEffect(() => {
+    const timer = setTimeout(() => setDebouncedJaccard(minJaccard), 150);
+    return () => clearTimeout(timer);
+  }, [minJaccard]);
+
+  useEffect(() => {
     const params = new URLSearchParams({ limit: "50", offset: "0" });
     if (debounced) params.set("q", debounced);
+    if (orgType) params.set("org_type", orgType);
     setListLoading(true);
     setListError(null);
     fetch(`/api/organizations?${params.toString()}`)
@@ -89,18 +103,27 @@ export default function OrganizationExplorer({
         setItems([]);
         setListLoading(false);
       });
-  }, [debounced]);
+  }, [debounced, orgType]);
 
   useEffect(() => {
-    fetch("/api/graph/org-affinity?current_only=true&min_jaccard=0.15&min_shared=1&limit_orgs=40")
+    const params = new URLSearchParams({
+      current_only: "true",
+      min_jaccard: String(debouncedJaccard),
+      min_shared: "1",
+      limit_orgs: "40",
+    });
+    fetch(`/api/graph/org-affinity?${params.toString()}`)
       .then(async (res) => {
         const data = await res.json().catch(() => null);
         if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
         return data as OrgAffinityResponse;
       })
-      .then(setAffinity)
+      .then((data) => {
+        setAffinity(data);
+        setAffinityError(null);
+      })
       .catch((err) => setAffinityError(err.message));
-  }, []);
+  }, [debouncedJaccard]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -117,8 +140,38 @@ export default function OrganizationExplorer({
       .catch(() => setDetail(null));
   }, [selectedId]);
 
+  useEffect(() => {
+    if (!selectedEdge || !affinity) return;
+    const stillThere = affinity.edges.some(
+      (edge) =>
+        (edge.source === selectedEdge.source && edge.target === selectedEdge.target) ||
+        (edge.source === selectedEdge.target && edge.target === selectedEdge.source)
+    );
+    if (!stillThere) setSelectedEdge(null);
+  }, [affinity, selectedEdge]);
+
+  const { graphNodes, graphEdges, isolates } = useMemo(() => {
+    if (!affinity) {
+      return {
+        graphNodes: [] as OrgAffinityResponse["nodes"],
+        graphEdges: [] as OrgAffinityResponse["edges"],
+        isolates: [] as OrgAffinityResponse["nodes"],
+      };
+    }
+    const connected = new Set<string>();
+    for (const edge of affinity.edges) {
+      connected.add(edge.source);
+      connected.add(edge.target);
+    }
+    return {
+      graphNodes: affinity.nodes.filter((node) => connected.has(node.id)),
+      graphEdges: affinity.edges,
+      isolates: affinity.nodes.filter((node) => !connected.has(node.id)),
+    };
+  }, [affinity]);
+
   const trulyEmpty =
-    !listLoading && !listError && !debounced && (count === 0 || total === 0);
+    !listLoading && !listError && !debounced && !orgType && (count === 0 || total === 0);
 
   if (unavailable && (count == null || count === 0) && items.length === 0 && !listLoading) {
     return (
@@ -138,6 +191,10 @@ export default function OrganizationExplorer({
   }
 
   const currentMembers = (detail?.members ?? []).filter((row) => row.is_current && row.person);
+  const sourceName =
+    affinity?.nodes.find((node) => node.id === selectedEdge?.source)?.label ?? "Organization";
+  const targetName =
+    affinity?.nodes.find((node) => node.id === selectedEdge?.target)?.label ?? "Organization";
 
   return (
     <div className="space-y-5">
@@ -150,6 +207,36 @@ export default function OrganizationExplorer({
             placeholder="Search organizations…"
             className="w-full px-3 py-2 rounded-lg border border-cream-300 bg-white font-body text-sm text-forest-800 placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
           />
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setOrgType("")}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-body border transition-colors ${
+                orgType === ""
+                  ? "bg-forest-800 text-cream-50 border-forest-800"
+                  : "bg-white text-forest-600 border-cream-300 hover:bg-cream-50"
+              }`}
+            >
+              All
+            </button>
+            {ORG_TYPES.map((type) => {
+              const active = orgType === type;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setOrgType(active ? "" : type)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-body border transition-colors ${
+                    active
+                      ? "bg-forest-800 text-cream-50 border-forest-800"
+                      : "bg-white text-forest-600 border-cream-300 hover:bg-cream-50"
+                  }`}
+                >
+                  {ORG_TYPE_LABELS[type]}
+                </button>
+              );
+            })}
+          </div>
           {listLoading ? (
             <div className="space-y-2 animate-pulse">
               {[1, 2, 3].map((i) => (
@@ -237,30 +324,112 @@ export default function OrganizationExplorer({
           Organizations connected when they share current members (Jaccard
           overlap). This is overlapping membership, not a political grouping.
         </p>
+        <label className="flex items-center gap-3 text-xs font-body text-forest-600">
+          <span className="whitespace-nowrap">Min. overlap</span>
+          <input
+            type="range"
+            min={0.05}
+            max={0.5}
+            step={0.01}
+            value={minJaccard}
+            onChange={(e) => setMinJaccard(Number(e.target.value))}
+            className="flex-1 accent-forest-700"
+            aria-valuemin={0.05}
+            aria-valuemax={0.5}
+            aria-valuenow={minJaccard}
+            aria-label="Minimum Jaccard overlap"
+          />
+          <span className="tabular-nums w-10 text-right">{minJaccard.toFixed(2)}</span>
+        </label>
         {affinityError && (
           <p className="text-sm font-body text-forest-500">{affinityError}</p>
         )}
         {!affinity && !affinityError ? (
           <div className="h-[300px] sm:h-[360px] bg-cream-100 rounded-lg animate-pulse" />
         ) : (
-          <CivicGraph
-            nodes={(affinity?.nodes ?? []).map((node) => ({
-              id: node.id,
-              kind: "organization" as const,
-              label: node.label,
-              org_type: node.org_type,
-              size: node.size,
-            }))}
-            edges={(affinity?.edges ?? []).map((edge) => ({
-              source: edge.source,
-              target: edge.target,
-              kind: "membership",
-              shared: edge.shared,
-              jaccard: edge.jaccard,
-            }))}
-            onNodeClick={(id) => setSelectedId(id)}
-            heightClassName="h-[300px] sm:h-[360px]"
-          />
+          <div className="grid gap-3 lg:grid-cols-[1fr_minmax(160px,220px)]">
+            <CivicGraph
+              nodes={graphNodes.map((node) => ({
+                id: node.id,
+                kind: "organization" as const,
+                label: node.label,
+                org_type: node.org_type,
+                size: node.size,
+              }))}
+              edges={graphEdges.map((edge) => ({
+                source: edge.source,
+                target: edge.target,
+                kind: "membership",
+                shared: edge.shared,
+                jaccard: edge.jaccard,
+                shared_names: edge.shared_names,
+              }))}
+              onNodeClick={(id) => setSelectedId(id)}
+              onEdgeClick={setSelectedEdge}
+              heightClassName="h-[300px] sm:h-[360px]"
+            />
+            {isolates.length > 0 && (
+              <aside className="rounded-lg border border-cream-200 bg-cream-50/60 p-3 max-h-[300px] sm:max-h-[360px] overflow-y-auto">
+                <h4 className="font-heading font-semibold text-xs text-forest-800">
+                  No overlaps yet
+                </h4>
+                <p className="text-[11px] font-body text-forest-500 mt-0.5 mb-2">
+                  Orgs with members but no shared membership at this threshold.
+                </p>
+                <ul className="space-y-1">
+                  {isolates.map((org) => (
+                    <li key={org.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(org.id)}
+                        className="w-full text-left text-xs font-body text-forest-700 hover:text-forest-900 hover:underline"
+                      >
+                        {org.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+            )}
+          </div>
+        )}
+        {selectedEdge && (
+          <div className="rounded-lg border border-cream-200 bg-white p-3 space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="font-heading font-semibold text-sm text-forest-800">
+                  Shared membership
+                </h4>
+                <p className="text-xs font-body text-forest-500 mt-0.5">
+                  {sourceName} · {targetName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEdge(null)}
+                className="text-xs font-body text-forest-500 hover:text-forest-800"
+              >
+                Close
+              </button>
+            </div>
+            <p className="text-sm font-body text-forest-700">
+              {selectedEdge.shared ?? 0} shared
+              {selectedEdge.jaccard != null
+                ? ` · Jaccard ${selectedEdge.jaccard.toFixed(2)}`
+                : ""}
+            </p>
+            {selectedEdge.shared_names && selectedEdge.shared_names.length > 0 ? (
+              <ul className="text-sm font-body text-forest-700 space-y-0.5">
+                {selectedEdge.shared_names.map((name) => (
+                  <li key={name}>{name}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm font-body text-forest-500">
+                Shared names are not available for this edge.
+              </p>
+            )}
+          </div>
         )}
         <GraphLegend affinity showSeats={false} />
       </div>

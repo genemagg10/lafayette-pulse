@@ -188,3 +188,16 @@ export function scaleSize(value: number, min: number, max: number, lo = 6, hi = 
   const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
   return lo + t * (hi - lo);
 }
+
+/** Role tenure line for ego edge tooltips. Null end_date means present/current. */
+export function formatTenureRange(
+  startDate?: string | null,
+  endDate?: string | null
+): string {
+  const from = startDate ? startDate.slice(0, 10) : null;
+  const to = endDate ? endDate.slice(0, 10) : null;
+  if (!from && !to) return "Current";
+  if (!from) return `until ${to}`;
+  if (!to) return `${from} – present`;
+  return `${from} – ${to}`;
+}
