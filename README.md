@@ -62,7 +62,7 @@ Optional:
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Unused by default (OSM tiles) |
 | `GOOGLE_MAPS_API_KEY` | Optional geocoding in scripts |
 
-After deploy, open [`/api/health`](https://lafayette-pulse.vercel.app/api/health). It always returns HTTP 200 and reports whether Supabase is reachable, row counts for `projects` / `agenda_items` / `document_chunks`, and the latest `scraped_sources.scraped_at`. If the live board shows “Data temporarily unavailable”, this endpoint is the first place to look (usually missing or expired Vercel env vars — not an app crash).
+After deploy, open [`/api/health`](https://lafayette-pulse.vercel.app/api/health). It always returns HTTP 200 and reports whether Supabase is reachable, row counts for `projects` / `agenda_items` / `document_chunks` / `people` / `organizations` / `memberships` / `seat_holders`, and the latest `scraped_sources.scraped_at`. If the live board shows “Data temporarily unavailable”, this endpoint is the first place to look (usually missing or expired Vercel env vars — not an app crash). Pulse Board tiles for Who's Who and Organizations use these counts (not the length of a cached list).
 
 ### Set Up Database
 
@@ -160,6 +160,23 @@ Vercel (Next.js)          GitHub Actions (daily)
 - **GitHub Actions** runs the daily scraper. Writes to Supabase using the service role key (bypasses RLS).
 - **Supabase** is the shared data layer. They never communicate directly with each other.
 - **Pulse Board** is a bento of expandable tiles on the home page. Chat stays global in the layout.
+
+## Civic graph APIs
+
+Phase 1 views (Who's Who, Most involved, Organizations) read the live civic graph. Civic graph routes send `Cache-Control: no-store`.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/health` | Reachability + counts including `people`, `organizations`, `memberships`, `seat_holders` |
+| `GET /api/people?q=&has_seat=&limit=&offset=` | Who's Who directory (`{ items, total, limit, offset }`) |
+| `GET /api/people/:id` | Person detail with memberships and formal seats |
+| `GET /api/people/:id/ego?hops=1\|2&current_only=true&alter_cap=25` | 1–2 hop ego graph (person / organization / seat nodes) |
+| `GET /api/organizations?q=&org_type=&limit=&offset=` | Org directory with `current_member_count` |
+| `GET /api/organizations/:id` | Org detail with members and seats |
+| `GET /api/graph/involvement?entity=person\|org&metric=degree\|formal&current_only=true&limit=50` | Ranked **Board footprint** (`degree`) or **Formal seats** (`formal`, seats weighted ×2) |
+| `GET /api/graph/org-affinity?current_only=true&min_jaccard=0.15&min_shared=1&limit_orgs=40` | **Shared membership** (Jaccard on current member sets) |
+
+Copy on these views is limited to overlapping membership / shared boards / board footprint / formal seats — not influence or factions.
 
 ## License
 

@@ -14,6 +14,10 @@ function emptyHealth(): HealthResponse {
       projects: null,
       agenda_items: null,
       document_chunks: null,
+      people: null,
+      organizations: null,
+      memberships: null,
+      seat_holders: null,
     },
     last_scraped_at: null,
     checked_at: new Date().toISOString(),
@@ -116,17 +120,26 @@ export async function GET() {
       });
     }
 
-    const [projects, agendaItems, documentChunks, scraped] = await Promise.all([
-      countTable("projects"),
-      countTable("agenda_items"),
-      countTable("document_chunks"),
-      latestScrapedAt(),
-    ]);
+    const [projects, agendaItems, documentChunks, people, organizations, memberships, seatHolders, scraped] =
+      await Promise.all([
+        countTable("projects"),
+        countTable("agenda_items"),
+        countTable("document_chunks"),
+        countTable("people"),
+        countTable("organizations"),
+        countTable("memberships"),
+        countTable("seat_holders"),
+        latestScrapedAt(),
+      ]);
 
     const reachable =
       projects.reachable ||
       agendaItems.reachable ||
       documentChunks.reachable ||
+      people.reachable ||
+      organizations.reachable ||
+      memberships.reachable ||
+      seatHolders.reachable ||
       scraped.reachable;
 
     payload.supabase_reachable = reachable;
@@ -134,6 +147,10 @@ export async function GET() {
     payload.counts.projects = projects.count;
     payload.counts.agenda_items = agendaItems.count;
     payload.counts.document_chunks = documentChunks.count;
+    payload.counts.people = people.count;
+    payload.counts.organizations = organizations.count;
+    payload.counts.memberships = memberships.count;
+    payload.counts.seat_holders = seatHolders.count;
     payload.last_scraped_at = scraped.last_scraped_at;
     payload.checked_at = new Date().toISOString();
 
