@@ -8,7 +8,7 @@ export default function BackendBanner({
   return (
     <div
       role="alert"
-      className="bg-amber-50 border border-amber-300 text-forest-900 px-4 py-4 rounded-xl shadow-sm"
+      className="bg-amber-50 border border-amber-300 text-forest-900 px-4 py-4"
     >
       <p className="font-heading font-semibold text-base">
         Backend data is currently unavailable

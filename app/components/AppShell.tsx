@@ -28,11 +28,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className={`min-h-dvh flex flex-col bg-cream-50 ${
+      className={`min-h-dvh flex flex-col bg-canvas text-ink ${
         hideMobileBrand ? "pulse-shell-map" : ""
       } ${focus ? "pulse-shell-focus" : ""}`}
     >
-      <header className="hidden md:flex sticky top-0 z-40 h-14 items-center bg-forest-800 text-cream-50 shadow-lg">
+      <header className="hidden md:flex sticky top-0 z-40 h-14 items-center bg-surface border-b border-line">
         <div className="w-full px-4 flex items-center gap-6">
           <Brand />
           <nav className="flex items-center gap-1" aria-label="Primary">
@@ -62,7 +62,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       {!hideMobileBrand && (
-        <div className="md:hidden sticky top-0 z-40 h-12 flex items-center justify-between px-4 bg-forest-800 text-cream-50">
+        <div className="md:hidden sticky top-0 z-40 h-12 flex items-center justify-between px-4 bg-surface border-b border-line text-ink">
           <Brand compact />
           <FreshnessChip
             label={freshness.label}
@@ -80,16 +80,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {!focus && (
-        <footer className="hidden md:block bg-forest-800 text-cream-200 py-4 text-center text-xs font-body">
+        <footer className="hidden md:block border-t border-line bg-surface text-forest-500 py-4 text-center text-xs font-body">
           <p>
             Lafayette Pulse &middot; Map, calendar &amp; who&apos;s who &middot;
             Public records
-            <span className="mx-1.5 text-forest-500">·</span>
-            <a href="/api/health" className="underline hover:text-cream-50">
+            <span className="mx-1.5">·</span>
+            <a href="/api/health" className="underline hover:text-ink">
               Health
             </a>
-            <span className="mx-1.5 text-forest-500">·</span>
-            <Link href="/more" className="underline hover:text-cream-50">
+            <span className="mx-1.5">·</span>
+            <Link href="/more" className="underline hover:text-ink">
               More
             </Link>
           </p>
@@ -106,7 +106,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 h-14 bg-forest-800 text-cream-50 border-t border-forest-700"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 h-14 bg-surface text-ink border-t border-line"
         aria-label="Primary"
       >
         <div className="h-full grid grid-cols-5">
@@ -116,8 +116,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               href={item.href}
               className={`flex flex-col items-center justify-center text-[11px] font-body ${
                 isActive(pathname, item.href)
-                  ? "text-cream-50 bg-forest-700/80"
-                  : "text-cream-200"
+                  ? "text-forest-800 font-semibold bg-canvas"
+                  : "text-forest-500"
               }`}
             >
               <span>{item.label}</span>
@@ -130,8 +130,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               aria-expanded={moreOpen}
               className={`flex-1 flex flex-col items-center justify-center text-[11px] font-body ${
                 pathname === "/projects" || pathname === "/more"
-                  ? "text-cream-50 bg-forest-700/80"
-                  : "text-cream-200"
+                  ? "text-forest-800 font-semibold bg-canvas"
+                  : "text-forest-500"
               }`}
             >
               More
@@ -151,9 +151,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-2 flex-shrink-0">
-      <span aria-hidden="true">🌿</span>
-      <span className={`font-heading font-bold tracking-tight ${compact ? "text-base" : "text-lg"}`}>
+    <Link href="/" className="flex items-center gap-2 flex-shrink-0 text-ink">
+      <span
+        className={`font-heading font-bold tracking-tight ${compact ? "text-base" : "text-lg"}`}
+      >
         Lafayette Pulse
       </span>
     </Link>
@@ -172,10 +173,10 @@ function NavLink({
   return (
     <Link
       href={href}
-      className={`px-3 py-1.5 rounded-full text-sm font-body transition-colors ${
+      className={`px-3 py-1.5 text-sm font-body transition-colors border-b-2 ${
         active
-          ? "bg-cream-50 text-forest-800"
-          : "text-cream-200 hover:bg-forest-700/80"
+          ? "border-forest-800 text-forest-800 font-semibold"
+          : "border-transparent text-forest-500 hover:text-ink"
       }`}
     >
       {label}
@@ -195,10 +196,10 @@ function MoreButton({
       type="button"
       onClick={onToggle}
       aria-expanded={open}
-      className={`px-3 py-1.5 rounded-full text-sm font-body border transition-colors ${
+      className={`px-3 py-1.5 text-sm font-body border transition-colors ${
         open
-          ? "bg-cream-50 text-forest-800 border-cream-50"
-          : "bg-forest-700/60 text-cream-200 border-forest-600 hover:bg-forest-700"
+          ? "bg-canvas text-ink border-line"
+          : "bg-surface text-forest-600 border-line hover:border-forest-400"
       }`}
     >
       More
@@ -215,14 +216,14 @@ function MorePanel({
 }) {
   return (
     <div
-      className={`z-50 w-72 rounded-xl border border-cream-200 bg-white text-forest-800 shadow-lg p-2 ${className}`}
+      className={`z-50 w-72 border border-line bg-surface text-ink p-2 ${className}`}
     >
       {MORE_LINKS.map((link) => (
         <Link
           key={link.href}
           href={link.href}
           onClick={onNavigate}
-          className="block rounded-lg px-3 py-2.5 hover:bg-cream-50"
+          className="block px-3 py-2.5 hover:bg-canvas"
         >
           <div className="font-heading font-semibold text-sm">{link.label}</div>
           <div className="text-xs font-body text-forest-500">{link.description}</div>
@@ -230,7 +231,7 @@ function MorePanel({
       ))}
       <a
         href="/api/health"
-        className="block rounded-lg px-3 py-2.5 hover:bg-cream-50 text-sm font-body text-forest-600"
+        className="block px-3 py-2.5 hover:bg-canvas text-sm font-body text-forest-600"
       >
         Open /api/health ↗
       </a>
@@ -248,10 +249,10 @@ function FreshnessChip({
   return (
     <Link
       href="/more"
-      className={`rounded-full px-3 py-1 font-body text-xs ${
+      className={`px-3 py-1 font-body text-xs border ${
         unavailable
-          ? "bg-amber-500/90 text-forest-950"
-          : "bg-forest-700/60 text-cream-200"
+          ? "bg-amber-50 text-forest-900 border-amber-300"
+          : "bg-canvas text-forest-600 border-line"
       }`}
       title={label}
     >

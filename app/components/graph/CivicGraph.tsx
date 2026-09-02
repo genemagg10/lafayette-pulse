@@ -497,12 +497,12 @@ export default function CivicGraph({
   }
 
   return (
-    <div className={`relative ${heightClassName} rounded-lg border border-cream-200 bg-cream-50 overflow-hidden`}>
+    <div className={`relative ${heightClassName} border border-line bg-canvas overflow-hidden`}>
       <div ref={containerRef} className="absolute inset-0 cursor-pointer" />
       <canvas ref={overlayRef} className="absolute inset-0 pointer-events-none" />
       <div
         ref={tooltipRef}
-        className="absolute z-10 hidden pointer-events-none max-w-[240px] rounded-md bg-forest-900 text-cream-50 text-[11px] font-body leading-snug px-2 py-1.5 shadow-lg"
+        className="absolute z-10 hidden pointer-events-none max-w-[240px] bg-forest-900 text-cream-50 text-[11px] font-body leading-snug px-2 py-1.5 border border-line"
       />
     </div>
   );

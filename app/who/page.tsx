@@ -38,7 +38,7 @@ function WhoWorkspace() {
   return (
     <FocusFrame>
       <div className="h-full min-h-0 flex flex-col">
-        <div className="flex-shrink-0 px-3 py-2 border-b border-cream-200 bg-white overflow-x-auto">
+        <div className="flex-shrink-0 px-3 py-2 border-b border-line bg-surface overflow-x-auto">
           <BoardTabs
             value={tab}
             onChange={setTab}
@@ -89,7 +89,7 @@ export default function WhoPage() {
     <Suspense
       fallback={
         <FocusFrame>
-          <div className="h-full bg-cream-100 animate-pulse" />
+          <div className="h-full bg-canvas animate-pulse" />
         </FocusFrame>
       }
     >

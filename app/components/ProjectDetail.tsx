@@ -36,7 +36,7 @@ export default function ProjectDetail({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-lg p-6 animate-pulse">
+      <div className="bg-surface border border-line p-6 animate-pulse">
         <div className="h-6 bg-cream-200 rounded w-3/4 mb-4" />
         <div className="h-4 bg-cream-200 rounded w-full mb-2" />
         <div className="h-4 bg-cream-200 rounded w-2/3" />
@@ -46,7 +46,7 @@ export default function ProjectDetail({
 
   if (!project) {
     return (
-      <div className="bg-white rounded-lg shadow-lg p-6 text-center text-forest-400 font-body">
+      <div className="bg-surface border border-line p-6 text-center text-forest-400 font-body">
         Project not found.
       </div>
     );
@@ -56,7 +56,7 @@ export default function ProjectDetail({
   const statusStyle = STATUS_STYLES[project.status];
 
   return (
-    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+    <div className="bg-surface border border-line overflow-hidden">
       {/* Header */}
       <div className="p-4 sm:p-6" style={{ borderTop: `4px solid ${cat.color}` }}>
         <div className="flex items-start justify-between">

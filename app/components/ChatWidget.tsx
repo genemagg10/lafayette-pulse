@@ -83,7 +83,7 @@ export default function ChatWidget() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 bg-forest-800 text-white rounded-full px-5 py-3 shadow-lg hover:bg-forest-700 transition-all hover:scale-105 flex items-center gap-2 text-sm font-medium"
+          className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 bg-forest-800 text-white rounded-full border border-forest-800 px-5 py-3 hover:bg-forest-700 transition-colors flex items-center gap-2 text-sm font-medium"
           aria-label="Open Love Lafayette AI chat"
         >
           <svg
@@ -104,7 +104,7 @@ export default function ChatWidget() {
 
       {/* Chat panel */}
       {isOpen && (
-        <div className="fixed bottom-14 right-0 sm:bottom-6 sm:right-6 z-50 w-full sm:w-[420px] h-[calc(100dvh-3.5rem)] sm:h-[600px] sm:max-h-[80vh] bg-white sm:rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
+        <div className="fixed bottom-14 right-0 sm:bottom-6 sm:right-6 z-50 w-full sm:w-[420px] h-[calc(100dvh-3.5rem)] sm:h-[600px] sm:max-h-[80vh] bg-surface border border-line flex flex-col overflow-hidden">
           {/* Header */}
           <div className="bg-forest-800 text-white px-4 py-3 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
@@ -149,7 +149,7 @@ export default function ChatWidget() {
           </div>
 
           {/* Messages area */}
-          <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="flex-1 overflow-y-auto bg-canvas px-4 py-4">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col justify-center">
                 <div className="text-center mb-6">
@@ -166,7 +166,7 @@ export default function ChatWidget() {
                     <button
                       key={question}
                       onClick={() => handleSuggestionClick(question)}
-                      className="w-full text-left text-sm px-4 py-2.5 rounded-xl border border-gray-200 text-forest-800 hover:bg-cream-50 hover:border-forest-800/30 transition-colors"
+                      className="w-full text-left text-sm px-4 py-2.5 border border-line text-forest-800 hover:bg-canvas hover:border-accent transition-colors"
                     >
                       {question}
                     </button>
@@ -237,13 +237,13 @@ export default function ChatWidget() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about Lafayette..."
-                className="flex-1 text-sm px-4 py-2.5 rounded-xl border border-gray-200 focus:border-forest-800 focus:ring-1 focus:ring-forest-800 outline-none transition-colors bg-cream-50"
+                className="flex-1 text-sm px-4 py-2.5 border border-line focus:border-forest-800 focus:ring-1 focus:ring-forest-800 outline-none transition-colors bg-canvas"
                 disabled={isLoading}
               />
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="bg-forest-800 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-forest-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+                className="bg-forest-800 text-white px-4 py-2.5 text-sm font-medium hover:bg-forest-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
               >
                 Send
               </button>

@@ -129,7 +129,7 @@ export default function AgendaFeed({
                     }
                   : undefined
               }
-              className={`bg-white rounded-lg shadow-sm border border-cream-200 p-4 ${
+              className={`bg-surface border border-line p-4 ${
                 onSelectItem ? "cursor-pointer hover:border-forest-300" : ""
               } ${selectedItemId === item.id ? "ring-1 ring-forest-400" : ""}`}
               style={{

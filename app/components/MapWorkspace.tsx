@@ -49,11 +49,7 @@ export default function MapWorkspace() {
   return (
     <FocusFrame>
       <div className="relative h-full min-h-0">
-        <div
-          className={`h-full min-h-0 ${
-            panelOpen ? "md:pr-[min(38%,400px)]" : ""
-          }`}
-        >
+        <div className={`h-full min-h-0 ${panelOpen ? "md:pr-[340px]" : ""}`}>
           <ProjectMap
             projects={projects}
             layers={layers}
@@ -68,7 +64,7 @@ export default function MapWorkspace() {
         </div>
 
         <aside
-          className={`hidden md:flex flex-col absolute top-0 right-0 h-full w-[min(38%,400px)] min-w-[320px] bg-white border-l border-cream-200 shadow-sm transition-transform ${
+          className={`hidden md:flex flex-col absolute top-0 right-0 h-full w-[340px] bg-surface border-l border-line ${
             panelOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -85,21 +81,21 @@ export default function MapWorkspace() {
           <button
             type="button"
             onClick={() => setPanelOpen(true)}
-            className="hidden md:block absolute top-3 right-3 z-[1000] rounded-lg bg-white border border-cream-200 shadow-sm px-3 py-1.5 text-xs font-body text-forest-700"
+            className="hidden md:block absolute top-3 right-3 z-[1000] bg-surface border border-line px-3 py-1.5 text-xs font-body text-forest-700"
           >
             Selection
           </button>
         )}
 
         {sheetOpen && (
-          <div className="md:hidden absolute inset-x-0 bottom-0 z-[1100] max-h-[55%] rounded-t-2xl bg-white border-t border-cream-200 shadow-2xl flex flex-col">
+          <div className="md:hidden absolute inset-x-0 bottom-0 z-[1100] max-h-[55%] bg-surface border-t border-line flex flex-col">
             <button
               type="button"
               className="flex-shrink-0 py-2 flex justify-center"
               onClick={() => setSheetOpen(false)}
               aria-label="Close selection sheet"
             >
-              <span className="w-10 h-1 rounded-full bg-cream-300" />
+              <span className="w-10 h-1 rounded-full bg-line" />
             </button>
             <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
               <SelectionBody selection={selection} />
@@ -119,7 +115,7 @@ function PanelHeader({
   toggleLabel: string;
 }) {
   return (
-    <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-cream-200">
+    <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-line">
       <h2 className="font-heading font-semibold text-forest-800">Selection</h2>
       <button
         type="button"
@@ -208,7 +204,7 @@ function SelectionBody({ selection }: { selection: Selection | null }) {
       </p>
       <h3 className="font-heading font-semibold text-forest-800">{project.title}</h3>
       <p className="text-sm font-body text-forest-600">
-        {cat.icon} {cat.label}
+        {cat.label}
       </p>
       {project.location_name && (
         <p className="text-sm font-body text-forest-500">{project.location_name}</p>

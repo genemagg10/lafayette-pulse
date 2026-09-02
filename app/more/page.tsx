@@ -16,7 +16,7 @@ export default function MorePage() {
         </p>
       </div>
 
-      <section className="bg-white rounded-xl border border-cream-200 p-4 space-y-2">
+      <section className="bg-surface border border-line p-4 space-y-2">
         <h2 className="font-heading font-semibold text-forest-800">Health & freshness</h2>
         <p className="text-sm font-body text-forest-600">
           {loading ? "Checking data…" : freshness.label}
@@ -40,7 +40,7 @@ export default function MorePage() {
       <section className="grid gap-3 sm:grid-cols-2">
         <Link
           href="/projects"
-          className="bg-white rounded-xl border border-cream-200 p-4 hover:border-forest-300"
+          className="bg-surface border border-line p-4 hover:border-accent"
         >
           <h2 className="font-heading font-semibold text-forest-800">Project archive</h2>
           <p className="text-sm font-body text-forest-600 mt-1">
@@ -49,7 +49,7 @@ export default function MorePage() {
         </Link>
         <Link
           href="/who?tab=measures"
-          className="bg-white rounded-xl border border-cream-200 p-4 hover:border-forest-300"
+          className="bg-surface border border-line p-4 hover:border-accent"
         >
           <h2 className="font-heading font-semibold text-forest-800">Measures</h2>
           <p className="text-sm font-body text-forest-600 mt-1">

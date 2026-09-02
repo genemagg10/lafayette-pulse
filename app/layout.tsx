@@ -44,7 +44,7 @@ export default function RootLayout({
           crossOrigin=""
         />
       </head>
-      <body className="bg-cream-50 text-forest-800 font-body antialiased">
+      <body className="bg-canvas text-ink font-body antialiased">
         <AppShell>{children}</AppShell>
         <ChatWidget />
         <Script

@@ -24,20 +24,20 @@ export default function FocusPanes({
   return (
     <div className="h-full min-h-0">
       <div className="hidden lg:grid h-full min-h-0 lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)_minmax(280px,340px)]">
-        <aside className="min-h-0 overflow-y-auto border-r border-cream-200 bg-white p-3">
+        <aside className="min-h-0 overflow-y-auto border-r border-line bg-surface p-3">
           {master}
         </aside>
-        <section className="min-w-0 min-h-[420px] h-full overflow-hidden flex flex-col bg-cream-50 p-3">
+        <section className="min-w-0 min-h-[420px] h-full overflow-hidden flex flex-col bg-canvas p-3">
           {viz}
         </section>
-        <aside className="min-h-0 overflow-y-auto border-l border-cream-200 bg-white p-3">
+        <aside className="min-h-0 overflow-y-auto border-l border-line bg-surface p-3">
           {detail}
         </aside>
       </div>
 
       <div className="lg:hidden h-full min-h-0 flex flex-col">
         {mobileStep !== "list" && mobileStep !== "viz" && (
-          <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-cream-200 bg-white">
+          <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line bg-surface">
             <button
               type="button"
               onClick={() => onMobileStep("list")}
@@ -60,7 +60,7 @@ export default function FocusPanes({
               <button
                 type="button"
                 onClick={() => onMobileStep("viz")}
-                className="w-full rounded-lg bg-forest-800 text-cream-50 font-heading text-sm py-3 hover:bg-forest-700"
+                className="w-full rounded-none bg-forest-800 text-cream-50 font-heading text-sm py-3 hover:bg-forest-700"
               >
                 Open {vizLabel}
               </button>
@@ -70,8 +70,8 @@ export default function FocusPanes({
       </div>
 
       {mobileStep === "viz" && (
-        <div className="lg:hidden fixed inset-x-0 top-0 bottom-14 z-30 bg-cream-50 flex flex-col">
-          <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-cream-200 bg-white">
+        <div className="lg:hidden fixed inset-x-0 top-0 bottom-14 z-30 bg-canvas flex flex-col">
+          <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line bg-surface">
             <button
               type="button"
               onClick={() => onMobileStep("detail")}

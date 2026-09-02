@@ -114,7 +114,7 @@ export default function ProjectMap({
 
   if (!mounted) {
     return (
-      <div className="w-full h-full bg-cream-100 flex items-center justify-center rounded-lg">
+      <div className="w-full h-full bg-canvas flex items-center justify-center">
         <p className="text-forest-400 font-body">Loading map...</p>
       </div>
     );
@@ -122,7 +122,7 @@ export default function ProjectMap({
 
   return (
     <div className={`relative w-full h-full map-bleed ${className ?? ""}`}>
-      <div className="absolute top-3 right-3 z-[1000] rounded-lg border border-cream-200 bg-white/95 shadow-sm p-2 space-y-1">
+      <div className="absolute top-3 right-3 z-[1000] border border-line bg-surface p-2 space-y-1">
         <p className="text-[10px] uppercase tracking-wide text-forest-400 font-body px-1">
           Layers
         </p>

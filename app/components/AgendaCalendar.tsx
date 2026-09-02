@@ -157,11 +157,11 @@ export default function AgendaCalendar({
       className={
         chrome === "plain"
           ? "overflow-hidden"
-          : "bg-white rounded-xl border border-cream-200 shadow-sm overflow-hidden"
+          : "bg-surface border border-line overflow-hidden"
       }
     >
       {/* Month navigation */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-cream-200">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <button
           onClick={prevPeriod}
           className="p-1.5 rounded hover:bg-cream-100 text-forest-600 text-lg leading-none"

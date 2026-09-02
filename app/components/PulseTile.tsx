@@ -24,7 +24,7 @@ interface PulseTileProps {
 export default function PulseTile({
   id,
   title,
-  icon,
+  icon: _icon,
   summary,
   expanded,
   onToggle,
@@ -34,7 +34,7 @@ export default function PulseTile({
   return (
     <section
       id={`tile-${id}`}
-      className={`bg-white rounded-xl border border-cream-200 shadow-sm overflow-hidden transition-all duration-300 ${
+      className={`bg-surface border border-line overflow-hidden transition-all duration-300 ${
         expanded ? "md:col-span-2 xl:col-span-3" : ""
       } ${className ?? ""}`}
     >
@@ -42,14 +42,8 @@ export default function PulseTile({
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="w-full flex items-center gap-3 p-4 text-left hover:bg-cream-50 transition-colors"
+        className="w-full flex items-center gap-3 p-4 text-left hover:bg-canvas transition-colors"
       >
-        <div
-          className="w-10 h-10 rounded-lg bg-forest-50 text-forest-800 flex items-center justify-center text-xl flex-shrink-0"
-          aria-hidden="true"
-        >
-          {icon}
-        </div>
         <div className="flex-1 min-w-0">
           <h2 className="font-heading font-bold text-forest-800 text-base sm:text-lg">
             {title}
@@ -74,7 +68,7 @@ export default function PulseTile({
         </svg>
       </button>
       {expanded && (
-        <div className="border-t border-cream-200 p-4 animate-in">
+        <div className="border-t border-line p-4 animate-in">
           {children}
         </div>
       )}

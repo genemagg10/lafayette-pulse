@@ -16,7 +16,7 @@ export default function CalendarWorkspace() {
   return (
     <FocusFrame>
       <div className="h-full min-h-0 hidden md:grid md:grid-cols-[minmax(0,55fr)_minmax(0,45fr)]">
-        <section className="min-h-0 overflow-y-auto border-r border-cream-200 p-3">
+        <section className="min-h-0 overflow-y-auto border-r border-line bg-surface p-3">
           <div className="flex items-center justify-between mb-3">
             <h1 className="font-heading font-bold text-forest-800">Calendar</h1>
             <ViewToggle view={view} onChange={setView} />
@@ -33,7 +33,7 @@ export default function CalendarWorkspace() {
             chrome="plain"
           />
         </section>
-        <section className="min-h-0 overflow-y-auto p-3 space-y-4">
+        <section className="min-h-0 overflow-y-auto bg-canvas p-3 space-y-4">
           <h2 className="font-heading font-semibold text-forest-800">
             {selectedDay
               ? new Date(`${selectedDay}T12:00:00`).toLocaleDateString("en-US", {
@@ -59,12 +59,12 @@ export default function CalendarWorkspace() {
       </div>
 
       <div className="md:hidden h-full min-h-0 flex flex-col">
-        <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-cream-200 bg-white">
+        <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-line bg-surface">
           <h1 className="font-heading font-bold text-forest-800">Calendar</h1>
           <button
             type="button"
             onClick={() => setMobileGrid((open) => !open)}
-            className="text-xs font-body px-3 py-1.5 rounded-full border border-cream-300 text-forest-700"
+            className="text-xs font-body px-3 py-1.5 border border-line text-forest-700"
           >
             {mobileGrid ? "Agenda" : "Month"}
           </button>
@@ -115,7 +115,7 @@ function ViewToggle({
   onChange: (view: "month" | "week") => void;
 }) {
   return (
-    <div className="inline-flex rounded-lg border border-cream-300 bg-white p-0.5">
+    <div className="inline-flex border border-line bg-surface p-0.5">
       {(["month", "week"] as const).map((id) => (
         <button
           key={id}
@@ -142,7 +142,7 @@ function SelectedAgendaDetail({
   onClose: () => void;
 }) {
   return (
-    <div className="rounded-lg border border-cream-200 bg-cream-50/60 p-3 space-y-1">
+    <div className="border border-line bg-canvas p-3 space-y-1">
       <div className="flex items-start justify-between gap-2">
         <h3 className="font-heading font-semibold text-sm text-forest-800">
           {item.title}

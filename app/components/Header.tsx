@@ -18,29 +18,23 @@ export default function Header({
   dataUnavailable,
 }: HeaderProps) {
   return (
-    <header className="bg-forest-800 text-cream-50 shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="flex items-center justify-between">
+    <header className="bg-surface text-ink border-b border-line h-14">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
+        <div className="flex items-center justify-between h-full">
           <div className="flex items-center gap-3">
-            <span className="text-2xl" aria-hidden="true">
-              🌿
-            </span>
             <div>
-              <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight">
+              <h1 className="font-heading text-lg font-bold tracking-tight">
                 Lafayette Pulse
               </h1>
-              <p className="text-cream-200 text-xs sm:text-sm font-body tracking-widest uppercase">
-                Map, calendar &amp; who&apos;s who
-              </p>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 text-sm flex-wrap justify-end">
             <button
               onClick={onToggleMap}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-body transition-all border ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-body transition-colors border ${
                 showMap
-                  ? "bg-cream-50 text-forest-800 border-cream-50"
-                  : "bg-forest-700/60 text-cream-200 border-forest-600 hover:bg-forest-700"
+                  ? "bg-canvas text-forest-800 border-line"
+                  : "bg-surface text-forest-600 border-line hover:border-accent"
               }`}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -55,10 +49,10 @@ export default function Header({
             </button>
             <button
               onClick={onToggleCalendar}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-body transition-all border ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-body transition-colors border ${
                 showCalendar
-                  ? "bg-cream-50 text-forest-800 border-cream-50"
-                  : "bg-forest-700/60 text-cream-200 border-forest-600 hover:bg-forest-700"
+                  ? "bg-canvas text-forest-800 border-line"
+                  : "bg-surface text-forest-600 border-line hover:border-accent"
               }`}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -72,10 +66,10 @@ export default function Header({
               {showCalendar ? "Hide Calendar" : "Calendar"}
             </button>
             <div
-              className={`rounded-full px-3 py-1 font-body text-xs ${
+              className={`px-3 py-1 font-body text-xs border ${
                 dataUnavailable
-                  ? "bg-amber-500/90 text-forest-950"
-                  : "bg-forest-700/60 text-cream-200"
+                  ? "bg-amber-50 text-forest-900 border-amber-300"
+                  : "bg-canvas text-forest-600 border-line"
               }`}
               title={freshnessLabel}
             >

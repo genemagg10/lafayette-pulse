@@ -58,7 +58,7 @@ export default function Home() {
       <BoardRedirect />
 
       <div>
-        <h1 className="font-heading text-2xl sm:text-3xl font-bold text-forest-800">
+        <h1 className="font-heading text-2xl sm:text-3xl font-bold text-ink">
           Lafayette Pulse
         </h1>
         <p className="mt-1 text-sm font-body text-forest-600 max-w-2xl">
@@ -99,9 +99,9 @@ export default function Home() {
       </section>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-        <div className="bg-white rounded-xl border border-cream-200 shadow-sm p-4">
+        <div className="bg-surface border border-line p-4">
           <div className="flex items-baseline justify-between gap-3 mb-3">
-            <h2 className="font-heading font-bold text-forest-800">Coming up</h2>
+            <h2 className="font-heading font-bold text-ink">Coming up</h2>
             <Link
               href="/calendar"
               className="text-xs font-body text-forest-600 underline hover:text-forest-800"
@@ -118,7 +118,7 @@ export default function Home() {
               No upcoming meetings in the current feed.
             </p>
           ) : (
-            <ul className="divide-y divide-cream-200">
+            <ul className="divide-y divide-line">
               {upcoming.slice(0, 6).map((item) => (
                 <li key={item.id} className="py-2.5">
                   <p className="text-xs font-body text-forest-500">
@@ -130,7 +130,7 @@ export default function Home() {
                     <span className="mx-1.5">·</span>
                     {item.body}
                   </p>
-                  <p className="font-heading font-semibold text-sm text-forest-800 mt-0.5">
+                  <p className="font-heading font-semibold text-sm text-ink mt-0.5">
                     {item.title}
                   </p>
                 </li>
@@ -178,12 +178,12 @@ function Kpi({
   return (
     <Link
       href={href}
-      className="bg-white rounded-xl border border-cream-200 shadow-sm p-4 hover:border-forest-300 transition-colors"
+      className="bg-surface border border-line p-4 hover:border-accent transition-colors"
     >
       <p className="text-[11px] uppercase tracking-wide font-body text-forest-500">
         {label}
       </p>
-      <p className="font-heading text-2xl font-bold text-forest-800 mt-1 tabular-nums">
+      <p className="font-heading text-2xl font-bold text-ink mt-1 tabular-nums">
         {value}
       </p>
     </Link>
@@ -202,9 +202,9 @@ function Doorway({
   return (
     <Link
       href={href}
-      className="bg-white rounded-xl border border-cream-200 shadow-sm p-4 hover:border-forest-300 transition-colors flex flex-col"
+      className="bg-surface border border-line p-4 hover:border-accent transition-colors flex flex-col"
     >
-      <h3 className="font-heading font-bold text-forest-800">{title}</h3>
+      <h3 className="font-heading font-bold text-ink">{title}</h3>
       <p className="text-sm font-body text-forest-600 mt-1 flex-1">{body}</p>
       <span className="text-xs font-body text-forest-500 mt-3">Open →</span>
     </Link>
