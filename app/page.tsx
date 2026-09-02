@@ -5,7 +5,11 @@ import Link from "next/link";
 import BackendBanner from "./components/BackendBanner";
 import BoardRedirect from "./components/BoardRedirect";
 import { useHealth } from "@/lib/use-health";
-import type { AgendaItem } from "@/lib/types";
+import {
+  fetchCalendarItems,
+  todayKeyPacific,
+  type CalendarItem,
+} from "@/lib/calendar-items";
 import type { MeasureListItem } from "@/lib/stances";
 
 function countLabel(n: number | null | undefined, unavailable?: boolean): string {
@@ -16,22 +20,22 @@ function countLabel(n: number | null | undefined, unavailable?: boolean): string
 
 export default function Home() {
   const { health, freshness, backendDown } = useHealth();
-  const [upcoming, setUpcoming] = useState<AgendaItem[]>([]);
+  const [upcoming, setUpcoming] = useState<CalendarItem[]>([]);
   const [upcomingError, setUpcomingError] = useState<string | null>(null);
   const [contested, setContested] = useState<number | null>(null);
 
   useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-    fetch(`/api/agenda-items?since=${today}&upcoming=true&limit=8`)
-      .then(async (res) => {
-        const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-        return Array.isArray(data) ? (data as AgendaItem[]) : [];
-      })
+    const today = todayKeyPacific();
+    fetchCalendarItems({
+      since: today,
+      upcoming: true,
+      limit: 8,
+      preferEvents: true,
+    })
       .then(setUpcoming)
       .catch((err) => {
         setUpcoming([]);
-        setUpcomingError(err.message);
+        setUpcomingError(err instanceof Error ? err.message : "Unavailable");
       });
   }, []);
 
@@ -50,7 +54,6 @@ export default function Home() {
 
   const people = health?.counts.people ?? null;
   const orgs = health?.counts.organizations ?? null;
-  const meetings = health?.counts.agenda_items ?? null;
   const unavailable = freshness.unavailable;
 
   return (
@@ -86,7 +89,7 @@ export default function Home() {
             href="/calendar"
             label="Upcoming meetings"
             value={countLabel(
-              upcomingError ? meetings : upcoming.length || meetings,
+              upcomingError ? null : upcoming.length,
               unavailable
             )}
           />
@@ -122,13 +125,31 @@ export default function Home() {
               {upcoming.slice(0, 6).map((item) => (
                 <li key={item.id} className="py-2.5">
                   <p className="text-xs font-body text-ink-muted">
-                    {new Date(item.date).toLocaleDateString("en-US", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                    <span className="mx-1.5">·</span>
-                    {item.body}
+                    {new Date(`${item.dayKey}T12:00:00`).toLocaleDateString(
+                      "en-US",
+                      {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      }
+                    )}
+                    {item.timeLabel && (
+                      <>
+                        <span className="mx-1.5">·</span>
+                        {item.timeLabel} PT
+                      </>
+                    )}
+                    {item.body && (
+                      <>
+                        <span className="mx-1.5">·</span>
+                        {item.body}
+                      </>
+                    )}
+                    {item.projected && (
+                      <span className="ml-2 text-[10px] uppercase tracking-wide text-ink-muted">
+                        Projected
+                      </span>
+                    )}
                   </p>
                   <p className="font-heading font-semibold text-sm text-ink mt-0.5">
                     {item.title}

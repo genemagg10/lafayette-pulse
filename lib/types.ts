@@ -105,6 +105,7 @@ export interface ChatSource {
 export interface HealthCounts {
   projects: number | null;
   agenda_items: number | null;
+  events: number | null;
   document_chunks: number | null;
   people: number | null;
   organizations: number | null;
