@@ -107,8 +107,8 @@ function ProjectCard({
 
   return (
     <div
-      className={`bg-white rounded-lg shadow-sm border transition-all cursor-pointer hover:shadow-md ${
-        isSelected ? "ring-2 ring-forest-500" : "border-cream-200"
+      className={`bg-surface rounded-lg border transition-all cursor-pointer ${
+        isSelected ? "ring-2 ring-forest-500" : "border-line"
       } ${nested ? "ml-4 border-l-2" : ""}`}
       style={nested ? { borderLeftColor: cat.color } : undefined}
       onClick={() => {
@@ -130,11 +130,11 @@ function ProjectCard({
                 {cat.icon}
               </span>
               <div className="min-w-0">
-                <h4 className="font-heading font-semibold text-forest-800 text-sm leading-tight">
+                <h4 className="font-heading font-semibold text-ink text-sm leading-tight">
                   {project.title}
                 </h4>
                 {project.location_name && (
-                  <p className="text-forest-500 text-xs mt-0.5 font-body truncate">
+                  <p className="text-ink-muted text-xs mt-0.5 font-body truncate">
                     {project.location_name}
                   </p>
                 )}
@@ -175,7 +175,7 @@ function ProjectCard({
                 {visibleTags.slice(0, 3).map((tag) => (
                   <span
                     key={tag}
-                    className="bg-cream-100 text-forest-500 px-1.5 py-0.5 rounded-full"
+                    className="bg-surface-muted text-ink-muted px-1.5 py-0.5 rounded-full"
                   >
                     {tag}
                   </span>
@@ -190,7 +190,7 @@ function ProjectCard({
           </div>
 
           {expanded && (
-            <div className="mt-3 pt-3 border-t border-cream-200 space-y-2 text-sm font-body">
+            <div className="mt-3 pt-3 border-t border-line space-y-2 text-sm font-body">
               {project.description && (
                 <p className="text-forest-700">{project.description}</p>
               )}
@@ -200,7 +200,7 @@ function ProjectCard({
                     <span className="font-medium text-forest-600">
                       Timeline:
                     </span>{" "}
-                    <span className="text-forest-500">
+                    <span className="text-ink-muted">
                       {project.timeline_text}
                     </span>
                   </div>
@@ -210,7 +210,7 @@ function ProjectCard({
                     <span className="font-medium text-forest-600">
                       Funding:
                     </span>{" "}
-                    <span className="text-forest-500">
+                    <span className="text-ink-muted">
                       {project.funding_source}
                     </span>
                   </div>
@@ -220,7 +220,7 @@ function ProjectCard({
                     <span className="font-medium text-forest-600">
                       Est. Cost:
                     </span>{" "}
-                    <span className="text-forest-500">
+                    <span className="text-ink-muted">
                       ${project.estimated_cost.toLocaleString()}
                     </span>
                   </div>
@@ -232,7 +232,7 @@ function ProjectCard({
                     href={project.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-forest-600 underline hover:text-forest-800 text-xs"
+                    className="inline-flex items-center gap-1 text-forest-600 underline hover:text-ink text-xs"
                     onClick={(e) => e.stopPropagation()}
                   >
                     View Source
@@ -337,7 +337,7 @@ export default function GroupedProjectList({
             {/* ── Category header ── */}
             <button
               onClick={() => toggleCollapse(category)}
-              className="w-full flex items-center gap-3 py-2 px-3 rounded-lg transition-colors hover:bg-cream-100 group"
+              className="w-full flex items-center gap-3 py-2 px-3 rounded-lg transition-colors hover:bg-surface-muted group"
             >
               <div
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-lg flex-shrink-0"

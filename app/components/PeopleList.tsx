@@ -12,7 +12,7 @@ export default function PeopleList({ people, loading }: PeopleListProps) {
     return (
       <div className="space-y-3 animate-pulse">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-14 bg-cream-100 rounded-lg" />
+          <div key={i} className="h-14 bg-surface-muted rounded-lg" />
         ))}
       </div>
     );
@@ -20,7 +20,7 @@ export default function PeopleList({ people, loading }: PeopleListProps) {
 
   if (people.length === 0) {
     return (
-      <p className="text-sm font-body text-forest-500">
+      <p className="text-sm font-body text-ink-muted">
         No people loaded yet. Seat holders, commissioners, and candidates will
         appear here as the civic graph is populated.
       </p>
@@ -32,9 +32,9 @@ export default function PeopleList({ people, loading }: PeopleListProps) {
       {people.map((person) => (
         <li
           key={person.id}
-          className="rounded-lg border border-cream-200 bg-cream-50/60 p-3"
+          className="rounded-lg border border-line bg-surface-muted p-3"
         >
-          <h3 className="font-heading font-semibold text-forest-800 text-sm">
+          <h3 className="font-heading font-semibold text-ink text-sm">
             {person.full_name}
           </h3>
           {person.bio && (
@@ -42,9 +42,9 @@ export default function PeopleList({ people, loading }: PeopleListProps) {
               {person.bio}
             </p>
           )}
-          <div className="mt-2 flex flex-wrap gap-3 text-xs font-body text-forest-500">
+          <div className="mt-2 flex flex-wrap gap-3 text-xs font-body text-ink-muted">
             {person.email && (
-              <a href={`mailto:${person.email}`} className="underline hover:text-forest-800">
+              <a href={`mailto:${person.email}`} className="underline hover:text-ink">
                 {person.email}
               </a>
             )}
@@ -53,7 +53,7 @@ export default function PeopleList({ people, loading }: PeopleListProps) {
                 href={person.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline hover:text-forest-800"
+                className="underline hover:text-ink"
               >
                 Website ↗
               </a>

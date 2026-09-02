@@ -1,6 +1,6 @@
 # Lafayette Pulse — Civic Tracker for Lafayette, CA
 
-A full-stack web application that monitors City of Lafayette, California government agendas, extracts projects and civic activity, and displays them on a modular Pulse Board (map, calendar, organizations, people, and projects).
+A full-stack web application that monitors City of Lafayette, California government agendas, extracts projects and civic activity, and displays them in Lafayette Pulse (home hub, map, calendar, and who's who).
 
 Live site: [lafayette-pulse.vercel.app](https://lafayette-pulse.vercel.app)
 
@@ -12,7 +12,7 @@ Live site: [lafayette-pulse.vercel.app](https://lafayette-pulse.vercel.app)
 - **Calendar & agenda** — upcoming and past meeting items
 - **Organizations** — city bodies, civic groups, foundations, and campaigns
 - **People** — commissioners, councilmembers, and other civic actors (as the graph is populated)
-- **Measures & candidates** — schema ready; UI placeholder until election data is ingested
+- **Measures & candidates** — quote-backed support/oppose under Who → Measures (DEMO-SAFE ribbon when stances exist)
 
 ## Tech Stack
 
@@ -191,7 +191,7 @@ Vercel (Next.js)          GitHub Actions (daily)
 - **Vercel** deploys the frontend + API routes. Reads from Supabase using the anon key (public, read-only via RLS).
 - **GitHub Actions** runs the daily scraper. Writes to Supabase using the service role key (bypasses RLS).
 - **Supabase** is the shared data layer. They never communicate directly with each other.
-- **Pulse Board** is a bento of expandable tiles on the home page. Chat stays global in the layout.
+- **Pulse** is the home orientation hub. Map, calendar, and who each have their own full-viewport routes. Chat stays global in the layout.
 
 ## Civic graph APIs
 

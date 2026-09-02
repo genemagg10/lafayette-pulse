@@ -17,7 +17,7 @@ export default function BoardTabs<T extends string>({
     <div
       role="tablist"
       aria-label={ariaLabel}
-      className="inline-flex rounded-lg border border-cream-300 bg-white p-0.5"
+      className="inline-flex border border-line bg-surface p-0.5"
     >
       {options.map((option) => {
         const active = option.id === value;
@@ -28,10 +28,10 @@ export default function BoardTabs<T extends string>({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(option.id)}
-            className={`px-3 py-1.5 text-xs font-body rounded-md transition-colors ${
+            className={`px-3 py-1.5 text-xs font-body transition-colors ${
               active
-                ? "bg-forest-800 text-cream-50"
-                : "text-forest-600 hover:bg-cream-50"
+                ? "bg-forest text-surface"
+                : "text-forest-600 hover:bg-canvas"
             }`}
           >
             {option.label}

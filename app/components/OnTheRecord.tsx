@@ -29,11 +29,11 @@ export default function OnTheRecord({ items }: { items: OnTheRecordItem[] }) {
   if (items.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-cream-200 bg-white p-3 space-y-2">
-      <h4 className="font-heading font-semibold text-sm text-forest-800">
+    <div className="rounded-lg border border-line bg-surface p-3 space-y-2">
+      <h4 className="font-heading font-semibold text-sm text-ink">
         On the record
       </h4>
-      <p className="text-[11px] font-body text-forest-500">
+      <p className="text-[11px] font-body text-ink-muted">
         Quote-backed support, oppose, or endorse — not inferred from boards.
       </p>
       <ul className="space-y-2">
@@ -47,7 +47,7 @@ export default function OnTheRecord({ items }: { items: OnTheRecordItem[] }) {
             </span>
             {row.subject_title}
             {row.as_of ? (
-              <span className="text-[11px] text-forest-500"> · {row.as_of}</span>
+              <span className="text-[11px] text-ink-muted"> · {row.as_of}</span>
             ) : null}
             {row.evidence_quote && (
               <p className="text-xs text-forest-600 mt-0.5 leading-relaxed">
@@ -59,7 +59,7 @@ export default function OnTheRecord({ items }: { items: OnTheRecordItem[] }) {
                 href={row.source_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] underline hover:text-forest-800"
+                className="text-[11px] underline hover:text-ink"
               >
                 Source ↗
               </a>

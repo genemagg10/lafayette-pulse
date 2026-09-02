@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import AppShell from "./components/AppShell";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -10,7 +11,10 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Lafayette Pulse — Map, calendar & who's who",
+  title: {
+    default: "Lafayette Pulse — Map, calendar & who's who",
+    template: "%s — Lafayette Pulse",
+  },
   description:
     "Civic pulse for Lafayette, California — map, calendar, and who's who from public records.",
   keywords: [
@@ -23,8 +27,6 @@ export const metadata: Metadata = {
     "city projects",
   ],
 };
-
-import ChatWidget from "./components/ChatWidget";
 
 export default function RootLayout({
   children,
@@ -41,9 +43,8 @@ export default function RootLayout({
           crossOrigin=""
         />
       </head>
-      <body className="bg-cream-50 text-forest-800 font-body antialiased">
-        {children}
-        <ChatWidget />
+      <body className="bg-canvas text-ink font-body antialiased">
+        <AppShell>{children}</AppShell>
         <Script
           data-goatcounter="https://genemaggio.goatcounter.com/count"
           src="//gc.zgo.at/count.js"

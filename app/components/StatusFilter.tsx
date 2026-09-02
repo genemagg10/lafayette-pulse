@@ -18,7 +18,7 @@ export default function StatusFilter({
         className={`px-3 py-1 rounded-full text-sm font-body transition-all border ${
           activeStatus === null
             ? "bg-forest-800 text-cream-50 border-forest-800"
-            : "bg-transparent text-forest-800 border-cream-300 hover:border-forest-800"
+            : "bg-transparent text-ink border-line-strong hover:border-forest-800"
         }`}
       >
         All

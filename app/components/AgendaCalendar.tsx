@@ -6,22 +6,62 @@ import type { AgendaItem, ProjectCategory } from "@/lib/types";
 
 interface AgendaCalendarProps {
   activeCategories: Set<ProjectCategory>;
+  view?: "month" | "week";
+  selectedDay?: string | null;
+  onSelectDay?: (day: string | null) => void;
+  showDayDrawer?: boolean;
+  chrome?: "card" | "plain";
 }
 
-export default function AgendaCalendar({ activeCategories }: AgendaCalendarProps) {
+function formatDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export default function AgendaCalendar({
+  activeCategories,
+  view = "month",
+  selectedDay: selectedDayProp,
+  onSelectDay,
+  showDayDrawer = true,
+  chrome = "card",
+}: AgendaCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [weekStart, setWeekStart] = useState(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    now.setDate(now.getDate() - now.getDay());
+    return now;
+  });
   const [items, setItems] = useState<AgendaItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [internalDay, setInternalDay] = useState<string | null>(null);
+  const selectedDay = selectedDayProp !== undefined ? selectedDayProp : internalDay;
+
+  const setSelectedDay = (day: string | null) => {
+    onSelectDay?.(day);
+    if (selectedDayProp === undefined) setInternalDay(day);
+  };
 
   useEffect(() => {
     setLoading(true);
-    const since = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}-01`;
-    const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
-    const until = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, "0")}-01`;
+    let since: string;
+    let until: string;
+    if (view === "week") {
+      const end = new Date(weekStart);
+      end.setDate(end.getDate() + 7);
+      since = formatDateKey(weekStart);
+      until = formatDateKey(end);
+    } else {
+      since = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, "0")}-01`;
+      const nextMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+      until = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, "0")}-01`;
+    }
 
     const params = new URLSearchParams({ since, until, limit: "100" });
     if (activeCategories.size > 0) {
@@ -42,7 +82,7 @@ export default function AgendaCalendar({ activeCategories }: AgendaCalendarProps
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [currentMonth, activeCategories]);
+  }, [currentMonth, weekStart, view, activeCategories]);
 
   const itemsByDay = useMemo(() => {
     const map: Record<string, AgendaItem[]> = {};
@@ -72,46 +112,75 @@ export default function AgendaCalendar({ activeCategories }: AgendaCalendarProps
     return `${y}-${m}-${d}`;
   };
 
-  const prevMonth = () => {
-    setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+  const prevPeriod = () => {
+    if (view === "week") {
+      setWeekStart((d) => {
+        const next = new Date(d);
+        next.setDate(next.getDate() - 7);
+        return next;
+      });
+    } else {
+      setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+    }
     setSelectedDay(null);
   };
 
-  const nextMonth = () => {
-    setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+  const nextPeriod = () => {
+    if (view === "week") {
+      setWeekStart((d) => {
+        const next = new Date(d);
+        next.setDate(next.getDate() + 7);
+        return next;
+      });
+    } else {
+      setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+    }
     setSelectedDay(null);
   };
 
-  const monthLabel = currentMonth.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  const monthLabel =
+    view === "week"
+      ? `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${(() => {
+          const end = new Date(weekStart);
+          end.setDate(end.getDate() + 6);
+          return end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        })()}`
+      : currentMonth.toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        });
 
   const selectedItems = selectedDay ? (itemsByDay[selectedDay] ?? []) : [];
 
   return (
-    <div className="bg-white rounded-xl border border-cream-200 shadow-sm overflow-hidden">
+    <div
+      className={
+        chrome === "plain"
+          ? "overflow-hidden"
+          : "bg-surface border border-line overflow-hidden"
+      }
+    >
       {/* Month navigation */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-cream-200">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <button
-          onClick={prevMonth}
-          className="p-1.5 rounded hover:bg-cream-100 text-forest-600 text-lg leading-none"
-          aria-label="Previous month"
+          onClick={prevPeriod}
+          className="p-1.5 rounded hover:bg-surface-muted text-forest-600 text-lg leading-none"
+          aria-label={view === "week" ? "Previous week" : "Previous month"}
         >
           ‹
         </button>
-        <h3 className="font-heading font-semibold text-forest-800">{monthLabel}</h3>
+        <h3 className="font-heading font-semibold text-ink">{monthLabel}</h3>
         <button
-          onClick={nextMonth}
-          className="p-1.5 rounded hover:bg-cream-100 text-forest-600 text-lg leading-none"
-          aria-label="Next month"
+          onClick={nextPeriod}
+          className="p-1.5 rounded hover:bg-surface-muted text-forest-600 text-lg leading-none"
+          aria-label={view === "week" ? "Next week" : "Next month"}
         >
           ›
         </button>
       </div>
 
       {/* Day-of-week headers */}
-      <div className="grid grid-cols-7 border-b border-cream-200">
+      <div className="grid grid-cols-7 border-b border-line">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div
             key={d}
@@ -126,17 +195,71 @@ export default function AgendaCalendar({ activeCategories }: AgendaCalendarProps
       {loading ? (
         <div className="p-2 animate-pulse">
           <div className="grid grid-cols-7 gap-1">
-            {Array.from({ length: 35 }).map((_, i) => (
-              <div key={i} className="h-14 bg-cream-100 rounded" />
+            {Array.from({ length: view === "week" ? 7 : 35 }).map((_, i) => (
+              <div key={i} className="h-14 bg-surface-muted rounded" />
             ))}
           </div>
+        </div>
+      ) : view === "week" ? (
+        <div className="grid grid-cols-7">
+          {Array.from({ length: 7 }, (_, i) => {
+            const date = new Date(weekStart);
+            date.setDate(weekStart.getDate() + i);
+            const key = formatDateKey(date);
+            const dayItems = itemsByDay[key] ?? [];
+            const isSelected = selectedDay === key;
+            const isToday = key === todayKey;
+            return (
+              <button
+                key={key}
+                onClick={() => setSelectedDay(isSelected ? null : key)}
+                className={`min-h-[140px] p-1.5 text-left border-r border-b border-line transition-colors w-full ${
+                  isSelected
+                    ? "bg-forest-soft ring-1 ring-inset ring-forest-300"
+                    : "hover:bg-canvas"
+                }`}
+              >
+                <span
+                  className={`text-xs font-body block mb-1 w-5 h-5 flex items-center justify-center rounded-full ${
+                    isToday
+                      ? "bg-forest-700 text-white font-bold text-[10px]"
+                      : "text-forest-600"
+                  }`}
+                >
+                  {date.getDate()}
+                </span>
+                <div className="space-y-0.5">
+                  {dayItems.slice(0, 4).map((item) => {
+                    const cat = item.category ? CATEGORIES[item.category] : null;
+                    return (
+                      <div
+                        key={item.id}
+                        className="text-[10px] font-body truncate px-1 py-0.5 rounded"
+                        style={{
+                          backgroundColor: cat ? `${cat.color}20` : "#DDDDD020",
+                          color: cat ? cat.color : "#666",
+                        }}
+                      >
+                        {item.title}
+                      </div>
+                    );
+                  })}
+                  {dayItems.length > 4 && (
+                    <div className="text-[10px] text-forest-400 font-body px-1">
+                      +{dayItems.length - 4} more
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       ) : (
         <div className="grid grid-cols-7">
           {Array.from({ length: startOffset }).map((_, i) => (
             <div
               key={`empty-${i}`}
-              className="min-h-[60px] border-r border-b border-cream-100 bg-cream-50/40"
+              className="min-h-[60px] border-r border-b border-line bg-surface-muted"
             />
           ))}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
@@ -149,10 +272,10 @@ export default function AgendaCalendar({ activeCategories }: AgendaCalendarProps
               <button
                 key={day}
                 onClick={() => setSelectedDay(isSelected ? null : key)}
-                className={`min-h-[60px] p-1.5 text-left border-r border-b border-cream-100 transition-colors w-full ${
+                className={`min-h-[60px] p-1.5 text-left border-r border-b border-line transition-colors w-full ${
                   isSelected
-                    ? "bg-forest-50 ring-1 ring-inset ring-forest-300"
-                    : "hover:bg-cream-50"
+                    ? "bg-forest-soft ring-1 ring-inset ring-forest-300"
+                    : "hover:bg-canvas"
                 }`}
               >
                 <span
@@ -193,9 +316,9 @@ export default function AgendaCalendar({ activeCategories }: AgendaCalendarProps
       )}
 
       {/* Selected day event list */}
-      {selectedDay && (
-        <div className="border-t border-cream-200 p-4 space-y-2">
-          <h4 className="font-heading font-semibold text-forest-800 text-sm">
+      {showDayDrawer && selectedDay && (
+        <div className="border-t border-line p-4 space-y-2">
+          <h4 className="font-heading font-semibold text-ink text-sm">
             {new Date(`${selectedDay}T12:00:00`).toLocaleDateString("en-US", {
               weekday: "long",
               month: "long",
@@ -210,14 +333,14 @@ export default function AgendaCalendar({ activeCategories }: AgendaCalendarProps
               return (
                 <div
                   key={item.id}
-                  className="bg-cream-50 rounded-lg p-3 border border-cream-200"
+                  className="bg-canvas rounded-lg p-3 border border-line"
                   style={{
                     borderLeftWidth: "3px",
                     borderLeftColor: cat ? cat.color : "#DDDDD0",
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <h5 className="font-heading font-semibold text-forest-800 text-sm">
+                    <h5 className="font-heading font-semibold text-ink text-sm">
                       {item.title}
                     </h5>
                     {cat && (
@@ -242,7 +365,7 @@ export default function AgendaCalendar({ activeCategories }: AgendaCalendarProps
                       href={item.source_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs font-body text-forest-600 underline hover:text-forest-800 mt-1 inline-block"
+                      className="text-xs font-body text-forest-600 underline hover:text-ink mt-1 inline-block"
                     >
                       View Source ↗
                     </a>

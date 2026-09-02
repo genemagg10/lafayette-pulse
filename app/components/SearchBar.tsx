@@ -41,7 +41,7 @@ export default function SearchBar({ value, onChange }: SearchBarProps) {
         placeholder="Search projects, locations, tags..."
         value={localValue}
         onChange={handleChange}
-        className="w-full pl-10 pr-4 py-2 rounded-lg border border-cream-300 bg-white font-body text-sm text-forest-800 placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500 transition-all"
+        className="w-full pl-10 pr-4 py-2 rounded-lg border border-line-strong bg-surface font-body text-sm text-ink placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500 transition-all"
       />
       {localValue && (
         <button

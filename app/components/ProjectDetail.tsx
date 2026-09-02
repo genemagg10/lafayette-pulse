@@ -36,17 +36,17 @@ export default function ProjectDetail({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-lg p-6 animate-pulse">
-        <div className="h-6 bg-cream-200 rounded w-3/4 mb-4" />
-        <div className="h-4 bg-cream-200 rounded w-full mb-2" />
-        <div className="h-4 bg-cream-200 rounded w-2/3" />
+      <div className="bg-surface border border-line p-6 animate-pulse">
+        <div className="h-6 bg-line rounded w-3/4 mb-4" />
+        <div className="h-4 bg-line rounded w-full mb-2" />
+        <div className="h-4 bg-line rounded w-2/3" />
       </div>
     );
   }
 
   if (!project) {
     return (
-      <div className="bg-white rounded-lg shadow-lg p-6 text-center text-forest-400 font-body">
+      <div className="bg-surface border border-line p-6 text-center text-forest-400 font-body">
         Project not found.
       </div>
     );
@@ -56,7 +56,7 @@ export default function ProjectDetail({
   const statusStyle = STATUS_STYLES[project.status];
 
   return (
-    <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+    <div className="bg-surface border border-line overflow-hidden">
       {/* Header */}
       <div className="p-4 sm:p-6" style={{ borderTop: `4px solid ${cat.color}` }}>
         <div className="flex items-start justify-between">
@@ -65,11 +65,11 @@ export default function ProjectDetail({
               {cat.icon}
             </span>
             <div>
-              <h2 className="font-heading font-bold text-lg sm:text-xl text-forest-800">
+              <h2 className="font-heading font-bold text-lg sm:text-xl text-ink">
                 {project.title}
               </h2>
               {project.location_name && (
-                <p className="text-forest-500 text-sm font-body mt-0.5">
+                <p className="text-ink-muted text-sm font-body mt-0.5">
                   {project.location_name}
                 </p>
               )}
@@ -142,7 +142,7 @@ export default function ProjectDetail({
             {project.tags.map((tag) => (
               <span
                 key={tag}
-                className="bg-cream-100 text-forest-600 text-xs px-2 py-0.5 rounded-full"
+                className="bg-surface-muted text-forest-600 text-xs px-2 py-0.5 rounded-full"
               >
                 {tag}
               </span>
@@ -155,7 +155,7 @@ export default function ProjectDetail({
             href={project.source_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-forest-600 underline hover:text-forest-800 text-xs"
+            className="inline-flex items-center gap-1 text-forest-600 underline hover:text-ink text-xs"
           >
             View Source
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,15 +166,15 @@ export default function ProjectDetail({
 
         {/* Updates timeline */}
         {project.updates && project.updates.length > 0 && (
-          <div className="pt-4 border-t border-cream-200">
-            <h3 className="font-heading font-semibold text-forest-800 mb-3">
+          <div className="pt-4 border-t border-line">
+            <h3 className="font-heading font-semibold text-ink mb-3">
               Update History
             </h3>
             <div className="space-y-3">
               {project.updates.map((update) => (
                 <div
                   key={update.id}
-                  className="pl-4 border-l-2 border-cream-300"
+                  className="pl-4 border-l-2 border-line-strong"
                 >
                   <p className="text-forest-700 text-sm">
                     {update.update_text}

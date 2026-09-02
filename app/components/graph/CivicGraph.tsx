@@ -465,9 +465,20 @@ export default function CivicGraph({
     };
     container.addEventListener("mousemove", onMove);
 
+    const resize = () => {
+      renderer.resize();
+      drawDashed();
+    };
+    window.addEventListener("resize", resize);
+    const observer =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
+    observer?.observe(container);
+
     drawDashed();
 
     return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", resize);
       container.removeEventListener("mousemove", onMove);
       hideTooltip();
       renderer.kill();
@@ -478,7 +489,7 @@ export default function CivicGraph({
   if (nodes.length === 0) {
     return (
       <div
-        className={`${heightClassName} rounded-lg border border-dashed border-cream-300 bg-cream-50 flex items-center justify-center text-sm font-body text-forest-500`}
+        className={`${heightClassName} rounded-lg border border-dashed border-line-strong bg-canvas flex items-center justify-center text-sm font-body text-ink-muted`}
       >
         No graph to display yet.
       </div>
@@ -486,12 +497,12 @@ export default function CivicGraph({
   }
 
   return (
-    <div className={`relative ${heightClassName} rounded-lg border border-cream-200 bg-cream-50 overflow-hidden`}>
+    <div className={`relative ${heightClassName} border border-line bg-canvas overflow-hidden`}>
       <div ref={containerRef} className="absolute inset-0 cursor-pointer" />
       <canvas ref={overlayRef} className="absolute inset-0 pointer-events-none" />
       <div
         ref={tooltipRef}
-        className="absolute z-10 hidden pointer-events-none max-w-[240px] rounded-md bg-forest-900 text-cream-50 text-[11px] font-body leading-snug px-2 py-1.5 shadow-lg"
+        className="absolute z-10 hidden pointer-events-none max-w-[240px] bg-forest-900 text-cream-50 text-[11px] font-body leading-snug px-2 py-1.5 border border-line"
       />
     </div>
   );
