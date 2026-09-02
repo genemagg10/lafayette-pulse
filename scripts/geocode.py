@@ -80,7 +80,7 @@ def geocode(location: str) -> tuple[float, float] | None:
         time.sleep(1.0 - elapsed)
 
     try:
-        geolocator = Nominatim(user_agent="vibrant-lafayette-tracker")
+        geolocator = Nominatim(user_agent="lafayette-pulse-tracker")
         # Append Lafayette, CA for better results
         query = location
         if "lafayette" not in location_lower:

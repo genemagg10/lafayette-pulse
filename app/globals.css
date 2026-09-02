@@ -44,6 +44,21 @@ body {
   animation: pulse-marker 2s ease-in-out infinite;
 }
 
+@keyframes tile-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: tile-expand 0.2s ease-out;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
