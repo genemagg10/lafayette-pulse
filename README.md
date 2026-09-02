@@ -210,6 +210,21 @@ Phase 1 views (Who's Who, Most involved, Organizations) read the live civic grap
 
 Copy on these views is limited to overlapping membership / shared boards / board footprint / formal seats — not influence or factions.
 
+## Stance APIs (Phase 2)
+
+Measures and attributed support / oppose. Civic graph routes send `Cache-Control: no-store`. Zero stances return honest empty payloads — never inferred from membership.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/health` | Also counts `measures` and `stances` |
+| `GET /api/measures?limit=&offset=` | Measure list with `support_count` / `oppose_count` / `endorse_count` |
+| `GET /api/measures/:id` | One measure plus those counts |
+| `GET /api/measures/:id/stances` | Actors with polarity, confidence, evidence_quote, source_url, as_of, and actor labels; includes a conflict-ribbon graph payload |
+| `GET /api/graph/co-stance?actor=org\|person&min_shared=2` | Pairwise **Co-stance** vs **Opposed on issues** matrix (`cells[].kind` is `co-stance`, `opposed-on-issues`, or `insufficient`). Never labeled allies. |
+| `GET /api/people/:id/stances` | Ego **On the record** strip |
+
+Visual grammar: support = solid teal; oppose = dashed vermillion; endorse = gold. Size follows evidence/confidence. Do not use red/green alone.
+
 ## License
 
 MIT

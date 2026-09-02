@@ -24,6 +24,9 @@ export interface RenderableNode {
   org_type?: OrgType;
   seat_type?: SeatType;
   size?: number;
+  color?: string;
+  column?: "support" | "oppose" | "endorse" | "measure";
+  polarity?: string;
 }
 
 export interface RenderableEdge {
@@ -37,12 +40,19 @@ export interface RenderableEdge {
   shared?: number;
   jaccard?: number;
   shared_names?: string[];
+  color?: string;
+  dashed?: boolean;
+  polarity?: string;
+  stance_kind?: string;
+  co_stance?: number;
+  opposed?: number;
 }
 
 interface CivicGraphProps {
   nodes: RenderableNode[];
   edges: RenderableEdge[];
   centerId?: string | null;
+  layout?: "force" | "ribbon";
   heightClassName?: string;
   onNodeClick?: (id: string, kind: RenderableNode["kind"]) => void;
   onEdgeClick?: (edge: RenderableEdge) => void;
@@ -54,12 +64,58 @@ function radiusForKind(kind: string): number {
   return 186;
 }
 
-function layoutGraph(graph: Graph, centerId?: string | null) {
+function layoutRibbon(graph: Graph, centerId?: string | null) {
+  const columns: Record<string, string[]> = {
+    support: [],
+    oppose: [],
+    endorse: [],
+    measure: [],
+  };
+  graph.forEachNode((id, attrs) => {
+    const column = (attrs.column as string) || (id === centerId ? "measure" : "support");
+    (columns[column] || columns.support).push(id);
+  });
+  const placeColumn = (ids: string[], x: number) => {
+    const n = ids.length;
+    ids.forEach((id, index) => {
+      const y = n === 1 ? 0 : ((index / Math.max(n - 1, 1)) - 0.5) * Math.min(280, 48 * n);
+      graph.setNodeAttribute(id, "x", x);
+      graph.setNodeAttribute(id, "y", y);
+    });
+  };
+  placeColumn(columns.support, -180);
+  placeColumn(columns.oppose, 180);
+  placeColumn(columns.endorse, 0);
+  if (columns.measure.length > 0) {
+    columns.measure.forEach((id, index) => {
+      graph.setNodeAttribute(id, "x", 0);
+      graph.setNodeAttribute(
+        id,
+        "y",
+        columns.endorse.length > 0 ? 90 + index * 36 : index * 36
+      );
+    });
+  } else if (centerId && graph.hasNode(centerId)) {
+    graph.setNodeAttribute(centerId, "x", 0);
+    graph.setNodeAttribute(centerId, "y", 90);
+  }
+}
+
+function layoutGraph(
+  graph: Graph,
+  centerId?: string | null,
+  layout: "force" | "ribbon" = "force"
+) {
   if (graph.order === 0) return;
   if (graph.order === 1) {
     const id = graph.nodes()[0];
     graph.setNodeAttribute(id, "x", 0);
     graph.setNodeAttribute(id, "y", 0);
+    return;
+  }
+
+  if (layout === "ribbon") {
+    layoutRibbon(graph, centerId);
     return;
   }
 
@@ -158,10 +214,40 @@ function edgeFromAttrs(
     shared_names: Array.isArray(attrs.shared_names)
       ? attrs.shared_names.filter((name): name is string => typeof name === "string")
       : undefined,
+    color: typeof attrs.color === "string" ? attrs.color : undefined,
+    dashed: Boolean(attrs.dashed),
+    polarity: typeof attrs.polarity === "string" ? attrs.polarity : undefined,
+    stance_kind: typeof attrs.stance_kind === "string" ? attrs.stance_kind : undefined,
+    co_stance: typeof attrs.co_stance === "number" ? attrs.co_stance : undefined,
+    opposed: typeof attrs.opposed === "number" ? attrs.opposed : undefined,
   };
 }
 
 function tooltipLines(edge: RenderableEdge): string[] {
+  if (edge.stance_kind || edge.polarity || edge.co_stance != null || edge.opposed != null) {
+    const lines: string[] = [];
+    if (edge.stance_kind === "co-stance" || (edge.co_stance != null && (edge.opposed ?? 0) <= (edge.co_stance ?? 0))) {
+      lines.push("Co-stance");
+    } else if (edge.stance_kind === "opposed-on-issues" || (edge.opposed ?? 0) > 0) {
+      lines.push("Opposed on issues");
+    } else if (edge.polarity === "support") {
+      lines.push("Support");
+    } else if (edge.polarity === "oppose") {
+      lines.push("Oppose");
+    } else if (edge.polarity === "endorse") {
+      lines.push("Endorse");
+    }
+    if (edge.co_stance != null) {
+      lines.push(`${edge.co_stance} co-stance`);
+    }
+    if (edge.opposed != null) {
+      lines.push(`${edge.opposed} opposed on issues`);
+    }
+    if (edge.shared != null && edge.co_stance == null) {
+      lines.push(`${edge.shared} shared issue${edge.shared === 1 ? "" : "s"}`);
+    }
+    return lines;
+  }
   if (edge.shared != null || edge.jaccard != null) {
     const lines: string[] = [];
     if (edge.shared != null) {
@@ -183,6 +269,7 @@ export default function CivicGraph({
   nodes,
   edges,
   centerId,
+  layout = "force",
   heightClassName = "h-[320px] sm:h-[380px]",
   onNodeClick,
   onEdgeClick,
@@ -210,8 +297,12 @@ export default function CivicGraph({
         label: node.label,
         kind,
         size: node.size ?? (kind === "person" ? 9 : kind === "seat" ? 8 : 10),
-        color: nodeColor(kind, "org_type" in node ? node.org_type : undefined),
+        color:
+          node.color ||
+          nodeColor(kind, "org_type" in node ? node.org_type : undefined),
         type: nodeType(kind),
+        column: node.column,
+        polarity: node.polarity,
         x: 0,
         y: 0,
       });
@@ -221,7 +312,17 @@ export default function CivicGraph({
       if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
       const current = isCurrentTenure(edge.end_date);
       const seated = edge.kind === "seat_holder" || Boolean(edge.is_primary);
+      const isAffinity = edge.shared != null || edge.jaccard != null;
+      const isStance = Boolean(
+        edge.stance_kind || edge.polarity || edge.kind === "stance"
+      );
+      const dashed =
+        Boolean(edge.dashed) ||
+        edge.kind === "opposed-on-issues" ||
+        edge.polarity === "oppose" ||
+        (!current && !isAffinity && !isStance);
       const affinityWeight = edge.shared ?? edge.jaccard ?? 1;
+      const stanceWeight = Math.max(edge.co_stance ?? 0, edge.opposed ?? 0, 1);
       graph.addEdge(edge.source, edge.target, {
         kind: edge.kind ?? "membership",
         role: edge.role ?? null,
@@ -231,15 +332,25 @@ export default function CivicGraph({
         shared: edge.shared,
         jaccard: edge.jaccard,
         shared_names: edge.shared_names,
+        polarity: edge.polarity,
+        stance_kind: edge.stance_kind,
+        co_stance: edge.co_stance,
+        opposed: edge.opposed,
         current,
-        size: seated || (edge.shared ?? 0) > 1 ? 2.4 * Math.min(affinityWeight, 3) : 1.4,
-        color: current ? CURRENT_EDGE_COLOR : PAST_EDGE_COLOR,
-        hidden: !current && !edge.shared && !edge.jaccard,
+        dashed,
+        size:
+          seated || (edge.shared ?? 0) > 1 || stanceWeight > 1
+            ? 2.4 * Math.min(isStance ? stanceWeight : affinityWeight, 3)
+            : 1.4,
+        color:
+          edge.color ||
+          (current || isAffinity || isStance ? CURRENT_EDGE_COLOR : PAST_EDGE_COLOR),
+        hidden: dashed,
         forceLabel: false,
       });
     }
 
-    layoutGraph(graph, centerId);
+    layoutGraph(graph, centerId, layout);
 
     const hideTooltip = () => {
       if (!tooltip) return;
@@ -300,7 +411,7 @@ export default function CivicGraph({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
       graph.forEachEdge((_edge, attrs, _source, _target, sourceAttr, targetAttr) => {
-        if (attrs.current) return;
+        if (!attrs.dashed) return;
         const from = renderer.graphToViewport({
           x: sourceAttr.x as number,
           y: sourceAttr.y as number,
@@ -362,7 +473,7 @@ export default function CivicGraph({
       renderer.kill();
       graph.clear();
     };
-  }, [nodes, edges, centerId]);
+  }, [nodes, edges, centerId, layout]);
 
   if (nodes.length === 0) {
     return (

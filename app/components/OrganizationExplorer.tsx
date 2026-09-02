@@ -4,6 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { ORG_TYPE_LABELS, type Organization, type OrgType } from "@/lib/types";
 import type { OrgAffinityResponse } from "@/lib/civic-graph";
+import {
+  STANCE_TEAL,
+  STANCE_VERMILLION,
+  type CoStanceResponse,
+} from "@/lib/stances";
+import BoardTabs from "./BoardTabs";
+import CoStanceMatrix from "./CoStanceMatrix";
 import GraphLegend from "./graph/GraphLegend";
 import type { RenderableEdge } from "./graph/CivicGraph";
 
@@ -11,6 +18,7 @@ const CivicGraph = dynamic(() => import("./graph/CivicGraph"), { ssr: false });
 
 const ORG_TYPES = Object.keys(ORG_TYPE_LABELS) as OrgType[];
 const DEFAULT_JACCARD = 0.15;
+type OrgTab = "directory" | "co-stance";
 
 interface OrgMember {
   id: string;
@@ -57,6 +65,14 @@ export default function OrganizationExplorer({
   const [minJaccard, setMinJaccard] = useState(DEFAULT_JACCARD);
   const [debouncedJaccard, setDebouncedJaccard] = useState(DEFAULT_JACCARD);
   const [selectedEdge, setSelectedEdge] = useState<RenderableEdge | null>(null);
+  const [tab, setTab] = useState<OrgTab>("directory");
+  const [stanceLayer, setStanceLayer] = useState(false);
+  const [coActor, setCoActor] = useState<"organization" | "person">("organization");
+  const [minShared, setMinShared] = useState(2);
+  const [debouncedShared, setDebouncedShared] = useState(2);
+  const [coStance, setCoStance] = useState<CoStanceResponse | null>(null);
+  const [coStanceError, setCoStanceError] = useState<string | null>(null);
+  const [coStanceLoading, setCoStanceLoading] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query.trim()), 250);
@@ -67,6 +83,11 @@ export default function OrganizationExplorer({
     const timer = setTimeout(() => setDebouncedJaccard(minJaccard), 150);
     return () => clearTimeout(timer);
   }, [minJaccard]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedShared(minShared), 150);
+    return () => clearTimeout(timer);
+  }, [minShared]);
 
   useEffect(() => {
     const params = new URLSearchParams({ limit: "50", offset: "0" });
@@ -126,6 +147,28 @@ export default function OrganizationExplorer({
   }, [debouncedJaccard]);
 
   useEffect(() => {
+    if (tab !== "co-stance" && !stanceLayer) return;
+    const params = new URLSearchParams({
+      actor: tab === "co-stance" && coActor === "person" ? "person" : "org",
+      min_shared: String(debouncedShared),
+      limit_actors: "40",
+    });
+    setCoStanceLoading(true);
+    fetch(`/api/graph/co-stance?${params.toString()}`)
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+        return data as CoStanceResponse;
+      })
+      .then((data) => {
+        setCoStance(data);
+        setCoStanceError(null);
+      })
+      .catch((err) => setCoStanceError(err.message))
+      .finally(() => setCoStanceLoading(false));
+  }, [tab, stanceLayer, coActor, debouncedShared]);
+
+  useEffect(() => {
     if (!selectedId) {
       setDetail(null);
       return;
@@ -154,7 +197,7 @@ export default function OrganizationExplorer({
     if (!affinity) {
       return {
         graphNodes: [] as OrgAffinityResponse["nodes"],
-        graphEdges: [] as OrgAffinityResponse["edges"],
+        graphEdges: [] as RenderableEdge[],
         isolates: [] as OrgAffinityResponse["nodes"],
       };
     }
@@ -163,12 +206,39 @@ export default function OrganizationExplorer({
       connected.add(edge.source);
       connected.add(edge.target);
     }
+    const graphNodes = affinity.nodes.filter((node) => connected.has(node.id));
+    const graphEdges: RenderableEdge[] = affinity.edges.map((edge) => ({
+      source: edge.source,
+      target: edge.target,
+      kind: "membership",
+      shared: edge.shared,
+      jaccard: edge.jaccard,
+      shared_names: edge.shared_names,
+    }));
+    if (stanceLayer && coStance) {
+      const present = new Set(graphNodes.map((node) => node.id));
+      for (const cell of coStance.cells) {
+        if (!present.has(cell.source) || !present.has(cell.target)) continue;
+        if (cell.kind === "insufficient") continue;
+        graphEdges.push({
+          source: cell.source,
+          target: cell.target,
+          kind: cell.kind,
+          stance_kind: cell.kind,
+          co_stance: cell.co_stance,
+          opposed: cell.opposed,
+          shared: cell.shared,
+          color: cell.kind === "co-stance" ? STANCE_TEAL : STANCE_VERMILLION,
+          dashed: cell.kind === "opposed-on-issues",
+        });
+      }
+    }
     return {
-      graphNodes: affinity.nodes.filter((node) => connected.has(node.id)),
-      graphEdges: affinity.edges,
+      graphNodes,
+      graphEdges,
       isolates: affinity.nodes.filter((node) => !connected.has(node.id)),
     };
-  }, [affinity]);
+  }, [affinity, stanceLayer, coStance]);
 
   const trulyEmpty =
     !listLoading && !listError && !debounced && !orgType && (count === 0 || total === 0);
@@ -198,6 +268,28 @@ export default function OrganizationExplorer({
 
   return (
     <div className="space-y-5">
+      <BoardTabs
+        value={tab}
+        onChange={setTab}
+        ariaLabel="Organization views"
+        options={[
+          { id: "directory", label: "Directory" },
+          { id: "co-stance", label: "Co-stance" },
+        ]}
+      />
+
+      {tab === "co-stance" ? (
+        <CoStanceMatrix
+          data={coStance}
+          loading={coStanceLoading}
+          error={coStanceError}
+          minShared={minShared}
+          onMinShared={setMinShared}
+          actor={coActor}
+          onActor={setCoActor}
+        />
+      ) : (
+      <>
       <div className="grid gap-4 lg:grid-cols-[minmax(240px,320px)_1fr]">
         <aside className="space-y-3">
           <input
@@ -341,6 +433,23 @@ export default function OrganizationExplorer({
           />
           <span className="tabular-nums w-10 text-right">{minJaccard.toFixed(2)}</span>
         </label>
+        <label className="inline-flex items-center gap-2 text-xs font-body text-forest-600">
+          <input
+            type="checkbox"
+            checked={stanceLayer}
+            onChange={(e) => setStanceLayer(e.target.checked)}
+          />
+          Show stance layer (co-stance / opposed on issues)
+        </label>
+        {stanceLayer && coStanceError && (
+          <p className="text-sm font-body text-forest-500">{coStanceError}</p>
+        )}
+        {stanceLayer && (
+          <p className="text-xs font-body text-forest-500">
+            Teal solid = co-stance. Dashed vermillion = opposed on issues.
+            Hidden unless both organizations already appear on shared membership.
+          </p>
+        )}
         {affinityError && (
           <p className="text-sm font-body text-forest-500">{affinityError}</p>
         )}
@@ -356,14 +465,7 @@ export default function OrganizationExplorer({
                 org_type: node.org_type,
                 size: node.size,
               }))}
-              edges={graphEdges.map((edge) => ({
-                source: edge.source,
-                target: edge.target,
-                kind: "membership",
-                shared: edge.shared,
-                jaccard: edge.jaccard,
-                shared_names: edge.shared_names,
-              }))}
+              edges={graphEdges}
               onNodeClick={(id) => setSelectedId(id)}
               onEdgeClick={setSelectedEdge}
               heightClassName="h-[300px] sm:h-[360px]"
@@ -398,7 +500,11 @@ export default function OrganizationExplorer({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h4 className="font-heading font-semibold text-sm text-forest-800">
-                  Shared membership
+                  {selectedEdge.stance_kind === "co-stance"
+                    ? "Co-stance"
+                    : selectedEdge.stance_kind === "opposed-on-issues"
+                      ? "Opposed on issues"
+                      : "Shared membership"}
                 </h4>
                 <p className="text-xs font-body text-forest-500 mt-0.5">
                   {sourceName} · {targetName}
@@ -413,10 +519,13 @@ export default function OrganizationExplorer({
               </button>
             </div>
             <p className="text-sm font-body text-forest-700">
-              {selectedEdge.shared ?? 0} shared
-              {selectedEdge.jaccard != null
-                ? ` · Jaccard ${selectedEdge.jaccard.toFixed(2)}`
-                : ""}
+              {selectedEdge.stance_kind
+                ? `${selectedEdge.co_stance ?? 0} co-stance · ${selectedEdge.opposed ?? 0} opposed on issues`
+                : `${selectedEdge.shared ?? 0} shared${
+                    selectedEdge.jaccard != null
+                      ? ` · Jaccard ${selectedEdge.jaccard.toFixed(2)}`
+                      : ""
+                  }`}
             </p>
             {selectedEdge.shared_names && selectedEdge.shared_names.length > 0 ? (
               <ul className="text-sm font-body text-forest-700 space-y-0.5">
@@ -424,15 +533,17 @@ export default function OrganizationExplorer({
                   <li key={name}>{name}</li>
                 ))}
               </ul>
-            ) : (
+            ) : !selectedEdge.stance_kind ? (
               <p className="text-sm font-body text-forest-500">
                 Shared names are not available for this edge.
               </p>
-            )}
+            ) : null}
           </div>
         )}
-        <GraphLegend affinity showSeats={false} />
+        <GraphLegend affinity showSeats={false} stance={stanceLayer} />
       </div>
+      </>
+      )}
     </div>
   );
 }
