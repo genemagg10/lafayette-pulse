@@ -77,6 +77,7 @@ After deploy, open [`/api/health`](https://lafayette-pulse.vercel.app/api/health
    - `supabase/migrations/005_rag_vector_schema.sql` (needs `pgvector`)
    - `supabase/migrations/006_civic_graph.sql` (people, orgs, events, measures)
    - `supabase/migrations/007_seed_civic_orgs.sql` (Lafayette orgs directory)
+   - `supabase/migrations/008_civic_graph_proposals.sql` (staging for graph extraction; idempotent)
 4. Copy the project URL and anon key from Settings > API
 
 Civic graph tables are **public read, service-role write**. They do not use the older `FOR ALL USING (true)` policy from 001.
@@ -89,7 +90,9 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Test the Scraper Locally
+### Scrapers
+
+Python scripts in `scripts/` talk to Supabase over PostgREST (`requests`) using `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_KEY` / `SUPABASE_SERVICE_ROLE_KEY`.
 
 ```bash
 cd scripts
@@ -97,6 +100,26 @@ pip install -r requirements.txt
 python scrape-agendas.py
 python classify-with-claude.py
 ```
+
+**Civic graph extraction** (`extract-civic-graph.py`) mines high-signal RAG rows in `document_chunks` (appointed, commissioner, councilmember, chair, mayor, …) and writes staged rows to `civic_graph_proposals`. Distinct `meeting_body` values become organizations (slugified, no LLM). Claude structured JSON fills people, orgs, memberships, seats, and candidacies with `dedupe_key`s.
+
+```bash
+# Preview only — no database writes (still calls Claude unless --keywords-only)
+python extract-civic-graph.py --dry-run --limit 20
+
+# Stage proposals (default). Safe to re-run; existing dedupe_keys are skipped.
+python extract-civic-graph.py --limit 50
+
+# Keyword filter + meeting-body orgs only (no Anthropic calls)
+python extract-civic-graph.py --keywords-only --limit 50
+
+# Merge high-confidence pending proposals into people/organizations.
+# Memberships are inserted only when both the person and org already resolve
+# (match people by lower(full_name), orgs by slug).
+python extract-civic-graph.py --limit 100 --apply --min-confidence 0.6
+```
+
+`--apply` is opt-in. The daily Collect & Classify workflow does **not** run this by default; enable the `extract_graph` workflow_dispatch input to run `--limit 100 --apply`.
 
 ## Deployment
 
