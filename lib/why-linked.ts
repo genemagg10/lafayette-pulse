@@ -72,18 +72,16 @@ export interface WhyLinkedModel {
 
 function endpoint(
   id: string,
-  nodes: Iterable<{ id: string; label: string; kind?: string }>,
+  nodes: Array<{ id: string; label: string; kind?: string }>,
   fallbackKind: WhyLinkedEntityKind = "organization"
 ): WhyLinkedEntity {
-  for (const node of nodes) {
-    if (node.id !== id) continue;
-    const kind =
-      node.kind === "person" || node.kind === "organization" || node.kind === "seat"
-        ? node.kind
-        : fallbackKind;
-    return { id, label: node.label, kind };
-  }
-  return { id, label: "Unknown", kind: fallbackKind };
+  const node = nodes.find((row) => row.id === id);
+  if (!node) return { id, label: "Unknown", kind: fallbackKind };
+  const kind =
+    node.kind === "person" || node.kind === "organization" || node.kind === "seat"
+      ? node.kind
+      : fallbackKind;
+  return { id, label: node.label, kind };
 }
 
 export function isStanceEdge(edge: WhyLinkedEdge): boolean {
@@ -143,7 +141,7 @@ export function whyLinkedTooltipLines(edge: WhyLinkedEdge): string[] {
 
 export function buildWhyLinkedModel(
   edge: WhyLinkedEdge,
-  nodes: Iterable<{ id: string; label: string; kind?: string }>
+  nodes: Array<{ id: string; label: string; kind?: string }>
 ): WhyLinkedModel {
   const source = endpoint(edge.source, nodes, "person");
   const target = endpoint(edge.target, nodes, "organization");

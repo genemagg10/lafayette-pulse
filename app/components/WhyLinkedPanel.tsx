@@ -22,14 +22,14 @@ function EntityButton({
   entity: WhyLinkedEntity;
   onSelect?: (id: string, kind: "person" | "organization") => void;
 }) {
-  const selectable = selectableWhyLinkedKind(entity.kind) && !entity.id.includes(":name:");
-  if (!selectable || !onSelect) {
+  if (!selectableWhyLinkedKind(entity.kind) || entity.id.includes(":name:") || !onSelect) {
     return <span className="font-heading font-semibold text-ink">{entity.label}</span>;
   }
+  const kind = entity.kind;
   return (
     <button
       type="button"
-      onClick={() => onSelect(entity.id, entity.kind)}
+      onClick={() => onSelect(entity.id, kind)}
       className="font-heading font-semibold text-forest-700 underline hover:text-forest-900 text-left"
     >
       {entity.label}
