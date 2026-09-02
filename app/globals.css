@@ -44,24 +44,12 @@
   --cream-200: var(--line);
   --forest-800: var(--forest);
   --forest-700: #364f37;
-  --color-canvas: var(--canvas);
-  --color-surface: var(--surface);
-  --color-ink: var(--ink);
-  --color-forest: var(--forest);
-  --color-accent: var(--accent);
-  --color-line: var(--line);
-  --color-stance-support: var(--stance-support);
-  --color-stance-oppose: var(--stance-oppose);
-  --color-stance-endorse: var(--stance-endorse);
 
   --pulse-shell-offset: var(--chrome-h);
 }
 
-html {
-  color-scheme: light;
-}
+html { color-scheme: light; }
 
-html,
 body {
   background-color: var(--canvas);
   color: var(--ink);
@@ -70,9 +58,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }

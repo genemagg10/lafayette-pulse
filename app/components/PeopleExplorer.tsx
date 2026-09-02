@@ -179,7 +179,7 @@ export default function PeopleExplorer({
 
   if (unavailable && (count == null || count === 0) && items.length === 0 && !listLoading) {
     return (
-      <p className="text-sm font-body text-forest-500">
+      <p className="text-sm font-body text-ink-muted">
         Who&apos;s Who is temporarily unavailable.
       </p>
     );
@@ -187,7 +187,7 @@ export default function PeopleExplorer({
 
   if (trulyEmpty) {
     return (
-      <p className="text-sm font-body text-forest-500">
+      <p className="text-sm font-body text-ink-muted">
         No people loaded yet. Seat holders, commissioners, and candidates will
         appear here as the civic graph is populated.
       </p>
@@ -202,7 +202,7 @@ export default function PeopleExplorer({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search people…"
-          className="w-full px-3 py-2 rounded-lg border border-cream-300 bg-white font-body text-sm text-forest-800 placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
+          className="w-full px-3 py-2 rounded-lg border border-line-strong bg-surface font-body text-sm text-ink placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
         />
         <label className="inline-flex items-center gap-2 text-xs font-body text-forest-600">
           <input
@@ -216,17 +216,17 @@ export default function PeopleExplorer({
       {listLoading ? (
         <div className="space-y-2 animate-pulse">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-12 bg-cream-100 rounded-lg" />
+            <div key={i} className="h-12 bg-surface-muted rounded-lg" />
           ))}
         </div>
       ) : listError ? (
-        <p className="text-sm font-body text-forest-500">{listError}</p>
+        <p className="text-sm font-body text-ink-muted">{listError}</p>
       ) : empty ? (
-        <p className="text-sm font-body text-forest-500">
+        <p className="text-sm font-body text-ink-muted">
           No people match these filters.
         </p>
       ) : (
-        <ul className="divide-y divide-cream-200 rounded-lg border border-cream-200">
+        <ul className="divide-y divide-line rounded-lg border border-line">
           {items.map((person) => {
             const active = person.id === selectedId;
             return (
@@ -235,7 +235,7 @@ export default function PeopleExplorer({
                   type="button"
                   onClick={() => selectPerson(person.id)}
                   className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2.5 ${
-                    active ? "bg-forest-50" : "hover:bg-cream-50"
+                    active ? "bg-forest-soft" : "hover:bg-canvas"
                   }`}
                 >
                   <PersonAvatar
@@ -244,10 +244,10 @@ export default function PeopleExplorer({
                     size={32}
                   />
                   <div className="min-w-0">
-                    <div className="font-heading font-semibold text-sm text-forest-800">
+                    <div className="font-heading font-semibold text-sm text-ink">
                       {person.full_name}
                     </div>
-                    <div className="text-[11px] font-body text-forest-500 mt-0.5 truncate">
+                    <div className="text-[11px] font-body text-ink-muted mt-0.5 truncate">
                       {person.current_roles && person.current_roles.length > 0
                         ? person.current_roles
                             .map((role) =>
@@ -270,9 +270,9 @@ export default function PeopleExplorer({
 
   const detailPane =
     detailLoading && !detail ? (
-      <div className="h-24 bg-cream-100 rounded-lg animate-pulse" />
+      <div className="h-24 bg-surface-muted rounded-lg animate-pulse" />
     ) : selected ? (
-      <div className="rounded-lg border border-cream-200 bg-cream-50/60 p-3 space-y-2">
+      <div className="rounded-lg border border-line bg-surface-muted p-3 space-y-2">
         <div className="flex items-start gap-3">
           <PersonAvatar
             name={selected.full_name}
@@ -280,15 +280,15 @@ export default function PeopleExplorer({
             size={48}
           />
           <div className="min-w-0">
-            <h3 className="font-heading font-semibold text-forest-800">
+            <h3 className="font-heading font-semibold text-ink">
               {selected.full_name}
             </h3>
             {(detail?.email || detail?.website) && (
-              <div className="mt-1 flex flex-wrap gap-3 text-xs font-body text-forest-500">
+              <div className="mt-1 flex flex-wrap gap-3 text-xs font-body text-ink-muted">
                 {detail?.email && (
                   <a
                     href={`mailto:${detail.email}`}
-                    className="underline hover:text-forest-800"
+                    className="underline hover:text-ink"
                   >
                     {detail.email}
                   </a>
@@ -298,7 +298,7 @@ export default function PeopleExplorer({
                     href={detail.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline hover:text-forest-800"
+                    className="underline hover:text-ink"
                   >
                     Website ↗
                   </a>
@@ -314,7 +314,7 @@ export default function PeopleExplorer({
         )}
         {detail?.seats && detail.seats.length > 0 && (
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-forest-500 font-body mb-1">
+            <p className="text-[11px] uppercase tracking-wide text-ink-muted font-body mb-1">
               Formal seats
             </p>
             <ul className="text-sm font-body text-forest-700 space-y-1">
@@ -330,7 +330,7 @@ export default function PeopleExplorer({
         )}
         {detail?.memberships && detail.memberships.length > 0 && (
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-forest-500 font-body mb-1">
+            <p className="text-[11px] uppercase tracking-wide text-ink-muted font-body mb-1">
               Shared boards
             </p>
             <ul className="text-sm font-body text-forest-700 space-y-1">
@@ -347,7 +347,7 @@ export default function PeopleExplorer({
         <OnTheRecord items={onTheRecord} />
       </div>
     ) : (
-      <p className="text-sm font-body text-forest-500">
+      <p className="text-sm font-body text-ink-muted">
         Select a person to see overlapping membership and seats.
       </p>
     );
@@ -374,7 +374,7 @@ export default function PeopleExplorer({
       </div>
       <div className="flex-1 min-h-[420px]">
         {detailLoading && !ego ? (
-          <div className="h-full min-h-[420px] bg-cream-100 rounded-lg animate-pulse" />
+          <div className="h-full min-h-[420px] bg-surface-muted rounded-lg animate-pulse" />
         ) : (
           <CivicGraph
             nodes={ego?.nodes ?? []}

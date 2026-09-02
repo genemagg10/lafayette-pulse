@@ -80,7 +80,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {!focus && (
-        <footer className="hidden md:block border-t border-line bg-surface text-forest-500 py-4 text-center text-xs font-body">
+        <footer className="hidden md:block border-t border-line bg-surface text-ink-muted py-4 text-center text-xs font-body">
           <p>
             Lafayette Pulse &middot; Map, calendar &amp; who&apos;s who &middot;
             Public records
@@ -116,8 +116,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               href={item.href}
               className={`flex flex-col items-center justify-center text-[11px] font-body ${
                 isActive(pathname, item.href)
-                  ? "text-forest-800 font-semibold bg-canvas"
-                  : "text-forest-500"
+                  ? "text-ink font-semibold bg-canvas"
+                  : "text-ink-muted"
               }`}
             >
               <span>{item.label}</span>
@@ -132,8 +132,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 pathname === "/projects" ||
                 pathname === "/more" ||
                 pathname === "/ask"
-                  ? "text-forest-800 font-semibold bg-canvas"
-                  : "text-forest-500"
+                  ? "text-ink font-semibold bg-canvas"
+                  : "text-ink-muted"
               }`}
             >
               More
@@ -177,8 +177,8 @@ function NavLink({
       href={href}
       className={`px-3 py-1.5 text-sm font-body transition-colors border-b-2 ${
         active
-          ? "border-forest-800 text-forest-800 font-semibold"
-          : "border-transparent text-forest-500 hover:text-ink"
+          ? "border-forest-800 text-ink font-semibold"
+          : "border-transparent text-ink-muted hover:text-ink"
       }`}
     >
       {label}
@@ -228,7 +228,7 @@ function MorePanel({
           className="block px-3 py-2.5 hover:bg-canvas"
         >
           <div className="font-heading font-semibold text-sm">{link.label}</div>
-          <div className="text-xs font-body text-forest-500">{link.description}</div>
+          <div className="text-xs font-body text-ink-muted">{link.description}</div>
         </Link>
       ))}
       <a

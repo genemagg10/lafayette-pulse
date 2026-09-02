@@ -180,7 +180,7 @@ export default function ProjectMap({
                     <p className="text-[10px] uppercase tracking-wide text-forest-400">
                       Event
                     </p>
-                    <p className="font-bold text-forest-800">{event.title}</p>
+                    <p className="font-bold text-ink">{event.title}</p>
                     {event.starts_at && (
                       <p className="text-forest-600 text-xs mt-1">
                         {new Date(event.starts_at).toLocaleDateString("en-US", {
@@ -191,7 +191,7 @@ export default function ProjectMap({
                       </p>
                     )}
                     {event.location_name && (
-                      <p className="text-forest-500 text-xs mt-0.5">
+                      <p className="text-ink-muted text-xs mt-0.5">
                         {event.location_name}
                       </p>
                     )}
@@ -224,12 +224,12 @@ export default function ProjectMap({
                     <p className="text-[10px] uppercase tracking-wide text-forest-400">
                       Organization
                     </p>
-                    <p className="font-bold text-forest-800">{org.name}</p>
+                    <p className="font-bold text-ink">{org.name}</p>
                     <p className="text-forest-600 text-xs mt-1">
                       {ORG_TYPE_LABELS[org.org_type] ?? org.org_type}
                     </p>
                     {org.location_name && (
-                      <p className="text-forest-500 text-xs mt-0.5">
+                      <p className="text-ink-muted text-xs mt-0.5">
                         {org.location_name}
                       </p>
                     )}
@@ -265,12 +265,12 @@ export default function ProjectMap({
                     <p className="text-[10px] uppercase tracking-wide text-forest-400">
                       Project
                     </p>
-                    <p className="font-bold text-forest-800">{project.title}</p>
+                    <p className="font-bold text-ink">{project.title}</p>
                     <p className="text-forest-600 text-xs mt-1">
                       {cat.icon} {cat.label}
                     </p>
                     {project.location_name && (
-                      <p className="text-forest-500 text-xs mt-0.5">
+                      <p className="text-ink-muted text-xs mt-0.5">
                         {project.location_name}
                       </p>
                     )}
@@ -301,7 +301,7 @@ function LayerToggle({
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="rounded border-cream-300 text-forest-700 focus:ring-forest-500/30"
+        className="rounded border-line-strong text-forest-700 focus:ring-forest-500/30"
       />
       <span
         className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"

@@ -33,7 +33,7 @@ export default function Header({
               onClick={onToggleMap}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-body transition-colors border ${
                 showMap
-                  ? "bg-canvas text-forest-800 border-line"
+                  ? "bg-canvas text-ink border-line"
                   : "bg-surface text-forest-600 border-line hover:border-accent"
               }`}
             >
@@ -51,7 +51,7 @@ export default function Header({
               onClick={onToggleCalendar}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-body transition-colors border ${
                 showCalendar
-                  ? "bg-canvas text-forest-800 border-line"
+                  ? "bg-canvas text-ink border-line"
                   : "bg-surface text-forest-600 border-line hover:border-accent"
               }`}
             >

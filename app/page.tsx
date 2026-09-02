@@ -104,24 +104,24 @@ export default function Home() {
             <h2 className="font-heading font-bold text-ink">Coming up</h2>
             <Link
               href="/calendar"
-              className="text-xs font-body text-forest-600 underline hover:text-forest-800"
+              className="text-xs font-body text-forest-600 underline hover:text-ink"
             >
               Open calendar
             </Link>
           </div>
           {upcomingError ? (
-            <p className="text-sm font-body text-forest-500">
+            <p className="text-sm font-body text-ink-muted">
               Upcoming meetings are temporarily unavailable.
             </p>
           ) : upcoming.length === 0 ? (
-            <p className="text-sm font-body text-forest-500">
+            <p className="text-sm font-body text-ink-muted">
               No upcoming meetings in the current feed.
             </p>
           ) : (
             <ul className="divide-y divide-line">
               {upcoming.slice(0, 6).map((item) => (
                 <li key={item.id} className="py-2.5">
-                  <p className="text-xs font-body text-forest-500">
+                  <p className="text-xs font-body text-ink-muted">
                     {new Date(item.date).toLocaleDateString("en-US", {
                       weekday: "short",
                       month: "short",
@@ -180,7 +180,7 @@ function Kpi({
       href={href}
       className="bg-surface border border-line p-4 hover:border-accent transition-colors"
     >
-      <p className="text-[11px] uppercase tracking-wide font-body text-forest-500">
+      <p className="text-[11px] uppercase tracking-wide font-body text-ink-muted">
         {label}
       </p>
       <p className="font-heading text-2xl font-bold text-ink mt-1 tabular-nums">
@@ -206,7 +206,7 @@ function Doorway({
     >
       <h3 className="font-heading font-bold text-ink">{title}</h3>
       <p className="text-sm font-body text-forest-600 mt-1 flex-1">{body}</p>
-      <span className="text-xs font-body text-forest-500 mt-3">Open →</span>
+      <span className="text-xs font-body text-ink-muted mt-3">Open →</span>
     </Link>
   );
 }

@@ -489,7 +489,7 @@ export default function CivicGraph({
   if (nodes.length === 0) {
     return (
       <div
-        className={`${heightClassName} rounded-lg border border-dashed border-cream-300 bg-cream-50 flex items-center justify-center text-sm font-body text-forest-500`}
+        className={`${heightClassName} rounded-lg border border-dashed border-line-strong bg-canvas flex items-center justify-center text-sm font-body text-ink-muted`}
       >
         No graph to display yet.
       </div>

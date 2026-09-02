@@ -164,15 +164,15 @@ export default function AgendaCalendar({
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <button
           onClick={prevPeriod}
-          className="p-1.5 rounded hover:bg-cream-100 text-forest-600 text-lg leading-none"
+          className="p-1.5 rounded hover:bg-surface-muted text-forest-600 text-lg leading-none"
           aria-label={view === "week" ? "Previous week" : "Previous month"}
         >
           ‹
         </button>
-        <h3 className="font-heading font-semibold text-forest-800">{monthLabel}</h3>
+        <h3 className="font-heading font-semibold text-ink">{monthLabel}</h3>
         <button
           onClick={nextPeriod}
-          className="p-1.5 rounded hover:bg-cream-100 text-forest-600 text-lg leading-none"
+          className="p-1.5 rounded hover:bg-surface-muted text-forest-600 text-lg leading-none"
           aria-label={view === "week" ? "Next week" : "Next month"}
         >
           ›
@@ -180,7 +180,7 @@ export default function AgendaCalendar({
       </div>
 
       {/* Day-of-week headers */}
-      <div className="grid grid-cols-7 border-b border-cream-200">
+      <div className="grid grid-cols-7 border-b border-line">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div
             key={d}
@@ -196,7 +196,7 @@ export default function AgendaCalendar({
         <div className="p-2 animate-pulse">
           <div className="grid grid-cols-7 gap-1">
             {Array.from({ length: view === "week" ? 7 : 35 }).map((_, i) => (
-              <div key={i} className="h-14 bg-cream-100 rounded" />
+              <div key={i} className="h-14 bg-surface-muted rounded" />
             ))}
           </div>
         </div>
@@ -213,10 +213,10 @@ export default function AgendaCalendar({
               <button
                 key={key}
                 onClick={() => setSelectedDay(isSelected ? null : key)}
-                className={`min-h-[140px] p-1.5 text-left border-r border-b border-cream-100 transition-colors w-full ${
+                className={`min-h-[140px] p-1.5 text-left border-r border-b border-line transition-colors w-full ${
                   isSelected
-                    ? "bg-forest-50 ring-1 ring-inset ring-forest-300"
-                    : "hover:bg-cream-50"
+                    ? "bg-forest-soft ring-1 ring-inset ring-forest-300"
+                    : "hover:bg-canvas"
                 }`}
               >
                 <span
@@ -259,7 +259,7 @@ export default function AgendaCalendar({
           {Array.from({ length: startOffset }).map((_, i) => (
             <div
               key={`empty-${i}`}
-              className="min-h-[60px] border-r border-b border-cream-100 bg-cream-50/40"
+              className="min-h-[60px] border-r border-b border-line bg-surface-muted"
             />
           ))}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
@@ -272,10 +272,10 @@ export default function AgendaCalendar({
               <button
                 key={day}
                 onClick={() => setSelectedDay(isSelected ? null : key)}
-                className={`min-h-[60px] p-1.5 text-left border-r border-b border-cream-100 transition-colors w-full ${
+                className={`min-h-[60px] p-1.5 text-left border-r border-b border-line transition-colors w-full ${
                   isSelected
-                    ? "bg-forest-50 ring-1 ring-inset ring-forest-300"
-                    : "hover:bg-cream-50"
+                    ? "bg-forest-soft ring-1 ring-inset ring-forest-300"
+                    : "hover:bg-canvas"
                 }`}
               >
                 <span
@@ -317,8 +317,8 @@ export default function AgendaCalendar({
 
       {/* Selected day event list */}
       {showDayDrawer && selectedDay && (
-        <div className="border-t border-cream-200 p-4 space-y-2">
-          <h4 className="font-heading font-semibold text-forest-800 text-sm">
+        <div className="border-t border-line p-4 space-y-2">
+          <h4 className="font-heading font-semibold text-ink text-sm">
             {new Date(`${selectedDay}T12:00:00`).toLocaleDateString("en-US", {
               weekday: "long",
               month: "long",
@@ -333,14 +333,14 @@ export default function AgendaCalendar({
               return (
                 <div
                   key={item.id}
-                  className="bg-cream-50 rounded-lg p-3 border border-cream-200"
+                  className="bg-canvas rounded-lg p-3 border border-line"
                   style={{
                     borderLeftWidth: "3px",
                     borderLeftColor: cat ? cat.color : "#DDDDD0",
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <h5 className="font-heading font-semibold text-forest-800 text-sm">
+                    <h5 className="font-heading font-semibold text-ink text-sm">
                       {item.title}
                     </h5>
                     {cat && (
@@ -365,7 +365,7 @@ export default function AgendaCalendar({
                       href={item.source_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs font-body text-forest-600 underline hover:text-forest-800 mt-1 inline-block"
+                      className="text-xs font-body text-forest-600 underline hover:text-ink mt-1 inline-block"
                     >
                       View Source ↗
                     </a>

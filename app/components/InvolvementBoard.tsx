@@ -130,7 +130,7 @@ export default function InvolvementBoard({
 
   if (unavailable && noLinks && !loading && !data) {
     return (
-      <p className="text-sm font-body text-forest-500">
+      <p className="text-sm font-body text-ink-muted">
         Board footprint ranking is temporarily unavailable.
       </p>
     );
@@ -138,7 +138,7 @@ export default function InvolvementBoard({
 
   if (!loading && !error && data && data.items.length === 0) {
     return (
-      <p className="text-sm font-body text-forest-500">
+      <p className="text-sm font-body text-ink-muted">
         No overlapping membership or formal seats to rank yet.
       </p>
     );
@@ -167,7 +167,7 @@ export default function InvolvementBoard({
         />
       </div>
       {data && (
-        <p className="text-xs font-body text-forest-500">
+        <p className="text-xs font-body text-ink-muted">
           {data.label}: memberships × {data.weights.membership}
           {" + "}
           seat holders × {data.weights.seat_holder}. Current overlapping
@@ -177,11 +177,11 @@ export default function InvolvementBoard({
       {loading ? (
         <div className="space-y-2 animate-pulse">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-10 bg-cream-100 rounded-lg" />
+            <div key={i} className="h-10 bg-surface-muted rounded-lg" />
           ))}
         </div>
       ) : error ? (
-        <p className="text-sm font-body text-forest-500">{error}</p>
+        <p className="text-sm font-body text-ink-muted">{error}</p>
       ) : (
         <ol className="space-y-2">
           {data?.items.map((item, index) => (
@@ -203,8 +203,8 @@ export default function InvolvementBoard({
   );
 
   const detailPane = selected ? (
-    <div className="rounded-lg border border-cream-200 bg-cream-50/60 p-3 space-y-2">
-      <h3 className="font-heading font-semibold text-forest-800">{selected.label}</h3>
+    <div className="rounded-lg border border-line bg-surface-muted p-3 space-y-2">
+      <h3 className="font-heading font-semibold text-ink">{selected.label}</h3>
       <p className="text-sm font-body text-forest-600">
         Score {selected.score} · {selected.memberships} board
         {selected.memberships === 1 ? "" : "s"} · {selected.seat_holders} formal
@@ -231,7 +231,7 @@ export default function InvolvementBoard({
       )}
     </div>
   ) : (
-    <p className="text-sm font-body text-forest-500">
+    <p className="text-sm font-body text-ink-muted">
       Select a row to see board footprint detail.
     </p>
   );
@@ -289,18 +289,18 @@ function RankRow({
       <button
         type="button"
         onClick={onSelect}
-        className={`w-full text-left rounded-lg border border-cream-200 p-3 ${
-          active ? "bg-forest-50" : "bg-cream-50/60 hover:bg-cream-50"
+        className={`w-full text-left rounded-lg border border-line p-3 ${
+          active ? "bg-forest-soft" : "bg-surface-muted hover:bg-canvas"
         }`}
       >
       <div className="flex items-baseline justify-between gap-3">
         <div className="min-w-0">
           <span className="text-xs font-body text-forest-400 mr-2">{rank}</span>
-          <span className="font-heading font-semibold text-sm text-forest-800">
+          <span className="font-heading font-semibold text-sm text-ink">
             {item.label}
           </span>
           {seatNote && (
-            <p className="text-[11px] font-body text-forest-500 mt-0.5 truncate">
+            <p className="text-[11px] font-body text-ink-muted mt-0.5 truncate">
               {seatNote}
             </p>
           )}
@@ -309,13 +309,13 @@ function RankRow({
           {item.score}
         </span>
       </div>
-      <div className="mt-2 h-1.5 bg-cream-200 rounded-full overflow-hidden">
+      <div className="mt-2 h-1.5 bg-line rounded-full overflow-hidden">
         <div
           className="h-full bg-forest-600 rounded-full"
           style={{ width: `${width}%` }}
         />
       </div>
-      <p className="text-[11px] font-body text-forest-500 mt-1">
+      <p className="text-[11px] font-body text-ink-muted mt-1">
         {item.memberships} board{item.memberships === 1 ? "" : "s"}
         {" · "}
         {item.seat_holders} formal seat{item.seat_holders === 1 ? "" : "s"}
@@ -335,7 +335,7 @@ function Toggle<T extends string>({
   options: { id: T; label: string }[];
 }) {
   return (
-    <div className="inline-flex rounded-lg border border-cream-300 bg-white p-0.5">
+    <div className="inline-flex rounded-lg border border-line-strong bg-surface p-0.5">
       {options.map((option) => {
         const active = option.id === value;
         return (
@@ -346,7 +346,7 @@ function Toggle<T extends string>({
             className={`px-3 py-1 text-xs font-body rounded-md transition-colors ${
               active
                 ? "bg-forest-800 text-cream-50"
-                : "text-forest-600 hover:bg-cream-50"
+                : "text-forest-600 hover:bg-canvas"
             }`}
           >
             {option.label}

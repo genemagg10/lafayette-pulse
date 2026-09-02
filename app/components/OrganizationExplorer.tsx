@@ -247,7 +247,7 @@ export default function OrganizationExplorer({
 
   if (unavailable && (count == null || count === 0) && items.length === 0 && !listLoading) {
     return (
-      <p className="text-sm font-body text-forest-500">
+      <p className="text-sm font-body text-ink-muted">
         Organization directory is temporarily unavailable.
       </p>
     );
@@ -255,7 +255,7 @@ export default function OrganizationExplorer({
 
   if (trulyEmpty) {
     return (
-      <p className="text-sm font-body text-forest-500">
+      <p className="text-sm font-body text-ink-muted">
         No organizations loaded yet. Apply the civic graph migrations, or the
         directory API may be unreachable.
       </p>
@@ -310,7 +310,7 @@ export default function OrganizationExplorer({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search organizations…"
-        className="w-full px-3 py-2 rounded-lg border border-cream-300 bg-white font-body text-sm text-forest-800 placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
+        className="w-full px-3 py-2 rounded-lg border border-line-strong bg-surface font-body text-sm text-ink placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
       />
       <div className="flex flex-wrap gap-1.5">
         <button
@@ -319,7 +319,7 @@ export default function OrganizationExplorer({
           className={`px-2.5 py-1 rounded-full text-[11px] font-body border transition-colors ${
             orgType === ""
               ? "bg-forest-800 text-cream-50 border-forest-800"
-              : "bg-white text-forest-600 border-cream-300 hover:bg-cream-50"
+              : "bg-surface text-forest-600 border-line-strong hover:bg-canvas"
           }`}
         >
           All
@@ -334,7 +334,7 @@ export default function OrganizationExplorer({
               className={`px-2.5 py-1 rounded-full text-[11px] font-body border transition-colors ${
                 active
                   ? "bg-forest-800 text-cream-50 border-forest-800"
-                  : "bg-white text-forest-600 border-cream-300 hover:bg-cream-50"
+                  : "bg-surface text-forest-600 border-line-strong hover:bg-canvas"
               }`}
             >
               {ORG_TYPE_LABELS[type]}
@@ -345,17 +345,17 @@ export default function OrganizationExplorer({
       {listLoading ? (
         <div className="space-y-2 animate-pulse">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 bg-cream-100 rounded-lg" />
+            <div key={i} className="h-14 bg-surface-muted rounded-lg" />
           ))}
         </div>
       ) : listError ? (
-        <p className="text-sm font-body text-forest-500">{listError}</p>
+        <p className="text-sm font-body text-ink-muted">{listError}</p>
       ) : items.length === 0 ? (
-        <p className="text-sm font-body text-forest-500">
+        <p className="text-sm font-body text-ink-muted">
           No organizations match this search.
         </p>
       ) : (
-        <ul className="divide-y divide-cream-200 rounded-lg border border-cream-200">
+        <ul className="divide-y divide-line rounded-lg border border-line">
           {items.map((org) => {
             const active = org.id === selectedId;
             return (
@@ -364,18 +364,18 @@ export default function OrganizationExplorer({
                   type="button"
                   onClick={() => selectOrg(org.id)}
                   className={`w-full text-left px-3 py-2.5 transition-colors ${
-                    active ? "bg-forest-50" : "hover:bg-cream-50"
+                    active ? "bg-forest-soft" : "hover:bg-canvas"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-heading font-semibold text-sm text-forest-800">
+                    <span className="font-heading font-semibold text-sm text-ink">
                       {org.name}
                     </span>
-                    <span className="text-[10px] uppercase tracking-wide text-forest-500 flex-shrink-0">
+                    <span className="text-[10px] uppercase tracking-wide text-ink-muted flex-shrink-0">
                       {ORG_TYPE_LABELS[org.org_type as OrgType] || org.org_type}
                     </span>
                   </div>
-                  <p className="text-[11px] font-body text-forest-500 mt-0.5">
+                  <p className="text-[11px] font-body text-ink-muted mt-0.5">
                     {org.current_member_count ?? org.member_count ?? 0} current members
                   </p>
                 </button>
@@ -390,14 +390,14 @@ export default function OrganizationExplorer({
   const detailPane = (
     <div className="space-y-3">
       {detail ? (
-        <div className="rounded-lg border border-cream-200 bg-cream-50/60 p-3 space-y-2">
-          <h3 className="font-heading font-semibold text-forest-800">{detail.name}</h3>
+        <div className="rounded-lg border border-line bg-surface-muted p-3 space-y-2">
+          <h3 className="font-heading font-semibold text-ink">{detail.name}</h3>
           {detail.description && (
             <p className="text-sm font-body text-forest-600 leading-relaxed">
               {detail.description}
             </p>
           )}
-          <p className="text-xs font-body text-forest-500">
+          <p className="text-xs font-body text-ink-muted">
             {detail.current_member_count ?? currentMembers.length} current members
           </p>
           {currentMembers.length > 0 ? (
@@ -410,35 +410,35 @@ export default function OrganizationExplorer({
               ))}
             </ul>
           ) : (
-            <p className="text-sm font-body text-forest-500">
+            <p className="text-sm font-body text-ink-muted">
               No current members recorded for this organization.
             </p>
           )}
         </div>
       ) : (
-        <p className="text-sm font-body text-forest-500">
+        <p className="text-sm font-body text-ink-muted">
           Select an organization to see overlapping membership.
         </p>
       )}
       {selectedEdge && (
-        <div className="rounded-lg border border-cream-200 bg-white p-3 space-y-2">
+        <div className="rounded-lg border border-line bg-surface p-3 space-y-2">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h4 className="font-heading font-semibold text-sm text-forest-800">
+              <h4 className="font-heading font-semibold text-sm text-ink">
                 {selectedEdge.stance_kind === "co-stance"
                   ? "Co-stance"
                   : selectedEdge.stance_kind === "opposed-on-issues"
                     ? "Opposed on issues"
                     : "Shared membership"}
               </h4>
-              <p className="text-xs font-body text-forest-500 mt-0.5">
+              <p className="text-xs font-body text-ink-muted mt-0.5">
                 {sourceName} · {targetName}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setSelectedEdge(null)}
-              className="text-xs font-body text-forest-500 hover:text-forest-800"
+              className="text-xs font-body text-ink-muted hover:text-ink"
             >
               Close
             </button>
@@ -459,18 +459,18 @@ export default function OrganizationExplorer({
               ))}
             </ul>
           ) : !selectedEdge.stance_kind ? (
-            <p className="text-sm font-body text-forest-500">
+            <p className="text-sm font-body text-ink-muted">
               Shared names are not available for this edge.
             </p>
           ) : null}
         </div>
       )}
       {isolates.length > 0 && (
-        <aside className="rounded-lg border border-cream-200 bg-cream-50/60 p-3">
-          <h4 className="font-heading font-semibold text-xs text-forest-800">
+        <aside className="rounded-lg border border-line bg-surface-muted p-3">
+          <h4 className="font-heading font-semibold text-xs text-ink">
             No overlaps yet
           </h4>
-          <p className="text-[11px] font-body text-forest-500 mt-0.5 mb-2">
+          <p className="text-[11px] font-body text-ink-muted mt-0.5 mb-2">
             Orgs with members but no shared membership at this threshold.
           </p>
           <ul className="space-y-1">
@@ -493,10 +493,10 @@ export default function OrganizationExplorer({
 
   const vizPane = (
     <div className="flex flex-col h-full min-h-[420px] gap-2">
-      <h3 className="font-heading font-semibold text-forest-800 text-sm">
+      <h3 className="font-heading font-semibold text-ink text-sm">
         Shared membership
       </h3>
-      <p className="text-xs font-body text-forest-500">
+      <p className="text-xs font-body text-ink-muted">
         Organizations connected when they share current members (Jaccard
         overlap). This is overlapping membership, not a political grouping.
       </p>
@@ -526,20 +526,20 @@ export default function OrganizationExplorer({
         Show stance layer (co-stance / opposed on issues)
       </label>
       {stanceLayer && coStanceError && (
-        <p className="text-sm font-body text-forest-500">{coStanceError}</p>
+        <p className="text-sm font-body text-ink-muted">{coStanceError}</p>
       )}
       {stanceLayer && (
-        <p className="text-xs font-body text-forest-500">
+        <p className="text-xs font-body text-ink-muted">
           Teal solid = co-stance. Dashed vermillion = opposed on issues.
           Hidden unless both organizations already appear on shared membership.
         </p>
       )}
       {affinityError && (
-        <p className="text-sm font-body text-forest-500">{affinityError}</p>
+        <p className="text-sm font-body text-ink-muted">{affinityError}</p>
       )}
       <div className="flex-1 min-h-[420px]">
         {!affinity && !affinityError ? (
-          <div className="h-full min-h-[420px] bg-cream-100 rounded-lg animate-pulse" />
+          <div className="h-full min-h-[420px] bg-surface-muted rounded-lg animate-pulse" />
         ) : (
           <CivicGraph
             nodes={graphNodes.map((node) => ({

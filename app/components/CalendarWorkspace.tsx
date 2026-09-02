@@ -18,7 +18,7 @@ export default function CalendarWorkspace() {
       <div className="h-full min-h-0 hidden md:grid md:grid-cols-[minmax(0,55fr)_minmax(0,45fr)]">
         <section className="min-h-0 overflow-y-auto border-r border-line bg-surface p-3">
           <div className="flex items-center justify-between mb-3">
-            <h1 className="font-heading font-bold text-forest-800">Calendar</h1>
+            <h1 className="font-heading font-bold text-ink">Calendar</h1>
             <ViewToggle view={view} onChange={setView} />
           </div>
           <AgendaCalendar
@@ -34,7 +34,7 @@ export default function CalendarWorkspace() {
           />
         </section>
         <section className="min-h-0 overflow-y-auto bg-canvas p-3 space-y-4">
-          <h2 className="font-heading font-semibold text-forest-800">
+          <h2 className="font-heading font-semibold text-ink">
             {selectedDay
               ? new Date(`${selectedDay}T12:00:00`).toLocaleDateString("en-US", {
                   weekday: "long",
@@ -60,7 +60,7 @@ export default function CalendarWorkspace() {
 
       <div className="md:hidden h-full min-h-0 flex flex-col">
         <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-line bg-surface">
-          <h1 className="font-heading font-bold text-forest-800">Calendar</h1>
+          <h1 className="font-heading font-bold text-ink">Calendar</h1>
           <button
             type="button"
             onClick={() => setMobileGrid((open) => !open)}
@@ -123,8 +123,8 @@ function ViewToggle({
           onClick={() => onChange(id)}
           className={`px-3 py-1 text-xs font-body rounded-md capitalize ${
             view === id
-              ? "bg-forest-800 text-cream-50"
-              : "text-forest-600 hover:bg-cream-50"
+              ? "bg-forest text-surface"
+              : "text-forest-600 hover:bg-canvas"
           }`}
         >
           {id}
@@ -144,18 +144,18 @@ function SelectedAgendaDetail({
   return (
     <div className="border border-line bg-canvas p-3 space-y-1">
       <div className="flex items-start justify-between gap-2">
-        <h3 className="font-heading font-semibold text-sm text-forest-800">
+        <h3 className="font-heading font-semibold text-sm text-ink">
           {item.title}
         </h3>
         <button
           type="button"
           onClick={onClose}
-          className="text-xs font-body text-forest-500"
+          className="text-xs font-body text-ink-muted"
         >
           Close
         </button>
       </div>
-      <p className="text-xs font-body text-forest-500">
+      <p className="text-xs font-body text-ink-muted">
         {new Date(item.date).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",

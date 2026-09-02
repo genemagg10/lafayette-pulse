@@ -116,11 +116,11 @@ function PanelHeader({
 }) {
   return (
     <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-line">
-      <h2 className="font-heading font-semibold text-forest-800">Selection</h2>
+      <h2 className="font-heading font-semibold text-ink">Selection</h2>
       <button
         type="button"
         onClick={onToggle}
-        className="text-xs font-body text-forest-500 hover:text-forest-800"
+        className="text-xs font-body text-ink-muted hover:text-ink"
       >
         {toggleLabel}
       </button>
@@ -131,7 +131,7 @@ function PanelHeader({
 function SelectionBody({ selection }: { selection: Selection | null }) {
   if (!selection) {
     return (
-      <p className="text-sm font-body text-forest-500">
+      <p className="text-sm font-body text-ink-muted">
         Tap a marker. Layers: Events and Organizations on; Projects off unless
         you turn them on.
       </p>
@@ -145,7 +145,7 @@ function SelectionBody({ selection }: { selection: Selection | null }) {
         <p className="text-[11px] uppercase tracking-wide text-forest-400 font-body">
           Event
         </p>
-        <h3 className="font-heading font-semibold text-forest-800">{event.title}</h3>
+        <h3 className="font-heading font-semibold text-ink">{event.title}</h3>
         {event.starts_at && (
           <p className="text-sm font-body text-forest-600">
             {new Date(event.starts_at).toLocaleDateString("en-US", {
@@ -157,7 +157,7 @@ function SelectionBody({ selection }: { selection: Selection | null }) {
           </p>
         )}
         {event.location_name && (
-          <p className="text-sm font-body text-forest-500">{event.location_name}</p>
+          <p className="text-sm font-body text-ink-muted">{event.location_name}</p>
         )}
         {event.description && (
           <p className="text-sm font-body text-forest-600 leading-relaxed">
@@ -178,12 +178,12 @@ function SelectionBody({ selection }: { selection: Selection | null }) {
         <p className="text-[11px] uppercase tracking-wide text-forest-400 font-body">
           Organization
         </p>
-        <h3 className="font-heading font-semibold text-forest-800">{org.name}</h3>
+        <h3 className="font-heading font-semibold text-ink">{org.name}</h3>
         <p className="text-sm font-body text-forest-600">
           {ORG_TYPE_LABELS[org.org_type] ?? org.org_type}
         </p>
         {org.location_name && (
-          <p className="text-sm font-body text-forest-500">{org.location_name}</p>
+          <p className="text-sm font-body text-ink-muted">{org.location_name}</p>
         )}
         <Link
           href="/who?tab=orgs"
@@ -202,12 +202,12 @@ function SelectionBody({ selection }: { selection: Selection | null }) {
       <p className="text-[11px] uppercase tracking-wide text-forest-400 font-body">
         Project
       </p>
-      <h3 className="font-heading font-semibold text-forest-800">{project.title}</h3>
+      <h3 className="font-heading font-semibold text-ink">{project.title}</h3>
       <p className="text-sm font-body text-forest-600">
         {cat.label}
       </p>
       {project.location_name && (
-        <p className="text-sm font-body text-forest-500">{project.location_name}</p>
+        <p className="text-sm font-body text-ink-muted">{project.location_name}</p>
       )}
       {project.description && (
         <p className="text-sm font-body text-forest-600 leading-relaxed line-clamp-6">

@@ -45,7 +45,7 @@ export default function FocusPanes({
             >
               ← List
             </button>
-            <span className="font-heading text-sm text-forest-800">Detail</span>
+            <span className="font-heading text-sm text-ink">Detail</span>
           </div>
         )}
         <div
@@ -79,7 +79,7 @@ export default function FocusPanes({
             >
               ← Detail
             </button>
-            <span className="font-heading text-sm text-forest-800">{vizLabel}</span>
+            <span className="font-heading text-sm text-ink">{vizLabel}</span>
           </div>
           <div className="flex-1 min-h-viz p-3 flex flex-col">{viz}</div>
         </div>

@@ -91,10 +91,10 @@ export default function ProjectsArchive({
   return (
     <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
       <div>
-        <p className="text-[11px] uppercase tracking-wide font-body text-forest-500">
+        <p className="text-[11px] uppercase tracking-wide font-body text-ink-muted">
           More · archive
         </p>
-        <h1 className="font-heading text-2xl font-bold text-forest-800">
+        <h1 className="font-heading text-2xl font-bold text-ink">
           Project archive
         </h1>
         <p className="text-sm font-body text-forest-600 mt-1">
@@ -135,11 +135,11 @@ export default function ProjectsArchive({
       {loading ? (
         <div className="space-y-4 animate-pulse">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-cream-100 rounded-lg p-4 h-16" />
+            <div key={i} className="bg-surface-muted rounded-lg p-4 h-16" />
           ))}
         </div>
       ) : error ? (
-        <p className="text-sm font-body text-forest-500">
+        <p className="text-sm font-body text-ink-muted">
           Project list unavailable until the backend recovers.
         </p>
       ) : (

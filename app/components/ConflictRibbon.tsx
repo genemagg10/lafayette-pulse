@@ -52,7 +52,7 @@ export default function ConflictRibbon({
 
   if (stances.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-cream-300 bg-cream-50 p-4">
+      <div className="rounded-lg border border-dashed border-line-strong bg-canvas p-4">
         <p className="text-sm font-body text-forest-600">
           {emptyHint ||
             "No attributed support or oppose on this measure yet. The ribbon does not infer a clash from overlapping membership."}
@@ -99,7 +99,7 @@ export default function ConflictRibbon({
             return (
               <li
                 key={row.id}
-                className="rounded-lg border border-cream-200 bg-white p-3 text-sm font-body text-forest-700"
+                className="rounded-lg border border-line bg-surface p-3 text-sm font-body text-forest-700"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -111,7 +111,7 @@ export default function ConflictRibbon({
                       {row.polarity}
                     </span>
                   </div>
-                  <span className="text-[11px] text-forest-500 tabular-nums">
+                  <span className="text-[11px] text-ink-muted tabular-nums">
                     {Math.round(row.confidence * 100)}%
                   </span>
                 </div>
@@ -120,7 +120,7 @@ export default function ConflictRibbon({
                     “{row.evidence_quote}”
                   </p>
                 )}
-                <p className="mt-1 text-[11px] text-forest-500">
+                <p className="mt-1 text-[11px] text-ink-muted">
                   {row.as_of ? `As of ${row.as_of}` : "Date not recorded"}
                   {row.source_url ? (
                     <>
@@ -129,7 +129,7 @@ export default function ConflictRibbon({
                         href={row.source_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="underline hover:text-forest-800"
+                        className="underline hover:text-ink"
                       >
                         Source ↗
                       </a>

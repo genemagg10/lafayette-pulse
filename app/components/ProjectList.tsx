@@ -45,7 +45,7 @@ export default function ProjectList({
             className={`px-2 py-0.5 rounded transition-colors ${
               sortBy === key
                 ? "bg-forest-800 text-cream-50"
-                : "bg-cream-200 text-forest-600 hover:bg-cream-300"
+                : "bg-line text-forest-600 hover:bg-line-strong"
             }`}
           >
             {key === "updated_at" ? "Date" : key === "category" ? "Category" : "Status"}
@@ -68,8 +68,8 @@ export default function ProjectList({
           return (
             <div
               key={project.id}
-              className={`bg-white rounded-lg shadow-sm border transition-all cursor-pointer hover:shadow-md ${
-                isSelected ? "ring-2 ring-forest-500" : "border-cream-200"
+              className={`bg-surface rounded-lg border transition-all cursor-pointer ${
+                isSelected ? "ring-2 ring-forest-500" : "border-line"
               }`}
               onClick={() => {
                 onSelectProject(project);
@@ -90,11 +90,11 @@ export default function ProjectList({
                         {cat.icon}
                       </span>
                       <div className="min-w-0">
-                        <h3 className="font-heading font-semibold text-forest-800 text-sm sm:text-base leading-tight">
+                        <h3 className="font-heading font-semibold text-ink text-sm sm:text-base leading-tight">
                           {project.title}
                         </h3>
                         {project.location_name && (
-                          <p className="text-forest-500 text-xs mt-0.5 font-body truncate">
+                          <p className="text-ink-muted text-xs mt-0.5 font-body truncate">
                             {project.location_name}
                           </p>
                         )}
@@ -121,12 +121,12 @@ export default function ProjectList({
 
                   {/* Expanded content */}
                   {isExpanded && (
-                    <div className="mt-3 pt-3 border-t border-cream-200 space-y-2 text-sm font-body">
+                    <div className="mt-3 pt-3 border-t border-line space-y-2 text-sm font-body">
                       {project.description && (
                         <p className="text-forest-700">{project.description}</p>
                       )}
                       {project.timeline_text && (
-                        <p className="text-forest-500">
+                        <p className="text-ink-muted">
                           <span className="font-medium text-forest-700">
                             Timeline:
                           </span>{" "}
@@ -134,7 +134,7 @@ export default function ProjectList({
                         </p>
                       )}
                       {project.funding_source && (
-                        <p className="text-forest-500">
+                        <p className="text-ink-muted">
                           <span className="font-medium text-forest-700">
                             Funding:
                           </span>{" "}
@@ -142,7 +142,7 @@ export default function ProjectList({
                         </p>
                       )}
                       {project.estimated_cost && (
-                        <p className="text-forest-500">
+                        <p className="text-ink-muted">
                           <span className="font-medium text-forest-700">
                             Est. Cost:
                           </span>{" "}
@@ -154,7 +154,7 @@ export default function ProjectList({
                           href={project.source_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-forest-600 underline hover:text-forest-800"
+                          className="inline-flex items-center gap-1 text-forest-600 underline hover:text-ink"
                           onClick={(e) => e.stopPropagation()}
                         >
                           View Source
@@ -168,7 +168,7 @@ export default function ProjectList({
                           {project.tags.map((tag) => (
                             <span
                               key={tag}
-                              className="bg-cream-200 text-forest-600 text-xs px-2 py-0.5 rounded-full"
+                              className="bg-line text-forest-600 text-xs px-2 py-0.5 rounded-full"
                             >
                               {tag}
                             </span>

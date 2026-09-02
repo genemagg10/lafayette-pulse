@@ -55,11 +55,11 @@ export default function CoStanceMatrix({
   }, [data]);
 
   if (error) {
-    return <p className="text-sm font-body text-forest-500">{error}</p>;
+    return <p className="text-sm font-body text-ink-muted">{error}</p>;
   }
 
   if (loading && !data) {
-    return <div className="h-[240px] bg-cream-100 rounded-lg animate-pulse" />;
+    return <div className="h-[240px] bg-surface-muted rounded-lg animate-pulse" />;
   }
 
   const nodes = data?.nodes ?? [];
@@ -71,7 +71,7 @@ export default function CoStanceMatrix({
         <div
           role="tablist"
           aria-label="Co-stance actor type"
-          className="inline-flex rounded-lg border border-cream-300 bg-white p-0.5"
+          className="inline-flex rounded-lg border border-line-strong bg-surface p-0.5"
         >
           {([
             { id: "organization" as const, label: "Organizations" },
@@ -88,7 +88,7 @@ export default function CoStanceMatrix({
                 className={`px-3 py-1.5 text-xs font-body rounded-md transition-colors ${
                   active
                     ? "bg-forest-800 text-cream-50"
-                    : "text-forest-600 hover:bg-cream-50"
+                    : "text-forest-600 hover:bg-canvas"
                 }`}
               >
                 {option.label}
@@ -111,13 +111,13 @@ export default function CoStanceMatrix({
           <span className="tabular-nums w-4 text-right">{minShared}</span>
         </label>
       </div>
-      <p className="text-xs font-body text-forest-500">
+      <p className="text-xs font-body text-ink-muted">
         {CO_STANCE_LABEL} is the same support or oppose on shared measures.
         {` ${OPPOSED_ON_ISSUES_LABEL}`} is opposite positions. This is not
         overlapping membership and is never labeled allies.
       </p>
       {empty ? (
-        <div className="rounded-lg border border-dashed border-cream-300 bg-cream-50 p-4">
+        <div className="rounded-lg border border-dashed border-line-strong bg-canvas p-4">
           <p className="text-sm font-body text-forest-600">
             No co-stance yet. Pairwise cells need quote-backed stances on the
             same measures — run <code className="text-xs">extract-stances.py</code>{" "}
@@ -133,7 +133,7 @@ export default function CoStanceMatrix({
             </caption>
             <thead>
               <tr>
-                <th className="p-1 sticky left-0 bg-white" />
+                <th className="p-1 sticky left-0 bg-surface" />
                 {nodes.map((node) => (
                   <th
                     key={node.id}
@@ -151,7 +151,7 @@ export default function CoStanceMatrix({
               {nodes.map((row) => (
                 <tr key={row.id}>
                   <th
-                    className="p-1 pr-2 text-left font-heading font-semibold text-forest-800 sticky left-0 bg-white whitespace-nowrap"
+                    className="p-1 pr-2 text-left font-heading font-semibold text-ink sticky left-0 bg-surface whitespace-nowrap"
                     title={row.label}
                   >
                     {row.label}
@@ -161,7 +161,7 @@ export default function CoStanceMatrix({
                       return (
                         <td
                           key={col.id}
-                          className="w-7 h-7 border border-cream-200 bg-cream-100"
+                          className="w-7 h-7 border border-line bg-surface-muted"
                         />
                       );
                     }
@@ -181,7 +181,7 @@ export default function CoStanceMatrix({
                       boxShadow = `inset 0 0 0 1px ${STANCE_VERMILLION}`;
                     }
                     return (
-                      <td key={col.id} className="p-0 border border-cream-200">
+                      <td key={col.id} className="p-0 border border-line">
                         <button
                           type="button"
                           disabled={!cell}
@@ -215,15 +215,15 @@ export default function CoStanceMatrix({
         </div>
       )}
       {selected && (
-        <div className="rounded-lg border border-cream-200 bg-white p-3 space-y-1">
+        <div className="rounded-lg border border-line bg-surface p-3 space-y-1">
           <div className="flex items-start justify-between gap-3">
-            <h4 className="font-heading font-semibold text-sm text-forest-800">
+            <h4 className="font-heading font-semibold text-sm text-ink">
               {selected.label}
             </h4>
             <button
               type="button"
               onClick={() => setSelectedKey(null)}
-              className="text-xs font-body text-forest-500 hover:text-forest-800"
+              className="text-xs font-body text-ink-muted hover:text-ink"
             >
               Close
             </button>

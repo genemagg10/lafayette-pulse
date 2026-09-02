@@ -62,10 +62,10 @@ export default function AgendaFeed({
     return (
       <div className="space-y-3 animate-pulse">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white rounded-lg p-4">
-            <div className="h-4 bg-cream-200 rounded w-1/3 mb-2" />
-            <div className="h-3 bg-cream-200 rounded w-full mb-1" />
-            <div className="h-3 bg-cream-200 rounded w-2/3" />
+          <div key={i} className="bg-surface rounded-lg p-4">
+            <div className="h-4 bg-line rounded w-1/3 mb-2" />
+            <div className="h-3 bg-line rounded w-full mb-1" />
+            <div className="h-3 bg-line rounded w-2/3" />
           </div>
         ))}
       </div>
@@ -82,7 +82,7 @@ export default function AgendaFeed({
               className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
                 view === "upcoming"
                   ? "bg-forest-700 text-white"
-                  : "bg-cream-100 text-forest-500 hover:bg-cream-200"
+                  : "bg-surface-muted text-ink-muted hover:bg-line"
               }`}
             >
               Upcoming
@@ -92,7 +92,7 @@ export default function AgendaFeed({
               className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
                 view === "archive"
                   ? "bg-forest-700 text-white"
-                  : "bg-cream-100 text-forest-500 hover:bg-cream-200"
+                  : "bg-surface-muted text-ink-muted hover:bg-line"
               }`}
             >
               Archive
@@ -151,7 +151,7 @@ export default function AgendaFeed({
                     <span className="mx-1.5">&middot;</span>
                     {item.body}
                   </p>
-                  <h4 className="font-heading font-semibold text-forest-800 text-sm mt-1">
+                  <h4 className="font-heading font-semibold text-ink text-sm mt-1">
                     {item.title}
                   </h4>
                 </div>
@@ -178,7 +178,7 @@ export default function AgendaFeed({
                 {item.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="bg-cream-100 text-forest-500 text-xs px-2 py-0.5 rounded-full font-body"
+                    className="bg-surface-muted text-ink-muted text-xs px-2 py-0.5 rounded-full font-body"
                   >
                     {tag}
                   </span>
@@ -188,7 +188,7 @@ export default function AgendaFeed({
                     href={item.source_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs font-body text-forest-600 underline hover:text-forest-800"
+                    className="text-xs font-body text-forest-600 underline hover:text-ink"
                   >
                     View Source ↗
                   </a>

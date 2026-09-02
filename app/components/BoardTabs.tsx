@@ -30,7 +30,7 @@ export default function BoardTabs<T extends string>({
             onClick={() => onChange(option.id)}
             className={`px-3 py-1.5 text-xs font-body transition-colors ${
               active
-                ? "bg-forest-800 text-cream-50"
+                ? "bg-forest text-surface"
                 : "text-forest-600 hover:bg-canvas"
             }`}
           >

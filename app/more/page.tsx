@@ -9,7 +9,7 @@ export default function MorePage() {
   return (
     <div className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div>
-        <h1 className="font-heading text-2xl font-bold text-forest-800">More</h1>
+        <h1 className="font-heading text-2xl font-bold text-ink">More</h1>
         <p className="text-sm font-body text-forest-600 mt-1">
           Secondary tools. Projects stay here so they do not compete with Pulse,
           Map, Calendar, and Who.
@@ -17,7 +17,7 @@ export default function MorePage() {
       </div>
 
       <section className="bg-surface border border-line p-4 space-y-2">
-        <h2 className="font-heading font-semibold text-forest-800">Health & freshness</h2>
+        <h2 className="font-heading font-semibold text-ink">Health & freshness</h2>
         <p className="text-sm font-body text-forest-600">
           {loading ? "Checking data…" : freshness.label}
         </p>
@@ -42,7 +42,7 @@ export default function MorePage() {
           href="/projects"
           className="bg-surface border border-line p-4 hover:border-accent"
         >
-          <h2 className="font-heading font-semibold text-forest-800">Project archive</h2>
+          <h2 className="font-heading font-semibold text-ink">Project archive</h2>
           <p className="text-sm font-body text-forest-600 mt-1">
             City projects by category — kept off primary nav.
           </p>
@@ -51,7 +51,7 @@ export default function MorePage() {
           href="/ask"
           className="bg-surface border border-line p-4 hover:border-accent"
         >
-          <h2 className="font-heading font-semibold text-forest-800">Ask Lafayette AI</h2>
+          <h2 className="font-heading font-semibold text-ink">Ask Lafayette AI</h2>
           <p className="text-sm font-body text-forest-600 mt-1">
             Chat lives here — not as a floating button on every page.
           </p>
@@ -60,7 +60,7 @@ export default function MorePage() {
           href="/who?tab=measures"
           className="bg-surface border border-line p-4 hover:border-accent"
         >
-          <h2 className="font-heading font-semibold text-forest-800">Measures</h2>
+          <h2 className="font-heading font-semibold text-ink">Measures</h2>
           <p className="text-sm font-body text-forest-600 mt-1">
             Lives under Who, not as a peer nav item.
           </p>

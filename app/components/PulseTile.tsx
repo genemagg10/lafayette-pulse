@@ -45,10 +45,10 @@ export default function PulseTile({
         className="w-full flex items-center gap-3 p-4 text-left hover:bg-canvas transition-colors"
       >
         <div className="flex-1 min-w-0">
-          <h2 className="font-heading font-bold text-forest-800 text-base sm:text-lg">
+          <h2 className="font-heading font-bold text-ink text-base sm:text-lg">
             {title}
           </h2>
-          <p className="text-sm text-forest-500 font-body truncate">{summary}</p>
+          <p className="text-sm text-ink-muted font-body truncate">{summary}</p>
         </div>
         <svg
           className={`w-5 h-5 text-forest-400 flex-shrink-0 transition-transform duration-300 ${

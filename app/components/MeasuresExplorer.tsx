@@ -144,18 +144,18 @@ export default function MeasuresExplorer({
 
   if (unavailable && (count == null || count === 0) && items.length === 0 && !listLoading) {
     return (
-      <p className="text-sm font-body text-forest-500">
+      <p className="text-sm font-body text-ink-muted">
         Measures are temporarily unavailable.
       </p>
     );
   }
 
   const emptyMeasures =
-    <div className="rounded-lg border border-dashed border-cream-300 bg-cream-50 p-6 text-center">
-      <p className="font-heading font-semibold text-forest-800">
+    <div className="rounded-lg border border-dashed border-line-strong bg-canvas p-6 text-center">
+      <p className="font-heading font-semibold text-ink">
         No measures extracted yet
       </p>
-      <p className="text-sm font-body text-forest-500 mt-2 max-w-lg mx-auto leading-relaxed">
+      <p className="text-sm font-body text-ink-muted mt-2 max-w-lg mx-auto leading-relaxed">
         Ballot measures and attributed support / oppose appear here after{" "}
         <code className="text-xs">extract-stances.py</code> (or a quote-backed
         seed in the SQL editor). Overlapping membership is not a political
@@ -207,13 +207,13 @@ export default function MeasuresExplorer({
       {listLoading ? (
         <div className="space-y-2 animate-pulse">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 bg-cream-100 rounded-lg" />
+            <div key={i} className="h-14 bg-surface-muted rounded-lg" />
           ))}
         </div>
       ) : listError ? (
-        <p className="text-sm font-body text-forest-500">{listError}</p>
+        <p className="text-sm font-body text-ink-muted">{listError}</p>
       ) : (
-        <ul className="divide-y divide-cream-200 rounded-lg border border-cream-200">
+        <ul className="divide-y divide-line rounded-lg border border-line">
           {items.map((measure) => {
             const active = measure.id === selectedId;
             return (
@@ -225,20 +225,20 @@ export default function MeasuresExplorer({
                     setMobileStep("detail");
                   }}
                   className={`w-full text-left px-3 py-2.5 transition-colors ${
-                    active ? "bg-forest-50" : "hover:bg-cream-50"
+                    active ? "bg-forest-soft" : "hover:bg-canvas"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-heading font-semibold text-sm text-forest-800">
+                    <span className="font-heading font-semibold text-sm text-ink">
                       {measure.short_code
                         ? `${measure.short_code} · ${measure.title}`
                         : measure.title}
                     </span>
-                    <span className="text-[10px] uppercase tracking-wide text-forest-500 flex-shrink-0">
+                    <span className="text-[10px] uppercase tracking-wide text-ink-muted flex-shrink-0">
                       {MEASURE_STATUS_LABELS[measure.status] || measure.status}
                     </span>
                   </div>
-                  <p className="text-[11px] font-body text-forest-500 mt-0.5">
+                  <p className="text-[11px] font-body text-ink-muted mt-0.5">
                     {measure.support_count} support · {measure.oppose_count}{" "}
                     oppose
                     {measure.election_date ? ` · ${measure.election_date}` : ""}
@@ -255,12 +255,12 @@ export default function MeasuresExplorer({
   const detailPane = (
     <div className="space-y-3">
       {detailError && (
-        <p className="text-sm font-body text-forest-500">{detailError}</p>
+        <p className="text-sm font-body text-ink-muted">{detailError}</p>
       )}
       {detail ? (
         <>
-          <div className="rounded-lg border border-cream-200 bg-cream-50/60 p-3 space-y-1">
-            <h3 className="font-heading font-semibold text-forest-800">
+          <div className="rounded-lg border border-line bg-surface-muted p-3 space-y-1">
+            <h3 className="font-heading font-semibold text-ink">
               {detail.measure.short_code
                 ? `${detail.measure.short_code} · ${detail.measure.title}`
                 : detail.measure.title}
@@ -270,7 +270,7 @@ export default function MeasuresExplorer({
                 {detail.measure.summary}
               </p>
             )}
-            <p className="text-xs font-body text-forest-500">
+            <p className="text-xs font-body text-ink-muted">
               {MEASURE_STATUS_LABELS[detail.measure.status]}
               {detail.measure.election_date
                 ? ` · ${detail.measure.election_date}`
@@ -293,7 +293,7 @@ export default function MeasuresExplorer({
       ) : (
         !detailError &&
         !listLoading && (
-          <p className="text-sm font-body text-forest-500">
+          <p className="text-sm font-body text-ink-muted">
             Select a measure to see attributed support and oppose.
           </p>
         )
@@ -303,7 +303,7 @@ export default function MeasuresExplorer({
 
   const vizPane = (
     <div className="flex flex-col h-full min-h-[420px] gap-2">
-      <h3 className="font-heading font-semibold text-forest-800 text-sm">
+      <h3 className="font-heading font-semibold text-ink text-sm">
         Conflict ribbon
       </h3>
       {detail ? (
@@ -318,7 +318,7 @@ export default function MeasuresExplorer({
           />
         </div>
       ) : (
-        <p className="text-sm font-body text-forest-500">
+        <p className="text-sm font-body text-ink-muted">
           Select a measure to open the ribbon.
         </p>
       )}
