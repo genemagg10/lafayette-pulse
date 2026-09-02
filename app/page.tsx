@@ -39,6 +39,7 @@ export default function Home() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [expanded, setExpanded] = useState<Set<TileId>>(new Set<TileId>(["projects"]));
   const [error, setError] = useState<string | null>(null);
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
 
   const toggleTile = useCallback((id: TileId, scroll = false) => {
     setExpanded((prev) => {
@@ -55,6 +56,21 @@ export default function Home() {
         });
       }
       return next;
+    });
+  }, []);
+
+  const openPersonInWhosWho = useCallback((id: string) => {
+    setSelectedPersonId(id);
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.add("people");
+      return next;
+    });
+    requestAnimationFrame(() => {
+      document.getElementById("tile-people")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     });
   }, []);
 
@@ -322,6 +338,8 @@ export default function Home() {
             <PeopleExplorer
               count={peopleCount}
               unavailable={civicCountsDown}
+              selectedPersonId={selectedPersonId}
+              onSelectPerson={setSelectedPersonId}
             />
           </PulseTile>
 
@@ -345,6 +363,7 @@ export default function Home() {
               memberships={membershipCount}
               seatHolders={seatHolderCount}
               unavailable={civicCountsDown}
+              onSelectPerson={openPersonInWhosWho}
             />
           </PulseTile>
 

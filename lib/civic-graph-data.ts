@@ -243,17 +243,19 @@ export function buildEgoGraph(
   }
 
   if (hops === 2) {
-    const sharedCount = new Map<string, number>();
+    const sharedOrgs = new Map<string, Set<string>>();
     const hasSeat = new Set<string>();
+    const addSharedOrg = (personId: string, orgId: string) => {
+      const set = sharedOrgs.get(personId) ?? new Set<string>();
+      set.add(orgId);
+      sharedOrgs.set(personId, set);
+    };
 
     for (const membership of snapshot.memberships) {
       if (membership.person_id === center.id) continue;
       if (!hop1OrgIds.has(membership.organization_id)) continue;
       if (!tenureOk(membership.end_date, currentOnly)) continue;
-      sharedCount.set(
-        membership.person_id,
-        (sharedCount.get(membership.person_id) ?? 0) + 1
-      );
+      addSharedOrg(membership.person_id, membership.organization_id);
     }
     for (const holder of snapshot.seatHolders) {
       if (holder.person_id === center.id) continue;
@@ -263,18 +265,16 @@ export function buildEgoGraph(
         continue;
       }
       hasSeat.add(holder.person_id);
-      sharedCount.set(
-        holder.person_id,
-        (sharedCount.get(holder.person_id) ?? 0) + 1
-      );
+      addSharedOrg(holder.person_id, seat.organization_id);
     }
 
-    const alterIds = Array.from(sharedCount.keys())
+    const alterIds = Array.from(sharedOrgs.keys())
       .filter((id) => peopleById.has(id))
       .sort((a, b) => {
         const seatDelta = Number(hasSeat.has(b)) - Number(hasSeat.has(a));
         if (seatDelta) return seatDelta;
-        const shareDelta = (sharedCount.get(b) ?? 0) - (sharedCount.get(a) ?? 0);
+        const shareDelta =
+          (sharedOrgs.get(b)?.size ?? 0) - (sharedOrgs.get(a)?.size ?? 0);
         if (shareDelta) return shareDelta;
         return peopleById.get(a)!.full_name.localeCompare(
           peopleById.get(b)!.full_name
@@ -289,7 +289,7 @@ export function buildEgoGraph(
         id: person.id,
         kind: "person",
         label: person.full_name,
-        size: 8,
+        size: Math.max(1, sharedOrgs.get(alterId)?.size ?? 1),
         photo_url: person.photo_url,
       });
     }

@@ -17,12 +17,14 @@ interface InvolvementBoardProps {
   memberships: number | null;
   seatHolders: number | null;
   unavailable?: boolean;
+  onSelectPerson?: (id: string) => void;
 }
 
 export default function InvolvementBoard({
   memberships,
   seatHolders,
   unavailable,
+  onSelectPerson,
 }: InvolvementBoardProps) {
   const [entity, setEntity] = useState<"person" | "org">("person");
   const [metric, setMetric] = useState<InvolvementMetric>("degree");
@@ -180,7 +182,13 @@ export default function InvolvementBoard({
       ) : (
         <ol className="space-y-2">
           {data?.items.map((item, index) => (
-            <RankRow key={item.id} item={item} rank={index + 1} maxScore={maxScore} />
+            <RankRow
+              key={item.id}
+              item={item}
+              rank={index + 1}
+              maxScore={maxScore}
+              onSelectPerson={item.kind === "person" ? onSelectPerson : undefined}
+            />
           ))}
         </ol>
       )}
@@ -195,10 +203,12 @@ function RankRow({
   item,
   rank,
   maxScore,
+  onSelectPerson,
 }: {
   item: InvolvementItem;
   rank: number;
   maxScore: number;
+  onSelectPerson?: (id: string) => void;
 }) {
   const width = maxScore > 0 ? Math.max(8, (item.score / maxScore) * 100) : 8;
   const seatNote = item.seats
@@ -209,9 +219,19 @@ function RankRow({
       <div className="flex items-baseline justify-between gap-3">
         <div className="min-w-0">
           <span className="text-xs font-body text-forest-400 mr-2">{rank}</span>
-          <span className="font-heading font-semibold text-sm text-forest-800">
-            {item.label}
-          </span>
+          {onSelectPerson ? (
+            <button
+              type="button"
+              onClick={() => onSelectPerson(item.id)}
+              className="font-heading font-semibold text-sm text-forest-800 hover:underline text-left"
+            >
+              {item.label}
+            </button>
+          ) : (
+            <span className="font-heading font-semibold text-sm text-forest-800">
+              {item.label}
+            </span>
+          )}
           {seatNote && (
             <p className="text-[11px] font-body text-forest-500 mt-0.5 truncate">
               {seatNote}

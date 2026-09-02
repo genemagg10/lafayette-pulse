@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
       "";
     const q = qRaw ? sanitizeIlike(qRaw) : "";
     const hasSeat = parseOptionalBool(request, "has_seat");
+    const sort =
+      request.nextUrl.searchParams.get("sort") === "name" ? "name" : "footprint";
     const limit = parseLimit(request, 50, 100);
     const offset = parseOffset(request);
 
@@ -39,10 +41,10 @@ export async function GET(request: NextRequest) {
       seatedIds = Array.from(new Set((data ?? []).map((row) => row.person_id as string)));
     }
 
-    let query = supabase
-      .from("people")
-      .select("*", { count: "exact" })
-      .order("full_name", { ascending: true });
+    let query = supabase.from("people").select("*", { count: "exact" });
+    if (sort === "name") {
+      query = query.order("full_name", { ascending: true });
+    }
 
     if (q) {
       query = query.or(`full_name.ilike.%${q}%,bio.ilike.%${q}%`);
@@ -56,11 +58,16 @@ export async function GET(request: NextRequest) {
       query = query.not("id", "in", `(${seatedIds.join(",")})`);
     }
 
-    const { data, error, count } = await query.range(offset, offset + limit - 1);
+    const pageQuery =
+      sort === "name" ? query.range(offset, offset + limit - 1) : query;
+    const { data, error, count } = await pageQuery;
     if (error) return jsonNoStore({ error: error.message }, 500);
 
     const people = (data ?? []) as PersonRow[];
-    let items = people;
+    let items: (PersonRow & {
+      membership_count?: number;
+      seat_count?: number;
+    })[] = people;
     if (people.length > 0) {
       const snapshot = await loadGraphSnapshot(supabase);
       const summary = personRoleSummary(
@@ -71,6 +78,16 @@ export async function GET(request: NextRequest) {
         ...person,
         ...summary.get(person.id),
       }));
+    }
+
+    if (sort === "footprint") {
+      items.sort((a, b) => {
+        const aScore = (a.membership_count ?? 0) + (a.seat_count ?? 0);
+        const bScore = (b.membership_count ?? 0) + (b.seat_count ?? 0);
+        if (bScore !== aScore) return bScore - aScore;
+        return a.full_name.localeCompare(b.full_name);
+      });
+      items = items.slice(offset, offset + limit);
     }
 
     return jsonNoStore({
