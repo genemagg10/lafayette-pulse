@@ -8,6 +8,10 @@ By default, writes to civic_graph_proposals (staging). Pass --apply to
 upsert high-confidence people/orgs into the live graph; memberships are
 created only when both ends resolve.
 
+Stance / measure extraction lives in extract-stances.py (sibling). Do not
+fold stance inference into this script — that pipeline never infers stance
+from co-membership.
+
 Uses direct Supabase REST API (PostgREST) — no heavy SDK needed.
 Claude model matches classify-with-claude.py.
 

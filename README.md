@@ -78,6 +78,7 @@ After deploy, open [`/api/health`](https://lafayette-pulse.vercel.app/api/health
    - `supabase/migrations/006_civic_graph.sql` (people, orgs, events, measures)
    - `supabase/migrations/007_seed_civic_orgs.sql` (Lafayette orgs directory)
    - `supabase/migrations/008_civic_graph_proposals.sql` (staging for graph extraction; idempotent)
+   - `supabase/migrations/009_stances.sql` (stances + proposal kinds `stance`/`measure`; idempotent)
 4. Copy the project URL and anon key from Settings > API
 
 Civic graph tables are **public read, service-role write**. They do not use the older `FOR ALL USING (true)` policy from 001.
@@ -120,6 +121,37 @@ python extract-civic-graph.py --limit 100 --apply --min-confidence 0.6
 ```
 
 `--apply` is opt-in. The daily Collect & Classify workflow does **not** run this by default; enable the `extract_graph` workflow_dispatch input to run `--limit 100 --apply`.
+
+**Stance / measure extraction** (`extract-stances.py`) is a sibling of the civic-graph extractor. It mines RAG chunks for ballot measures and *attributed* stances (supports / opposes / endorses, body resolutions, named aye/nay votes). It does **not** infer stance from co-membership or shared boards. Live `measures` / `candidacies` tables already exist from migration 006; 009 adds `stances` and allows proposal kinds `stance` and `measure`.
+
+Confidence bands: **≥0.8** merge-candidate / high (staged; applied with `--apply`); **0.5–0.8** pending (staged only); **<0.5** dropped.
+
+```bash
+# Regex + confidence self-tests (no database, no Anthropic)
+python extract-stances.py --self-test
+
+# Preview only — no database writes (still calls Claude unless --keywords-only)
+python extract-stances.py --dry-run --limit 20
+
+# Stage proposals (default). Safe to re-run; existing dedupe_keys are skipped.
+python extract-stances.py --limit 50
+
+# Keyword filter + regex only (no Anthropic calls)
+python extract-stances.py --keywords-only --limit 50
+
+# Upsert measures; insert high-confidence stances only when the actor
+# already exists on people/organizations (no people/org creates).
+python extract-stances.py --limit 100 --apply --min-confidence 0.8
+```
+
+`--min-confidence` is the **apply** threshold for stances (default 0.8). `--stage-min` (default 0.5) is the floor for writing a proposal at all. `--apply` is opt-in. The daily workflow does **not** run this by default; enable the `extract_stances` workflow_dispatch input to run `--limit 100 --apply`.
+
+If extract is thin, do **not** invent production rows in a migration. Seed 1–2 historically documented Lafayette fights in the SQL editor with service role, using quote-backed sources:
+
+1. **Measure L (June 2018)** — Homes at Deer Hill referendum (failed). City page: [Terraces of Lafayette / Deer Hill](https://www.lovelafayette.org/city-hall/quick-links/hot-topics/terraces-of-lafayette). Distinct from the 2020 school Measure L — put the election year on `measures.election_date` / `subject_label`.
+2. **Measure L (March 2020)** — Lafayette School District parcel tax. City Council adopted Resolution 2020-03 endorsing it (5–0: Anderson, Candell, Bliss, Burks, Gerringer). Granicus minutes for clip_id 4780.
+
+Insert matching `measures` rows first, then `stances` only for named actors/votes in those sources. Never copy co-membership into `stances`.
 
 ## Deployment
 

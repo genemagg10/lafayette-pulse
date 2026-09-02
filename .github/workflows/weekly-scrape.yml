@@ -15,6 +15,11 @@ on:
         required: false
         type: boolean
         default: false
+      extract_stances:
+        description: 'Run stance/measure extraction from RAG chunks (--limit 100 --apply)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   collect-and-classify:
@@ -75,6 +80,15 @@ jobs:
         if: ${{ inputs.extract_graph }}
         working-directory: scripts
         run: python extract-civic-graph.py --limit 100 --apply
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
+      - name: Extract stances and measures from RAG chunks
+        if: ${{ inputs.extract_stances }}
+        working-directory: scripts
+        run: python extract-stances.py --limit 100 --apply
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
