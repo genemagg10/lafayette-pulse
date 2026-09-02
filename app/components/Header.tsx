@@ -5,6 +5,8 @@ interface HeaderProps {
   onToggleMap: () => void;
   showCalendar: boolean;
   onToggleCalendar: () => void;
+  freshnessLabel: string;
+  dataUnavailable: boolean;
 }
 
 export default function Header({
@@ -12,6 +14,8 @@ export default function Header({
   onToggleMap,
   showCalendar,
   onToggleCalendar,
+  freshnessLabel,
+  dataUnavailable,
 }: HeaderProps) {
   return (
     <header className="bg-forest-800 text-cream-50 shadow-lg">
@@ -30,7 +34,7 @@ export default function Header({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 text-sm">
+          <div className="flex items-center gap-2 sm:gap-3 text-sm flex-wrap justify-end">
             <button
               onClick={onToggleMap}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-body transition-all border ${
@@ -67,8 +71,15 @@ export default function Header({
               </svg>
               {showCalendar ? "Hide Calendar" : "Calendar"}
             </button>
-            <div className="bg-forest-700/60 rounded-full px-3 py-1 text-cream-200 font-body text-xs">
-              Updated Daily
+            <div
+              className={`rounded-full px-3 py-1 font-body text-xs ${
+                dataUnavailable
+                  ? "bg-amber-500/90 text-forest-950"
+                  : "bg-forest-700/60 text-cream-200"
+              }`}
+              title={freshnessLabel}
+            >
+              {freshnessLabel}
             </div>
           </div>
         </div>

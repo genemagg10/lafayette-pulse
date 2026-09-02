@@ -10,27 +10,88 @@ import GroupedProjectList from "./components/GroupedProjectList";
 import ProjectDetail from "./components/ProjectDetail";
 import AgendaFeed from "./components/AgendaFeed";
 import AgendaCalendar from "./components/AgendaCalendar";
+import PulseTile, { type TileId } from "./components/PulseTile";
+import OrganizationList from "./components/OrganizationList";
+import PeopleList from "./components/PeopleList";
+import MeasuresPlaceholder from "./components/MeasuresPlaceholder";
 import { CATEGORIES, migrateCategory, type ProjectCategory, type ProjectStatus } from "@/lib/categories";
-import type { Project } from "@/lib/types";
+import { formatFreshness } from "@/lib/freshness";
+import type { HealthResponse, Organization, Person, Project } from "@/lib/types";
 
-type ContentTab = "projects" | "agenda";
+function countLabel(n: number | null | undefined, noun: string, unavailable?: boolean): string {
+  if (unavailable) return "Temporarily unavailable";
+  if (n == null) return "—";
+  if (n === 1) return `1 ${noun}`;
+  return `${n} ${noun}`;
+}
 
 export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
+  const [orgsLoading, setOrgsLoading] = useState(true);
+  const [peopleLoading, setPeopleLoading] = useState(true);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [healthLoading, setHealthLoading] = useState(true);
   const [activeCategories, setActiveCategories] = useState<Set<ProjectCategory>>(
     new Set()
   );
   const [activeStatus, setActiveStatus] = useState<ProjectStatus | null>(null);
   const [search, setSearch] = useState("");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [showMap, setShowMap] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [contentTab, setContentTab] = useState<ContentTab>("projects");
-
+  const [expanded, setExpanded] = useState<Set<TileId>>(new Set<TileId>(["projects"]));
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch projects when filters change
+  const toggleTile = useCallback((id: TileId, scroll = false) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      const willExpand = !next.has(id);
+      if (willExpand) next.add(id);
+      else next.delete(id);
+      if (willExpand && scroll) {
+        requestAnimationFrame(() => {
+          document.getElementById(`tile-${id}`)?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        });
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    setHealthLoading(true);
+    fetch("/api/health")
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (data && typeof data === "object") {
+          setHealth(data as HealthResponse);
+        } else {
+          setHealth(null);
+        }
+      })
+      .catch(() => setHealth(null))
+      .finally(() => setHealthLoading(false));
+  }, []);
+
+  useEffect(() => {
+    setOrgsLoading(true);
+    fetch("/api/organizations")
+      .then((res) => res.json())
+      .then((data) => setOrganizations(Array.isArray(data) ? data : []))
+      .catch(() => setOrganizations([]))
+      .finally(() => setOrgsLoading(false));
+
+    setPeopleLoading(true);
+    fetch("/api/people")
+      .then((res) => res.json())
+      .then((data) => setPeople(Array.isArray(data) ? data : []))
+      .catch(() => setPeople([]))
+      .finally(() => setPeopleLoading(false));
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams();
     if (activeCategories.size > 0) {
@@ -49,13 +110,19 @@ export default function Home() {
     setLoading(true);
     setError(null);
     fetch(url)
-      .then((res) => {
-        if (!res.ok) throw new Error(`API error: ${res.status}`);
-        return res.json();
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          const message =
+            data && typeof data === "object" && "error" in data
+              ? String(data.error)
+              : `API error: ${res.status}`;
+          throw new Error(message);
+        }
+        return data;
       })
       .then((data) => {
         if (Array.isArray(data)) {
-          // Remap legacy category values (bike_ped → transportation, etc.)
           const migrated = data.map((p: Project) => ({
             ...p,
             category: migrateCategory(p.category),
@@ -84,7 +151,6 @@ export default function Home() {
     });
   }, []);
 
-  // Count projects per category
   const categoryCounts = (
     Object.keys(CATEGORIES) as ProjectCategory[]
   ).reduce(
@@ -95,112 +161,200 @@ export default function Home() {
     {} as Record<ProjectCategory, number>
   );
 
+  const freshness = formatFreshness(health, healthLoading);
+  const backendDown =
+    Boolean(error) ||
+    (health !== null && health.supabase_reachable === false);
+  const mappedCount = projects.filter((p) => p.latitude && p.longitude).length;
+  const agendaCount = health?.counts.agenda_items ?? null;
+
   return (
     <div className="min-h-screen flex flex-col bg-cream-50">
       <Header
-        showMap={showMap}
-        onToggleMap={() => setShowMap((v) => !v)}
-        showCalendar={showCalendar}
-        onToggleCalendar={() => setShowCalendar((v) => !v)}
+        showMap={expanded.has("map")}
+        onToggleMap={() => toggleTile("map", true)}
+        showCalendar={expanded.has("calendar")}
+        onToggleCalendar={() => toggleTile("calendar", true)}
+        freshnessLabel={freshness.label}
+        dataUnavailable={freshness.unavailable}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4">
-        {/* Filters row */}
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <SearchBar value={search} onChange={setSearch} />
-            </div>
-            <StatusFilter
-              activeStatus={activeStatus}
-              onSelect={setActiveStatus}
-            />
+        {backendDown && (
+          <div
+            role="alert"
+            className="bg-amber-50 border border-amber-300 text-forest-900 px-4 py-4 rounded-xl shadow-sm"
+          >
+            <p className="font-heading font-semibold text-base">
+              Backend data is currently unavailable
+            </p>
+            <p className="text-sm font-body mt-1 leading-relaxed">
+              The Pulse Board shell is up, but civic data could not be loaded
+              from the database. This is usually a backend configuration issue
+              (missing or expired Supabase credentials), not a problem with
+              this page.
+            </p>
+            {error && (
+              <p className="text-xs font-body text-forest-600 mt-2">
+                Projects API: {error}
+              </p>
+            )}
+            <p className="text-sm font-body mt-3">
+              <a
+                href="/api/health"
+                className="underline font-medium hover:text-forest-700"
+              >
+                Check /api/health
+              </a>
+              <span className="mx-1.5 text-forest-400">·</span>
+              Data temporarily unavailable
+            </p>
           </div>
-          <CategoryFilter
-            activeCategories={activeCategories}
-            onToggle={toggleCategory}
-            counts={categoryCounts}
-          />
-        </div>
+        )}
 
-        {/* Optional map panel */}
-        {showMap && (
-          <div className="rounded-xl overflow-hidden shadow-md border border-cream-200">
-            <div className="h-[50vh] sm:h-[55vh]">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <PulseTile
+            id="projects"
+            title="Projects"
+            icon="📋"
+            summary={countLabel(
+              health?.counts.projects ?? (error ? null : projects.length),
+              "active projects",
+              Boolean(error)
+            )}
+            expanded={expanded.has("projects")}
+            onToggle={() => toggleTile("projects")}
+          >
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <SearchBar value={search} onChange={setSearch} />
+                  </div>
+                  <StatusFilter
+                    activeStatus={activeStatus}
+                    onSelect={setActiveStatus}
+                  />
+                </div>
+                <CategoryFilter
+                  activeCategories={activeCategories}
+                  onToggle={toggleCategory}
+                  counts={categoryCounts}
+                />
+              </div>
+
+              {selectedProject && (
+                <div className="max-w-3xl">
+                  <ProjectDetail
+                    projectId={selectedProject.id}
+                    onClose={() => setSelectedProject(null)}
+                  />
+                </div>
+              )}
+
+              {loading ? (
+                <div className="space-y-4 animate-pulse">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="bg-cream-100 rounded-lg p-4 h-16" />
+                  ))}
+                </div>
+              ) : error ? (
+                <p className="text-sm font-body text-forest-500">
+                  Project list unavailable until the backend recovers.
+                </p>
+              ) : (
+                <GroupedProjectList
+                  projects={projects}
+                  onSelectProject={setSelectedProject}
+                  selectedProjectId={selectedProject?.id}
+                  activeCategories={activeCategories}
+                />
+              )}
+            </div>
+          </PulseTile>
+
+          <PulseTile
+            id="map"
+            title="Map"
+            icon="🗺️"
+            summary={
+              error
+                ? "Temporarily unavailable"
+                : `${mappedCount} mapped of ${projects.length} projects`
+            }
+            expanded={expanded.has("map")}
+            onToggle={() => toggleTile("map")}
+          >
+            <div className="rounded-xl overflow-hidden border border-cream-200 h-[50vh] sm:h-[55vh]">
               <ProjectMap
                 projects={projects}
                 onSelectProject={(p) => {
                   setSelectedProject(p);
-                  setContentTab("projects");
+                  if (!expanded.has("projects")) toggleTile("projects");
                 }}
                 selectedProjectId={selectedProject?.id}
               />
             </div>
-          </div>
-        )}
+          </PulseTile>
 
-        {/* Optional calendar panel */}
-        {showCalendar && (
-          <AgendaCalendar activeCategories={activeCategories} />
-        )}
+          <PulseTile
+            id="calendar"
+            title="Calendar & Agenda"
+            icon="📅"
+            summary={countLabel(agendaCount, "agenda items", freshness.unavailable)}
+            expanded={expanded.has("calendar")}
+            onToggle={() => toggleTile("calendar")}
+          >
+            <div className="space-y-4">
+              <AgendaCalendar activeCategories={activeCategories} />
+              <AgendaFeed activeCategories={activeCategories} />
+            </div>
+          </PulseTile>
 
-        {/* Content tabs */}
-        <div className="flex items-center gap-1 border-b border-cream-200">
-          {(["projects", "agenda"] as ContentTab[]).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setContentTab(tab)}
-              className={`px-4 py-2 text-sm font-body font-medium border-b-2 transition-colors ${
-                contentTab === tab
-                  ? "border-forest-700 text-forest-800"
-                  : "border-transparent text-forest-400 hover:text-forest-600 hover:border-cream-300"
-              }`}
-            >
-              {tab === "projects" ? `Projects (${projects.length})` : "Agenda Feed"}
-            </button>
-          ))}
-        </div>
-
-        {/* Project detail (if selected) */}
-        {selectedProject && contentTab === "projects" && (
-          <div className="max-w-3xl">
-            <ProjectDetail
-              projectId={selectedProject.id}
-              onClose={() => setSelectedProject(null)}
-            />
-          </div>
-        )}
-
-        {/* Error banner */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-body">
-            Failed to load projects: {error}
-          </div>
-        )}
-
-        {/* Main content */}
-        {contentTab === "projects" && (
-          <div>
-            {loading ? (
-              <div className="space-y-4 animate-pulse">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="bg-white rounded-lg p-4 h-16" />
-                ))}
-              </div>
-            ) : (
-              <GroupedProjectList
-                projects={projects}
-                onSelectProject={setSelectedProject}
-                selectedProjectId={selectedProject?.id}
-                activeCategories={activeCategories}
-              />
+          <PulseTile
+            id="organizations"
+            title="Organizations"
+            icon="🏛️"
+            summary={countLabel(
+              organizations.length,
+              "organizations",
+              !orgsLoading && organizations.length === 0 && freshness.unavailable
             )}
-          </div>
-        )}
+            expanded={expanded.has("organizations")}
+            onToggle={() => toggleTile("organizations")}
+          >
+            <OrganizationList
+              organizations={organizations}
+              loading={orgsLoading}
+            />
+          </PulseTile>
 
-        {contentTab === "agenda" && (
-          <AgendaFeed activeCategories={activeCategories} />
-        )}
+          <PulseTile
+            id="people"
+            title="Who's Who"
+            icon="👥"
+            summary={countLabel(
+              people.length,
+              "people",
+              !peopleLoading && people.length === 0 && freshness.unavailable
+            )}
+            expanded={expanded.has("people")}
+            onToggle={() => toggleTile("people")}
+          >
+            <PeopleList people={people} loading={peopleLoading} />
+          </PulseTile>
+
+          <PulseTile
+            id="measures"
+            title="Measures"
+            icon="🗳️"
+            summary="Coming soon"
+            expanded={expanded.has("measures")}
+            onToggle={() => toggleTile("measures")}
+          >
+            <MeasuresPlaceholder />
+          </PulseTile>
+        </div>
       </main>
 
       <footer className="bg-forest-800 text-cream-200 py-4 text-center text-xs font-body">
