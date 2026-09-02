@@ -11,12 +11,13 @@ import ProjectDetail from "./components/ProjectDetail";
 import AgendaFeed from "./components/AgendaFeed";
 import AgendaCalendar from "./components/AgendaCalendar";
 import PulseTile, { type TileId } from "./components/PulseTile";
-import OrganizationList from "./components/OrganizationList";
-import PeopleList from "./components/PeopleList";
+import OrganizationExplorer from "./components/OrganizationExplorer";
+import PeopleExplorer from "./components/PeopleExplorer";
+import InvolvementBoard from "./components/InvolvementBoard";
 import MeasuresPlaceholder from "./components/MeasuresPlaceholder";
 import { CATEGORIES, migrateCategory, type ProjectCategory, type ProjectStatus } from "@/lib/categories";
 import { formatFreshness } from "@/lib/freshness";
-import type { HealthResponse, Organization, Person, Project } from "@/lib/types";
+import type { HealthResponse, Project } from "@/lib/types";
 
 function countLabel(n: number | null | undefined, noun: string, unavailable?: boolean): string {
   if (unavailable) return "Temporarily unavailable";
@@ -27,11 +28,7 @@ function countLabel(n: number | null | undefined, noun: string, unavailable?: bo
 
 export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
-  const [orgsLoading, setOrgsLoading] = useState(true);
-  const [peopleLoading, setPeopleLoading] = useState(true);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthLoading, setHealthLoading] = useState(true);
   const [activeCategories, setActiveCategories] = useState<Set<ProjectCategory>>(
@@ -74,22 +71,6 @@ export default function Home() {
       })
       .catch(() => setHealth(null))
       .finally(() => setHealthLoading(false));
-  }, []);
-
-  useEffect(() => {
-    setOrgsLoading(true);
-    fetch("/api/organizations")
-      .then((res) => res.json())
-      .then((data) => setOrganizations(Array.isArray(data) ? data : []))
-      .catch(() => setOrganizations([]))
-      .finally(() => setOrgsLoading(false));
-
-    setPeopleLoading(true);
-    fetch("/api/people")
-      .then((res) => res.json())
-      .then((data) => setPeople(Array.isArray(data) ? data : []))
-      .catch(() => setPeople([]))
-      .finally(() => setPeopleLoading(false));
   }, []);
 
   useEffect(() => {
@@ -167,6 +148,11 @@ export default function Home() {
     (health !== null && health.supabase_reachable === false);
   const mappedCount = projects.filter((p) => p.latitude && p.longitude).length;
   const agendaCount = health?.counts.agenda_items ?? null;
+  const peopleCount = health?.counts.people ?? null;
+  const orgCount = health?.counts.organizations ?? null;
+  const membershipCount = health?.counts.memberships ?? null;
+  const seatHolderCount = health?.counts.seat_holders ?? null;
+  const civicCountsDown = freshness.unavailable;
 
   return (
     <div className="min-h-screen flex flex-col bg-cream-50">
@@ -315,17 +301,13 @@ export default function Home() {
             id="organizations"
             title="Organizations"
             icon="🏛️"
-            summary={countLabel(
-              organizations.length,
-              "organizations",
-              !orgsLoading && organizations.length === 0 && freshness.unavailable
-            )}
+            summary={countLabel(orgCount, "organizations", civicCountsDown)}
             expanded={expanded.has("organizations")}
             onToggle={() => toggleTile("organizations")}
           >
-            <OrganizationList
-              organizations={organizations}
-              loading={orgsLoading}
+            <OrganizationExplorer
+              count={orgCount}
+              unavailable={civicCountsDown}
             />
           </PulseTile>
 
@@ -333,15 +315,37 @@ export default function Home() {
             id="people"
             title="Who's Who"
             icon="👥"
-            summary={countLabel(
-              people.length,
-              "people",
-              !peopleLoading && people.length === 0 && freshness.unavailable
-            )}
+            summary={countLabel(peopleCount, "people", civicCountsDown)}
             expanded={expanded.has("people")}
             onToggle={() => toggleTile("people")}
           >
-            <PeopleList people={people} loading={peopleLoading} />
+            <PeopleExplorer
+              count={peopleCount}
+              unavailable={civicCountsDown}
+            />
+          </PulseTile>
+
+          <PulseTile
+            id="involvement"
+            title="Most involved"
+            icon="🔗"
+            summary={
+              civicCountsDown
+                ? "Temporarily unavailable"
+                : membershipCount == null && seatHolderCount == null
+                  ? "—"
+                  : (membershipCount ?? 0) + (seatHolderCount ?? 0) === 0
+                    ? "No board links yet"
+                    : "Board footprint ranking"
+            }
+            expanded={expanded.has("involvement")}
+            onToggle={() => toggleTile("involvement")}
+          >
+            <InvolvementBoard
+              memberships={membershipCount}
+              seatHolders={seatHolderCount}
+              unavailable={civicCountsDown}
+            />
           </PulseTile>
 
           <PulseTile

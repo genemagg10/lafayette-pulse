@@ -8,6 +8,7 @@ export type TileId =
   | "calendar"
   | "organizations"
   | "people"
+  | "involvement"
   | "measures";
 
 interface PulseTileProps {

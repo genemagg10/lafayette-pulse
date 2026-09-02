@@ -106,6 +106,10 @@ export interface HealthCounts {
   projects: number | null;
   agenda_items: number | null;
   document_chunks: number | null;
+  people: number | null;
+  organizations: number | null;
+  memberships: number | null;
+  seat_holders: number | null;
 }
 
 export interface HealthResponse {
@@ -162,6 +166,14 @@ export interface Organization {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  member_count?: number;
+  current_member_count?: number;
+}
+
+export interface PersonRoleSummary {
+  org_name: string;
+  role: string | null;
+  is_seat: boolean;
 }
 
 export interface Person {
@@ -174,6 +186,9 @@ export interface Person {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  membership_count?: number;
+  seat_count?: number;
+  current_roles?: PersonRoleSummary[];
 }
 
 export interface CivicEvent {

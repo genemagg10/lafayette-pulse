@@ -12,6 +12,40 @@ export function parseLimit(
   return Math.min(raw, max);
 }
 
+export function parseOffset(request: NextRequest): number {
+  const raw = parseInt(request.nextUrl.searchParams.get("offset") || "0", 10);
+  if (Number.isNaN(raw) || raw < 0) return 0;
+  return raw;
+}
+
+export function parseBoolParam(
+  request: NextRequest,
+  name: string,
+  defaultValue = false
+): boolean {
+  const value = request.nextUrl.searchParams.get(name);
+  if (value == null || value === "") return defaultValue;
+  return value === "true" || value === "1";
+}
+
+export function parseOptionalBool(
+  request: NextRequest,
+  name: string
+): boolean | null {
+  const value = request.nextUrl.searchParams.get(name);
+  if (value == null || value === "") return null;
+  if (value === "true" || value === "1") return true;
+  if (value === "false" || value === "0") return false;
+  return null;
+}
+
+export function jsonNoStore(body: unknown, status = 200): NextResponse {
+  return NextResponse.json(body, {
+    status,
+    headers: { "Cache-Control": "no-store, max-age=0, must-revalidate" },
+  });
+}
+
 /**
  * Run a Supabase list query and always return a JSON array.
  * Missing tables, bad credentials, and network errors become [].

@@ -11,14 +11,19 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",
     "@ai-sdk/react": "^3.0.141",
+    "@sigma/node-square": "^3.0.0",
     "@supabase/supabase-js": "^2.39.0",
     "ai": "^6.0.139",
+    "graphology": "^0.26.0",
+    "graphology-layout": "^0.6.1",
+    "graphology-layout-forceatlas2": "^0.10.1",
     "leaflet": "^1.9.4",
     "next": "^14.2.0",
     "openai": "^6.33.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "react-leaflet": "^4.2.1"
+    "react-leaflet": "^4.2.1",
+    "sigma": "^3.0.3"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.8",
