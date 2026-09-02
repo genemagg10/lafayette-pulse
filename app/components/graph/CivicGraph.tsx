@@ -465,9 +465,20 @@ export default function CivicGraph({
     };
     container.addEventListener("mousemove", onMove);
 
+    const resize = () => {
+      renderer.resize();
+      drawDashed();
+    };
+    window.addEventListener("resize", resize);
+    const observer =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
+    observer?.observe(container);
+
     drawDashed();
 
     return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", resize);
       container.removeEventListener("mousemove", onMove);
       hideTooltip();
       renderer.kill();

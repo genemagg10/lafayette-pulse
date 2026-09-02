@@ -49,6 +49,11 @@ interface ProjectMapProps {
   selectedProjectId?: number | null;
   layers: MapLayers;
   onToggleLayer: (id: MapLayerId) => void;
+  onSelectEvent?: (event: CivicEvent) => void;
+  onSelectOrganization?: (org: Organization) => void;
+  selectedEventId?: string | null;
+  selectedOrgId?: string | null;
+  className?: string;
 }
 
 function hasCoords(item: { latitude?: number | null; longitude?: number | null }) {
@@ -69,6 +74,11 @@ export default function ProjectMap({
   selectedProjectId,
   layers,
   onToggleLayer,
+  onSelectEvent,
+  onSelectOrganization,
+  selectedEventId,
+  selectedOrgId,
+  className,
 }: ProjectMapProps) {
   const [mounted, setMounted] = useState(false);
   const [events, setEvents] = useState<CivicEvent[]>([]);
@@ -111,7 +121,7 @@ export default function ProjectMap({
   }
 
   return (
-    <div className="relative w-full h-full">
+    <div className={`relative w-full h-full map-bleed ${className ?? ""}`}>
       <div className="absolute top-3 right-3 z-[1000] rounded-lg border border-cream-200 bg-white/95 shadow-sm p-2 space-y-1">
         <p className="text-[10px] uppercase tracking-wide text-forest-400 font-body px-1">
           Layers
@@ -148,74 +158,86 @@ export default function ProjectMap({
         />
 
         {layers.events &&
-          events.map((event) => (
-            <CircleMarker
-              key={`event-${event.id}`}
-              center={[event.latitude!, event.longitude!]}
-              radius={8}
-              pathOptions={{
-                color: EVENT_COLOR,
-                fillColor: EVENT_COLOR,
-                fillOpacity: 0.75,
-                weight: 2,
-              }}
-            >
-              <Popup>
-                <div className="font-body text-sm">
-                  <p className="text-[10px] uppercase tracking-wide text-forest-400">
-                    Event
-                  </p>
-                  <p className="font-bold text-forest-800">{event.title}</p>
-                  {event.starts_at && (
-                    <p className="text-forest-600 text-xs mt-1">
-                      {new Date(event.starts_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+          events.map((event) => {
+            const selected = event.id === selectedEventId;
+            return (
+              <CircleMarker
+                key={`event-${event.id}`}
+                center={[event.latitude!, event.longitude!]}
+                radius={selected ? 12 : 8}
+                pathOptions={{
+                  color: EVENT_COLOR,
+                  fillColor: EVENT_COLOR,
+                  fillOpacity: selected ? 0.9 : 0.75,
+                  weight: selected ? 3 : 2,
+                }}
+                eventHandlers={{
+                  click: () => onSelectEvent?.(event),
+                }}
+              >
+                <Popup>
+                  <div className="font-body text-sm">
+                    <p className="text-[10px] uppercase tracking-wide text-forest-400">
+                      Event
                     </p>
-                  )}
-                  {event.location_name && (
-                    <p className="text-forest-500 text-xs mt-0.5">
-                      {event.location_name}
-                    </p>
-                  )}
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
+                    <p className="font-bold text-forest-800">{event.title}</p>
+                    {event.starts_at && (
+                      <p className="text-forest-600 text-xs mt-1">
+                        {new Date(event.starts_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </p>
+                    )}
+                    {event.location_name && (
+                      <p className="text-forest-500 text-xs mt-0.5">
+                        {event.location_name}
+                      </p>
+                    )}
+                  </div>
+                </Popup>
+              </CircleMarker>
+            );
+          })}
 
         {layers.organizations &&
-          organizations.map((org) => (
-            <CircleMarker
-              key={`org-${org.id}`}
-              center={[org.latitude!, org.longitude!]}
-              radius={8}
-              pathOptions={{
-                color: ORG_COLOR,
-                fillColor: ORG_COLOR,
-                fillOpacity: 0.75,
-                weight: 2,
-              }}
-            >
-              <Popup>
-                <div className="font-body text-sm">
-                  <p className="text-[10px] uppercase tracking-wide text-forest-400">
-                    Organization
-                  </p>
-                  <p className="font-bold text-forest-800">{org.name}</p>
-                  <p className="text-forest-600 text-xs mt-1">
-                    {ORG_TYPE_LABELS[org.org_type] ?? org.org_type}
-                  </p>
-                  {org.location_name && (
-                    <p className="text-forest-500 text-xs mt-0.5">
-                      {org.location_name}
+          organizations.map((org) => {
+            const selected = org.id === selectedOrgId;
+            return (
+              <CircleMarker
+                key={`org-${org.id}`}
+                center={[org.latitude!, org.longitude!]}
+                radius={selected ? 12 : 8}
+                pathOptions={{
+                  color: ORG_COLOR,
+                  fillColor: ORG_COLOR,
+                  fillOpacity: selected ? 0.9 : 0.75,
+                  weight: selected ? 3 : 2,
+                }}
+                eventHandlers={{
+                  click: () => onSelectOrganization?.(org),
+                }}
+              >
+                <Popup>
+                  <div className="font-body text-sm">
+                    <p className="text-[10px] uppercase tracking-wide text-forest-400">
+                      Organization
                     </p>
-                  )}
-                </div>
-              </Popup>
-            </CircleMarker>
-          ))}
+                    <p className="font-bold text-forest-800">{org.name}</p>
+                    <p className="text-forest-600 text-xs mt-1">
+                      {ORG_TYPE_LABELS[org.org_type] ?? org.org_type}
+                    </p>
+                    {org.location_name && (
+                      <p className="text-forest-500 text-xs mt-0.5">
+                        {org.location_name}
+                      </p>
+                    )}
+                  </div>
+                </Popup>
+              </CircleMarker>
+            );
+          })}
 
         {layers.projects &&
           mappedProjects.map((project) => {

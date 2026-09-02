@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import BoardTabs from "./BoardTabs";
 import ConflictRibbon from "./ConflictRibbon";
 import CoStanceMatrix from "./CoStanceMatrix";
+import FocusPanes, { type MobileStep } from "./FocusPanes";
 import {
   MEASURE_STATUS_LABELS,
   type CoStanceResponse,
@@ -59,6 +60,7 @@ export default function MeasuresExplorer({
   const [matrix, setMatrix] = useState<CoStanceResponse | null>(null);
   const [matrixError, setMatrixError] = useState<string | null>(null);
   const [matrixLoading, setMatrixLoading] = useState(false);
+  const [mobileStep, setMobileStep] = useState<MobileStep>("list");
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedShared(minShared), 150);
@@ -161,19 +163,22 @@ export default function MeasuresExplorer({
       </p>
     </div>;
 
-  return (
-    <div className="space-y-4">
-      <BoardTabs
-        value={tab}
-        onChange={setTab}
-        ariaLabel="Measures views"
-        options={[
-          { id: "measures", label: "Measures" },
-          { id: "co-stance", label: "Co-stance" },
-        ]}
-      />
+  const tabs = (
+    <BoardTabs
+      value={tab}
+      onChange={setTab}
+      ariaLabel="Measures views"
+      options={[
+        { id: "measures", label: "Measures" },
+        { id: "co-stance", label: "Co-stance" },
+      ]}
+    />
+  );
 
-      {tab === "co-stance" ? (
+  if (tab === "co-stance") {
+    return (
+      <div className="h-full min-h-0 overflow-y-auto p-3 space-y-4">
+        {tabs}
         <CoStanceMatrix
           data={matrix}
           loading={matrixLoading}
@@ -183,104 +188,152 @@ export default function MeasuresExplorer({
           actor={actor}
           onActor={setActor}
         />
-      ) : trulyEmpty || (!listLoading && items.length === 0 && !listError) ? (
-        emptyMeasures
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(240px,320px)_1fr]">
-          <aside className="space-y-3">
-            {listLoading ? (
-              <div className="space-y-2 animate-pulse">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-14 bg-cream-100 rounded-lg" />
-                ))}
-              </div>
-            ) : listError ? (
-              <p className="text-sm font-body text-forest-500">{listError}</p>
-            ) : (
-              <ul className="max-h-[420px] overflow-y-auto divide-y divide-cream-200 rounded-lg border border-cream-200">
-                {items.map((measure) => {
-                  const active = measure.id === selectedId;
-                  return (
-                    <li key={measure.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedId(measure.id)}
-                        className={`w-full text-left px-3 py-2.5 transition-colors ${
-                          active ? "bg-forest-50" : "hover:bg-cream-50"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="font-heading font-semibold text-sm text-forest-800">
-                            {measure.short_code
-                              ? `${measure.short_code} · ${measure.title}`
-                              : measure.title}
-                          </span>
-                          <span className="text-[10px] uppercase tracking-wide text-forest-500 flex-shrink-0">
-                            {MEASURE_STATUS_LABELS[measure.status] || measure.status}
-                          </span>
-                        </div>
-                        <p className="text-[11px] font-body text-forest-500 mt-0.5">
-                          {measure.support_count} support · {measure.oppose_count}{" "}
-                          oppose
-                          {measure.election_date ? ` · ${measure.election_date}` : ""}
-                        </p>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </aside>
+      </div>
+    );
+  }
 
-          <div className="space-y-3 min-w-0">
-            {detailError && (
-              <p className="text-sm font-body text-forest-500">{detailError}</p>
-            )}
-            {detail ? (
-              <>
-                <div className="rounded-lg border border-cream-200 bg-cream-50/60 p-3 space-y-1">
-                  <h3 className="font-heading font-semibold text-forest-800">
-                    {detail.measure.short_code
-                      ? `${detail.measure.short_code} · ${detail.measure.title}`
-                      : detail.measure.title}
-                  </h3>
-                  {detail.measure.summary && (
-                    <p className="text-sm font-body text-forest-600 leading-relaxed">
-                      {detail.measure.summary}
-                    </p>
-                  )}
-                  <p className="text-xs font-body text-forest-500">
-                    {MEASURE_STATUS_LABELS[detail.measure.status]}
-                    {detail.measure.election_date
-                      ? ` · ${detail.measure.election_date}`
-                      : ""}
-                    {` · ${detail.measure.support_count} support · ${detail.measure.oppose_count} oppose`}
-                    {detail.measure.endorse_count
-                      ? ` · ${detail.measure.endorse_count} endorse`
-                      : ""}
-                  </p>
-                </div>
-                <h3 className="font-heading font-semibold text-forest-800 text-sm">
-                  Conflict ribbon
-                </h3>
-                <ConflictRibbon
-                  nodes={detail.ribbon.nodes}
-                  edges={detail.ribbon.edges}
-                  centerId={detail.ribbon.measureId}
-                  stances={detail.stances}
-                />
-              </>
-            ) : (
-              !detailError &&
-              !listLoading && (
-                <p className="text-sm font-body text-forest-500">
-                  Select a measure to see attributed support and oppose.
-                </p>
-              )
-            )}
-          </div>
+  if (trulyEmpty || (!listLoading && items.length === 0 && !listError)) {
+    return (
+      <div className="h-full min-h-0 overflow-y-auto p-3 space-y-4">
+        {tabs}
+        {emptyMeasures}
+      </div>
+    );
+  }
+
+  const master = (
+    <div className="space-y-3">
+      {tabs}
+      {listLoading ? (
+        <div className="space-y-2 animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-14 bg-cream-100 rounded-lg" />
+          ))}
         </div>
+      ) : listError ? (
+        <p className="text-sm font-body text-forest-500">{listError}</p>
+      ) : (
+        <ul className="divide-y divide-cream-200 rounded-lg border border-cream-200">
+          {items.map((measure) => {
+            const active = measure.id === selectedId;
+            return (
+              <li key={measure.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(measure.id);
+                    setMobileStep("detail");
+                  }}
+                  className={`w-full text-left px-3 py-2.5 transition-colors ${
+                    active ? "bg-forest-50" : "hover:bg-cream-50"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-heading font-semibold text-sm text-forest-800">
+                      {measure.short_code
+                        ? `${measure.short_code} · ${measure.title}`
+                        : measure.title}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wide text-forest-500 flex-shrink-0">
+                      {MEASURE_STATUS_LABELS[measure.status] || measure.status}
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-body text-forest-500 mt-0.5">
+                    {measure.support_count} support · {measure.oppose_count}{" "}
+                    oppose
+                    {measure.election_date ? ` · ${measure.election_date}` : ""}
+                  </p>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );
+
+  const detailPane = (
+    <div className="space-y-3">
+      {detailError && (
+        <p className="text-sm font-body text-forest-500">{detailError}</p>
+      )}
+      {detail ? (
+        <>
+          <div className="rounded-lg border border-cream-200 bg-cream-50/60 p-3 space-y-1">
+            <h3 className="font-heading font-semibold text-forest-800">
+              {detail.measure.short_code
+                ? `${detail.measure.short_code} · ${detail.measure.title}`
+                : detail.measure.title}
+            </h3>
+            {detail.measure.summary && (
+              <p className="text-sm font-body text-forest-600 leading-relaxed">
+                {detail.measure.summary}
+              </p>
+            )}
+            <p className="text-xs font-body text-forest-500">
+              {MEASURE_STATUS_LABELS[detail.measure.status]}
+              {detail.measure.election_date
+                ? ` · ${detail.measure.election_date}`
+                : ""}
+              {` · ${detail.measure.support_count} support · ${detail.measure.oppose_count} oppose`}
+              {detail.measure.endorse_count
+                ? ` · ${detail.measure.endorse_count} endorse`
+                : ""}
+            </p>
+          </div>
+          <ConflictRibbon
+            nodes={detail.ribbon.nodes}
+            edges={detail.ribbon.edges}
+            centerId={detail.ribbon.measureId}
+            stances={detail.stances}
+            showList
+            showGraph={false}
+          />
+        </>
+      ) : (
+        !detailError &&
+        !listLoading && (
+          <p className="text-sm font-body text-forest-500">
+            Select a measure to see attributed support and oppose.
+          </p>
+        )
+      )}
+    </div>
+  );
+
+  const vizPane = (
+    <div className="flex flex-col h-full min-h-[420px] gap-2">
+      <h3 className="font-heading font-semibold text-forest-800 text-sm">
+        Conflict ribbon
+      </h3>
+      {detail ? (
+        <div className="flex-1 min-h-[420px]">
+          <ConflictRibbon
+            nodes={detail.ribbon.nodes}
+            edges={detail.ribbon.edges}
+            centerId={detail.ribbon.measureId}
+            stances={detail.stances}
+            showList={false}
+            heightClassName="h-full min-h-[420px]"
+          />
+        </div>
+      ) : (
+        <p className="text-sm font-body text-forest-500">
+          Select a measure to open the ribbon.
+        </p>
+      )}
+    </div>
+  );
+
+  return (
+    <FocusPanes
+      master={master}
+      viz={vizPane}
+      detail={detailPane}
+      vizLabel="Ribbon"
+      mobileStep={mobileStep}
+      onMobileStep={setMobileStep}
+    />
+  );
 }
+

@@ -7,6 +7,7 @@ import type { EgoGraphResponse } from "@/lib/civic-graph";
 import GraphLegend from "./graph/GraphLegend";
 import PersonAvatar from "./PersonAvatar";
 import OnTheRecord, { type OnTheRecordItem } from "./OnTheRecord";
+import FocusPanes, { type MobileStep } from "./FocusPanes";
 
 const CivicGraph = dynamic(() => import("./graph/CivicGraph"), { ssr: false });
 
@@ -57,6 +58,7 @@ export default function PeopleExplorer({
   const [hops, setHops] = useState<1 | 2>(1);
   const [currentOnly, setCurrentOnly] = useState(true);
   const [onTheRecord, setOnTheRecord] = useState<OnTheRecordItem[]>([]);
+  const [mobileStep, setMobileStep] = useState<MobileStep>("list");
   const selectedPersonIdRef = useRef(selectedPersonId);
   selectedPersonIdRef.current = selectedPersonId;
 
@@ -72,6 +74,7 @@ export default function PeopleExplorer({
   const selectPerson = (id: string) => {
     setSelectedId(id);
     onSelectPerson?.(id);
+    setMobileStep("detail");
   };
 
   useEffect(() => {
@@ -191,197 +194,211 @@ export default function PeopleExplorer({
     );
   }
 
-  return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(240px,300px)_1fr]">
-      <aside className="space-y-3">
-        <div className="flex flex-col gap-2">
+  const master = (
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search people…"
+          className="w-full px-3 py-2 rounded-lg border border-cream-300 bg-white font-body text-sm text-forest-800 placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
+        />
+        <label className="inline-flex items-center gap-2 text-xs font-body text-forest-600">
           <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search people…"
-            className="w-full px-3 py-2 rounded-lg border border-cream-300 bg-white font-body text-sm text-forest-800 placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
+            type="checkbox"
+            checked={hasSeat === "seated"}
+            onChange={(e) => setHasSeat(e.target.checked ? "seated" : "all")}
           />
-          <label className="inline-flex items-center gap-2 text-xs font-body text-forest-600">
-            <input
-              type="checkbox"
-              checked={hasSeat === "seated"}
-              onChange={(e) => setHasSeat(e.target.checked ? "seated" : "all")}
-            />
-            Has a formal seat
-          </label>
+          Has a formal seat
+        </label>
+      </div>
+      {listLoading ? (
+        <div className="space-y-2 animate-pulse">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-12 bg-cream-100 rounded-lg" />
+          ))}
         </div>
-        {listLoading ? (
-          <div className="space-y-2 animate-pulse">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-12 bg-cream-100 rounded-lg" />
-            ))}
-          </div>
-        ) : listError ? (
-          <p className="text-sm font-body text-forest-500">{listError}</p>
-        ) : empty ? (
-          <p className="text-sm font-body text-forest-500">
-            No people match these filters.
-          </p>
-        ) : (
-          <ul className="max-h-[420px] overflow-y-auto divide-y divide-cream-200 rounded-lg border border-cream-200">
-            {items.map((person) => {
-              const active = person.id === selectedId;
-              return (
-                <li key={person.id}>
-                  <button
-                    type="button"
-                    onClick={() => selectPerson(person.id)}
-                    className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2.5 ${
-                      active ? "bg-forest-50" : "hover:bg-cream-50"
-                    }`}
-                  >
-                    <PersonAvatar
-                      name={person.full_name}
-                      photoUrl={person.photo_url}
-                      size={32}
-                    />
-                    <div className="min-w-0">
-                      <div className="font-heading font-semibold text-sm text-forest-800">
-                        {person.full_name}
-                      </div>
-                      <div className="text-[11px] font-body text-forest-500 mt-0.5 truncate">
-                        {person.current_roles && person.current_roles.length > 0
-                          ? person.current_roles
-                              .map((role) =>
-                                role.role
-                                  ? `${role.role}, ${role.org_name}`
-                                  : role.org_name
-                              )
-                              .join(" · ")
-                          : "No current boards"}
-                      </div>
+      ) : listError ? (
+        <p className="text-sm font-body text-forest-500">{listError}</p>
+      ) : empty ? (
+        <p className="text-sm font-body text-forest-500">
+          No people match these filters.
+        </p>
+      ) : (
+        <ul className="divide-y divide-cream-200 rounded-lg border border-cream-200">
+          {items.map((person) => {
+            const active = person.id === selectedId;
+            return (
+              <li key={person.id}>
+                <button
+                  type="button"
+                  onClick={() => selectPerson(person.id)}
+                  className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2.5 ${
+                    active ? "bg-forest-50" : "hover:bg-cream-50"
+                  }`}
+                >
+                  <PersonAvatar
+                    name={person.full_name}
+                    photoUrl={person.photo_url}
+                    size={32}
+                  />
+                  <div className="min-w-0">
+                    <div className="font-heading font-semibold text-sm text-forest-800">
+                      {person.full_name}
                     </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </aside>
-
-      <div className="space-y-3 min-w-0">
-        {detailLoading && !detail ? (
-          <div className="h-24 bg-cream-100 rounded-lg animate-pulse" />
-        ) : selected ? (
-          <div className="rounded-lg border border-cream-200 bg-cream-50/60 p-3 space-y-2">
-            <div className="flex items-start gap-3">
-              <PersonAvatar
-                name={selected.full_name}
-                photoUrl={selected.photo_url}
-                size={48}
-              />
-              <div className="min-w-0">
-                <h3 className="font-heading font-semibold text-forest-800">
-                  {selected.full_name}
-                </h3>
-                {(detail?.email || detail?.website) && (
-                  <div className="mt-1 flex flex-wrap gap-3 text-xs font-body text-forest-500">
-                    {detail?.email && (
-                      <a
-                        href={`mailto:${detail.email}`}
-                        className="underline hover:text-forest-800"
-                      >
-                        {detail.email}
-                      </a>
-                    )}
-                    {detail?.website && (
-                      <a
-                        href={detail.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline hover:text-forest-800"
-                      >
-                        Website ↗
-                      </a>
-                    )}
+                    <div className="text-[11px] font-body text-forest-500 mt-0.5 truncate">
+                      {person.current_roles && person.current_roles.length > 0
+                        ? person.current_roles
+                            .map((role) =>
+                              role.role
+                                ? `${role.role}, ${role.org_name}`
+                                : role.org_name
+                            )
+                            .join(" · ")
+                        : "No current boards"}
+                    </div>
                   </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+
+  const detailPane =
+    detailLoading && !detail ? (
+      <div className="h-24 bg-cream-100 rounded-lg animate-pulse" />
+    ) : selected ? (
+      <div className="rounded-lg border border-cream-200 bg-cream-50/60 p-3 space-y-2">
+        <div className="flex items-start gap-3">
+          <PersonAvatar
+            name={selected.full_name}
+            photoUrl={selected.photo_url}
+            size={48}
+          />
+          <div className="min-w-0">
+            <h3 className="font-heading font-semibold text-forest-800">
+              {selected.full_name}
+            </h3>
+            {(detail?.email || detail?.website) && (
+              <div className="mt-1 flex flex-wrap gap-3 text-xs font-body text-forest-500">
+                {detail?.email && (
+                  <a
+                    href={`mailto:${detail.email}`}
+                    className="underline hover:text-forest-800"
+                  >
+                    {detail.email}
+                  </a>
+                )}
+                {detail?.website && (
+                  <a
+                    href={detail.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-forest-800"
+                  >
+                    Website ↗
+                  </a>
                 )}
               </div>
-            </div>
-            {detail?.bio && (
-              <p className="text-sm font-body text-forest-600 leading-relaxed">
-                {detail.bio}
-              </p>
             )}
-            {detail?.seats && detail.seats.length > 0 && (
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-forest-500 font-body mb-1">
-                  Formal seats
-                </p>
-                <ul className="text-sm font-body text-forest-700 space-y-1">
-                  {detail.seats.map((row) => (
-                    <li key={row.id}>
-                      {row.seat?.title}
-                      {row.organization ? ` · ${row.organization.name}` : ""}
-                      {row.is_current ? "" : " (past)"}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {detail?.memberships && detail.memberships.length > 0 && (
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-forest-500 font-body mb-1">
-                  Shared boards
-                </p>
-                <ul className="text-sm font-body text-forest-700 space-y-1">
-                  {detail.memberships.map((row) => (
-                    <li key={row.id}>
-                      {row.organization?.name}
-                      {row.role ? ` · ${row.role}` : ""}
-                      {row.is_current ? "" : " (past)"}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <OnTheRecord items={onTheRecord} />
           </div>
-        ) : (
-          <p className="text-sm font-body text-forest-500">
-            Select a person to see overlapping membership and seats.
+        </div>
+        {detail?.bio && (
+          <p className="text-sm font-body text-forest-600 leading-relaxed">
+            {detail.bio}
           </p>
         )}
+        {detail?.seats && detail.seats.length > 0 && (
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-forest-500 font-body mb-1">
+              Formal seats
+            </p>
+            <ul className="text-sm font-body text-forest-700 space-y-1">
+              {detail.seats.map((row) => (
+                <li key={row.id}>
+                  {row.seat?.title}
+                  {row.organization ? ` · ${row.organization.name}` : ""}
+                  {row.is_current ? "" : " (past)"}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {detail?.memberships && detail.memberships.length > 0 && (
+          <div>
+            <p className="text-[11px] uppercase tracking-wide text-forest-500 font-body mb-1">
+              Shared boards
+            </p>
+            <ul className="text-sm font-body text-forest-700 space-y-1">
+              {detail.memberships.map((row) => (
+                <li key={row.id}>
+                  {row.organization?.name}
+                  {row.role ? ` · ${row.role}` : ""}
+                  {row.is_current ? "" : " (past)"}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <OnTheRecord items={onTheRecord} />
+      </div>
+    ) : (
+      <p className="text-sm font-body text-forest-500">
+        Select a person to see overlapping membership and seats.
+      </p>
+    );
 
-        <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
-          <label className="inline-flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={hops === 2}
-              onChange={(e) => setHops(e.target.checked ? 2 : 1)}
-            />
-            Two hops (shared boards)
-          </label>
-          <label className="inline-flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={currentOnly}
-              onChange={(e) => setCurrentOnly(e.target.checked)}
-            />
-            Current only
-          </label>
-        </div>
-
+  const vizPane = (
+    <div className="flex flex-col h-full min-h-[420px] gap-2">
+      <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
+        <label className="inline-flex items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={hops === 2}
+            onChange={(e) => setHops(e.target.checked ? 2 : 1)}
+          />
+          Two hops (shared boards)
+        </label>
+        <label className="inline-flex items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={currentOnly}
+            onChange={(e) => setCurrentOnly(e.target.checked)}
+          />
+          Current only
+        </label>
+      </div>
+      <div className="flex-1 min-h-[420px]">
         {detailLoading && !ego ? (
-          <div className="h-[320px] sm:h-[380px] bg-cream-100 rounded-lg animate-pulse" />
+          <div className="h-full min-h-[420px] bg-cream-100 rounded-lg animate-pulse" />
         ) : (
           <CivicGraph
             nodes={ego?.nodes ?? []}
             edges={ego?.edges ?? []}
             centerId={ego?.center.id}
+            heightClassName="h-full min-h-[420px]"
             onNodeClick={(id, kind) => {
               if (kind === "person") selectPerson(id);
             }}
           />
         )}
-        <GraphLegend />
       </div>
+      <GraphLegend />
     </div>
+  );
+
+  return (
+    <FocusPanes
+      master={master}
+      viz={vizPane}
+      detail={detailPane}
+      vizLabel="Network"
+      mobileStep={mobileStep}
+      onMobileStep={setMobileStep}
+    />
   );
 }

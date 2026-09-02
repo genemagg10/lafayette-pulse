@@ -6,9 +6,17 @@ import type { AgendaItem, ProjectCategory } from "@/lib/types";
 
 interface AgendaFeedProps {
   activeCategories: Set<ProjectCategory>;
+  filterDay?: string | null;
+  onSelectItem?: (item: AgendaItem) => void;
+  selectedItemId?: number | null;
 }
 
-export default function AgendaFeed({ activeCategories }: AgendaFeedProps) {
+export default function AgendaFeed({
+  activeCategories,
+  filterDay,
+  onSelectItem,
+  selectedItemId,
+}: AgendaFeedProps) {
   const [items, setItems] = useState<AgendaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"upcoming" | "archive">("upcoming");
@@ -20,7 +28,15 @@ export default function AgendaFeed({ activeCategories }: AgendaFeedProps) {
     if (activeCategories.size > 0) {
       params.set("category", Array.from(activeCategories).join(","));
     }
-    if (view === "upcoming") {
+    if (filterDay) {
+      params.set("since", filterDay);
+      const next = new Date(`${filterDay}T12:00:00`);
+      next.setDate(next.getDate() + 1);
+      params.set(
+        "until",
+        `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`
+      );
+    } else if (view === "upcoming") {
       params.set("since", today);
       params.set("upcoming", "true");
     } else {
@@ -40,7 +56,7 @@ export default function AgendaFeed({ activeCategories }: AgendaFeedProps) {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [activeCategories, view]);
+  }, [activeCategories, view, filterDay]);
 
   if (loading) {
     return (
@@ -59,31 +75,37 @@ export default function AgendaFeed({ activeCategories }: AgendaFeedProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <button
-          onClick={() => setView("upcoming")}
-          className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
-            view === "upcoming"
-              ? "bg-forest-700 text-white"
-              : "bg-cream-100 text-forest-500 hover:bg-cream-200"
-          }`}
-        >
-          Upcoming
-        </button>
-        <button
-          onClick={() => setView("archive")}
-          className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
-            view === "archive"
-              ? "bg-forest-700 text-white"
-              : "bg-cream-100 text-forest-500 hover:bg-cream-200"
-          }`}
-        >
-          Archive
-        </button>
+        {!filterDay && (
+          <>
+            <button
+              onClick={() => setView("upcoming")}
+              className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
+                view === "upcoming"
+                  ? "bg-forest-700 text-white"
+                  : "bg-cream-100 text-forest-500 hover:bg-cream-200"
+              }`}
+            >
+              Upcoming
+            </button>
+            <button
+              onClick={() => setView("archive")}
+              className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
+                view === "archive"
+                  ? "bg-forest-700 text-white"
+                  : "bg-cream-100 text-forest-500 hover:bg-cream-200"
+              }`}
+            >
+              Archive
+            </button>
+          </>
+        )}
       </div>
 
       {items.length === 0 && !loading ? (
         <div className="text-center py-8 text-forest-400 font-body">
-          {view === "upcoming"
+          {filterDay
+            ? "No events on this day."
+            : view === "upcoming"
             ? "No upcoming events match your filters."
             : "No past events match your filters."}
         </div>
@@ -94,7 +116,22 @@ export default function AgendaFeed({ activeCategories }: AgendaFeedProps) {
           return (
             <div
               key={item.id}
-              className="bg-white rounded-lg shadow-sm border border-cream-200 p-4"
+              role={onSelectItem ? "button" : undefined}
+              tabIndex={onSelectItem ? 0 : undefined}
+              onClick={onSelectItem ? () => onSelectItem(item) : undefined}
+              onKeyDown={
+                onSelectItem
+                  ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onSelectItem(item);
+                      }
+                    }
+                  : undefined
+              }
+              className={`bg-white rounded-lg shadow-sm border border-cream-200 p-4 ${
+                onSelectItem ? "cursor-pointer hover:border-forest-300" : ""
+              } ${selectedItemId === item.id ? "ring-1 ring-forest-400" : ""}`}
               style={{
                 borderLeftWidth: "3px",
                 borderLeftColor: cat ? cat.color : "#DDDDD0",

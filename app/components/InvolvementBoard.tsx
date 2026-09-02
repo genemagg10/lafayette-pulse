@@ -9,6 +9,7 @@ import type {
 } from "@/lib/civic-graph";
 import { scaleSize } from "@/lib/civic-graph";
 import GraphLegend from "./graph/GraphLegend";
+import FocusPanes, { type MobileStep } from "./FocusPanes";
 import type { RenderableEdge, RenderableNode } from "./graph/CivicGraph";
 
 const CivicGraph = dynamic(() => import("./graph/CivicGraph"), { ssr: false });
@@ -31,6 +32,8 @@ export default function InvolvementBoard({
   const [data, setData] = useState<InvolvementResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileStep, setMobileStep] = useState<MobileStep>("list");
 
   useEffect(() => {
     const params = new URLSearchParams({
@@ -141,8 +144,10 @@ export default function InvolvementBoard({
     );
   }
 
-  return (
-    <div className="space-y-4">
+  const selected = data?.items.find((item) => item.id === selectedId) ?? null;
+
+  const master = (
+    <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
         <Toggle
           value={entity}
@@ -161,7 +166,6 @@ export default function InvolvementBoard({
           ]}
         />
       </div>
-
       {data && (
         <p className="text-xs font-body text-forest-500">
           {data.label}: memberships × {data.weights.membership}
@@ -170,7 +174,6 @@ export default function InvolvementBoard({
           membership only.
         </p>
       )}
-
       {loading ? (
         <div className="space-y-2 animate-pulse">
           {[1, 2, 3, 4].map((i) => (
@@ -187,15 +190,80 @@ export default function InvolvementBoard({
               item={item}
               rank={index + 1}
               maxScore={maxScore}
-              onSelectPerson={item.kind === "person" ? onSelectPerson : undefined}
+              active={item.id === selectedId}
+              onSelect={() => {
+                setSelectedId(item.id);
+                setMobileStep("detail");
+              }}
             />
           ))}
         </ol>
       )}
+    </div>
+  );
 
-      <CivicGraph nodes={graph.nodes} edges={graph.edges} heightClassName="h-[280px] sm:h-[320px]" />
+  const detailPane = selected ? (
+    <div className="rounded-lg border border-cream-200 bg-cream-50/60 p-3 space-y-2">
+      <h3 className="font-heading font-semibold text-forest-800">{selected.label}</h3>
+      <p className="text-sm font-body text-forest-600">
+        Score {selected.score} · {selected.memberships} board
+        {selected.memberships === 1 ? "" : "s"} · {selected.seat_holders} formal
+        seat{selected.seat_holders === 1 ? "" : "s"}
+      </p>
+      {selected.seats.length > 0 && (
+        <ul className="text-sm font-body text-forest-700 space-y-1">
+          {selected.seats.map((seat) => (
+            <li key={seat.id}>
+              {seat.title}
+              {seat.org_name ? ` · ${seat.org_name}` : ""}
+            </li>
+          ))}
+        </ul>
+      )}
+      {selected.kind === "person" && onSelectPerson && (
+        <button
+          type="button"
+          onClick={() => onSelectPerson(selected.id)}
+          className="text-xs font-body underline text-forest-600"
+        >
+          Open in People
+        </button>
+      )}
+    </div>
+  ) : (
+    <p className="text-sm font-body text-forest-500">
+      Select a row to see board footprint detail.
+    </p>
+  );
+
+  const vizPane = (
+    <div className="flex flex-col h-full min-h-[420px] gap-2">
+      <div className="flex-1 min-h-[420px]">
+        <CivicGraph
+          nodes={graph.nodes}
+          edges={graph.edges}
+          heightClassName="h-full min-h-[420px]"
+          onNodeClick={(id, kind) => {
+            if (kind === "person" || kind === "organization") {
+              setSelectedId(id);
+              setMobileStep("detail");
+            }
+          }}
+        />
+      </div>
       <GraphLegend />
     </div>
+  );
+
+  return (
+    <FocusPanes
+      master={master}
+      viz={vizPane}
+      detail={detailPane}
+      vizLabel="Footprint"
+      mobileStep={mobileStep}
+      onMobileStep={setMobileStep}
+    />
   );
 }
 
@@ -203,35 +271,34 @@ function RankRow({
   item,
   rank,
   maxScore,
-  onSelectPerson,
+  active,
+  onSelect,
 }: {
   item: InvolvementItem;
   rank: number;
   maxScore: number;
-  onSelectPerson?: (id: string) => void;
+  active?: boolean;
+  onSelect: () => void;
 }) {
   const width = maxScore > 0 ? Math.max(8, (item.score / maxScore) * 100) : 8;
   const seatNote = item.seats
     .map((seat) => (seat.org_name ? `${seat.title} (${seat.org_name})` : seat.title))
     .join(", ");
   return (
-    <li className="rounded-lg border border-cream-200 bg-cream-50/60 p-3">
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        className={`w-full text-left rounded-lg border border-cream-200 p-3 ${
+          active ? "bg-forest-50" : "bg-cream-50/60 hover:bg-cream-50"
+        }`}
+      >
       <div className="flex items-baseline justify-between gap-3">
         <div className="min-w-0">
           <span className="text-xs font-body text-forest-400 mr-2">{rank}</span>
-          {onSelectPerson ? (
-            <button
-              type="button"
-              onClick={() => onSelectPerson(item.id)}
-              className="font-heading font-semibold text-sm text-forest-800 hover:underline text-left"
-            >
-              {item.label}
-            </button>
-          ) : (
-            <span className="font-heading font-semibold text-sm text-forest-800">
-              {item.label}
-            </span>
-          )}
+          <span className="font-heading font-semibold text-sm text-forest-800">
+            {item.label}
+          </span>
           {seatNote && (
             <p className="text-[11px] font-body text-forest-500 mt-0.5 truncate">
               {seatNote}
@@ -253,6 +320,7 @@ function RankRow({
         {" · "}
         {item.seat_holders} formal seat{item.seat_holders === 1 ? "" : "s"}
       </p>
+      </button>
     </li>
   );
 }

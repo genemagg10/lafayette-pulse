@@ -25,6 +25,9 @@ interface ConflictRibbonProps {
     >
   >;
   emptyHint?: string;
+  showList?: boolean;
+  showGraph?: boolean;
+  heightClassName?: string;
 }
 
 function polarityStyle(polarity: string): { color: string; dashed?: boolean } {
@@ -39,6 +42,9 @@ export default function ConflictRibbon({
   centerId,
   stances,
   emptyHint,
+  showList = true,
+  showGraph = true,
+  heightClassName = "h-[280px] sm:h-[340px]",
 }: ConflictRibbonProps) {
   const support = stances.filter((row) => row.polarity === "support").length;
   const oppose = stances.filter((row) => row.polarity === "oppose").length;
@@ -76,61 +82,65 @@ export default function ConflictRibbon({
           </span>
         )}
       </div>
-      <CivicGraph
-        nodes={nodes}
-        edges={edges}
-        centerId={centerId}
-        layout="ribbon"
-        heightClassName="h-[280px] sm:h-[340px]"
-      />
-      <GraphLegend stance showSeats={false} />
-      <ul className="space-y-2">
-        {stances.map((row) => {
-          const style = polarityStyle(row.polarity);
-          return (
-            <li
-              key={row.id}
-              className="rounded-lg border border-cream-200 bg-white p-3 text-sm font-body text-forest-700"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <span className="font-heading font-semibold">{row.actor_label}</span>
-                  <span
-                    className="ml-2 text-[11px] uppercase tracking-wide"
-                    style={{ color: style.color }}
-                  >
-                    {row.polarity}
+      {showGraph && (
+        <CivicGraph
+          nodes={nodes}
+          edges={edges}
+          centerId={centerId}
+          layout="ribbon"
+          heightClassName={heightClassName}
+        />
+      )}
+      {showGraph && <GraphLegend stance showSeats={false} />}
+      {showList && (
+        <ul className="space-y-2">
+          {stances.map((row) => {
+            const style = polarityStyle(row.polarity);
+            return (
+              <li
+                key={row.id}
+                className="rounded-lg border border-cream-200 bg-white p-3 text-sm font-body text-forest-700"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <span className="font-heading font-semibold">{row.actor_label}</span>
+                    <span
+                      className="ml-2 text-[11px] uppercase tracking-wide"
+                      style={{ color: style.color }}
+                    >
+                      {row.polarity}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-forest-500 tabular-nums">
+                    {Math.round(row.confidence * 100)}%
                   </span>
                 </div>
-                <span className="text-[11px] text-forest-500 tabular-nums">
-                  {Math.round(row.confidence * 100)}%
-                </span>
-              </div>
-              {row.evidence_quote && (
-                <p className="mt-1 text-xs text-forest-600 leading-relaxed">
-                  “{row.evidence_quote}”
+                {row.evidence_quote && (
+                  <p className="mt-1 text-xs text-forest-600 leading-relaxed">
+                    “{row.evidence_quote}”
+                  </p>
+                )}
+                <p className="mt-1 text-[11px] text-forest-500">
+                  {row.as_of ? `As of ${row.as_of}` : "Date not recorded"}
+                  {row.source_url ? (
+                    <>
+                      {" · "}
+                      <a
+                        href={row.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:text-forest-800"
+                      >
+                        Source ↗
+                      </a>
+                    </>
+                  ) : null}
                 </p>
-              )}
-              <p className="mt-1 text-[11px] text-forest-500">
-                {row.as_of ? `As of ${row.as_of}` : "Date not recorded"}
-                {row.source_url ? (
-                  <>
-                    {" · "}
-                    <a
-                      href={row.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline hover:text-forest-800"
-                    >
-                      Source ↗
-                    </a>
-                  </>
-                ) : null}
-              </p>
-            </li>
-          );
-        })}
-      </ul>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

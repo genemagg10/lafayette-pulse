@@ -83,7 +83,7 @@ export default function ChatWidget() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 bg-forest-800 text-white rounded-full px-5 py-3 shadow-lg hover:bg-forest-700 transition-all hover:scale-105 flex items-center gap-2 text-sm font-medium"
+          className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 bg-forest-800 text-white rounded-full px-5 py-3 shadow-lg hover:bg-forest-700 transition-all hover:scale-105 flex items-center gap-2 text-sm font-medium"
           aria-label="Open Love Lafayette AI chat"
         >
           <svg
@@ -104,7 +104,7 @@ export default function ChatWidget() {
 
       {/* Chat panel */}
       {isOpen && (
-        <div className="fixed bottom-0 right-0 sm:bottom-6 sm:right-6 z-50 w-full sm:w-[420px] h-full sm:h-[600px] sm:max-h-[80vh] bg-white sm:rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
+        <div className="fixed bottom-14 right-0 sm:bottom-6 sm:right-6 z-50 w-full sm:w-[420px] h-[calc(100dvh-3.5rem)] sm:h-[600px] sm:max-h-[80vh] bg-white sm:rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="bg-forest-800 text-white px-4 py-3 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
