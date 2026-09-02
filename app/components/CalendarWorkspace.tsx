@@ -3,14 +3,16 @@
 import { useMemo, useState } from "react";
 import AgendaCalendar from "./AgendaCalendar";
 import AgendaFeed from "./AgendaFeed";
+import CalendarItemCard from "./CalendarItemCard";
 import FocusFrame from "./FocusFrame";
-import type { AgendaItem, ProjectCategory } from "@/lib/types";
+import type { CalendarItem } from "@/lib/calendar-items";
+import type { ProjectCategory } from "@/lib/types";
 
 export default function CalendarWorkspace() {
   const [view, setView] = useState<"month" | "week">("month");
   const [mobileGrid, setMobileGrid] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [selectedItem, setSelectedItem] = useState<AgendaItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<CalendarItem | null>(null);
   const activeCategories = useMemo(() => new Set<ProjectCategory>(), []);
 
   return (
@@ -43,6 +45,10 @@ export default function CalendarWorkspace() {
                 })
               : "Agenda"}
           </h2>
+          <p className="text-xs font-body text-ink-muted -mt-2">
+            Timed civic events plus agenda topics. Meetings marked Projected
+            follow a recurring schedule until the city calendar confirms.
+          </p>
           {selectedItem && (
             <SelectedAgendaDetail
               item={selectedItem}
@@ -87,6 +93,10 @@ export default function CalendarWorkspace() {
             </>
           ) : (
             <>
+              <p className="text-xs font-body text-ink-muted">
+                Timed civic events plus agenda topics. Meetings marked Projected
+                follow a recurring schedule until the city calendar confirms.
+              </p>
               {selectedItem && (
                 <SelectedAgendaDetail
                   item={selectedItem}
@@ -138,15 +148,12 @@ function SelectedAgendaDetail({
   item,
   onClose,
 }: {
-  item: AgendaItem;
+  item: CalendarItem;
   onClose: () => void;
 }) {
   return (
-    <div className="border border-line bg-canvas p-3 space-y-1">
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="font-heading font-semibold text-sm text-ink">
-          {item.title}
-        </h3>
+    <div className="space-y-2">
+      <div className="flex items-center justify-end">
         <button
           type="button"
           onClick={onClose}
@@ -155,30 +162,7 @@ function SelectedAgendaDetail({
           Close
         </button>
       </div>
-      <p className="text-xs font-body text-ink-muted">
-        {new Date(item.date).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        })}
-        <span className="mx-1.5">·</span>
-        {item.body}
-      </p>
-      {item.description && (
-        <p className="text-sm font-body text-forest-600 leading-relaxed">
-          {item.description}
-        </p>
-      )}
-      {item.source_url && (
-        <a
-          href={item.source_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs underline text-forest-600"
-        >
-          View source ↗
-        </a>
-      )}
+      <CalendarItemCard item={item} selected />
     </div>
   );
 }

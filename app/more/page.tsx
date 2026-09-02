@@ -29,6 +29,7 @@ export default function MorePage() {
             <li>Measures: {health.counts.measures ?? "—"}</li>
             <li>Stances: {health.counts.stances ?? "—"}</li>
             <li>Projects: {health.counts.projects ?? "—"}</li>
+            <li>Events: {health.counts.events ?? "—"}</li>
             <li>Last scrape: {health.last_scraped_at ?? "none"}</li>
           </ul>
         )}

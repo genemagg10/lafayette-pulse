@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isDayKey, ptBoundIso } from "@/lib/calendar-time";
 import { parseLimit, safeList } from "@/lib/safe-list";
 
 export const dynamic = "force-dynamic";
@@ -28,10 +29,10 @@ export async function GET(request: NextRequest) {
         query = query.eq("organization_id", organizationId);
       }
       if (since) {
-        query = query.gte("starts_at", since);
+        query = query.gte("starts_at", isDayKey(since) ? ptBoundIso(since) : since);
       }
       if (until) {
-        query = query.lt("starts_at", until);
+        query = query.lt("starts_at", isDayKey(until) ? ptBoundIso(until) : until);
       }
       if (search) {
         query = query.or(

@@ -9,7 +9,7 @@ Live site: [lafayette-pulse.vercel.app](https://lafayette-pulse.vercel.app)
 ## What It Tracks
 
 - **Projects** — transportation, housing, parks, public safety, and city government items from agendas
-- **Calendar & agenda** — upcoming and past meeting items
+- **Calendar & agenda** — union of civic-graph `events` (timed meetings / community) and `agenda_items` (topic rows) for the visible date range. Many meetings are **Projected** from recurring schedules (`RECURRING_PROJECTION` or `confidence=medium` in the description) until Granicus or the city calendar confirms.
 - **Organizations** — city bodies, civic groups, foundations, and campaigns
 - **People** — commissioners, councilmembers, and other civic actors (as the graph is populated)
 - **Measures & candidates** — quote-backed support/oppose under Who → Measures (DEMO-SAFE ribbon when stances exist)
@@ -62,7 +62,7 @@ Optional:
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Unused by default (OSM tiles) |
 | `GOOGLE_MAPS_API_KEY` | Optional geocoding in scripts |
 
-After deploy, open [`/api/health`](https://lafayette-pulse.vercel.app/api/health). It always returns HTTP 200 and reports whether Supabase is reachable, row counts for `projects` / `agenda_items` / `document_chunks` / `people` / `organizations` / `memberships` / `seat_holders`, and the latest `scraped_sources.scraped_at`. If pages show “Data temporarily unavailable”, this endpoint is the first place to look (usually missing or expired Vercel env vars — not an app crash). Health & freshness also live under **More** (`/more`).
+After deploy, open [`/api/health`](https://lafayette-pulse.vercel.app/api/health). It always returns HTTP 200 and reports whether Supabase is reachable, row counts for `projects` / `agenda_items` / `events` / `document_chunks` / `people` / `organizations` / `memberships` / `seat_holders`, and the latest `scraped_sources.scraped_at`. If pages show “Data temporarily unavailable”, this endpoint is the first place to look (usually missing or expired Vercel env vars — not an app crash). Health & freshness also live under **More** (`/more`).
 
 ### Set Up Database
 
@@ -198,7 +198,7 @@ Vercel (Next.js)          GitHub Actions (daily)
 | --- | --- |
 | `/` | Pulse — home orientation hub |
 | `/map` | Full-viewport map |
-| `/calendar` | Full-viewport calendar |
+| `/calendar` | Full-viewport calendar — `events` + `agenda_items` for the selected window |
 | `/who` | Who's who (people, orgs, measures, footprint) |
 | `/projects` | Project archive (under **More**) |
 | `/ask` | Ask Lafayette AI (under **More**) |
@@ -206,13 +206,15 @@ Vercel (Next.js)          GitHub Actions (daily)
 
 Ask lives under More — there is no global chat FAB. Primary nav is Pulse, Map, Calendar, Who.
 
+`/calendar` (and Home → Coming up) reads both `GET /api/events?since=&until=` and `GET /api/agenda-items`. Event days use `starts_at` in **America/Los_Angeles**. A subtle **Projected** badge marks recurring-schedule meetings until Granicus or lovelafayette.org confirms; this PR does not invent cancellations or scrape the city calendar.
+
 ## Civic graph APIs
 
 Phase 1 views (Who's Who, Most involved, Organizations) read the live civic graph. Civic graph routes send `Cache-Control: no-store`.
 
 | Route | Purpose |
 | --- | --- |
-| `GET /api/health` | Reachability + counts including `people`, `organizations`, `memberships`, `seat_holders` |
+| `GET /api/health` | Reachability + counts including `people`, `organizations`, `memberships`, `seat_holders`, `events` |
 | `GET /api/people?q=&has_seat=&limit=&offset=` | Who's Who directory (`{ items, total, limit, offset }`) |
 | `GET /api/people/:id` | Person detail with memberships and formal seats |
 | `GET /api/people/:id/ego?hops=1\|2&current_only=true&alter_cap=25` | 1–2 hop ego graph (person / organization / seat nodes) |

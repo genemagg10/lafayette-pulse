@@ -1,8 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CATEGORIES, migrateCategory } from "@/lib/categories";
-import type { AgendaItem, ProjectCategory } from "@/lib/types";
+import CalendarItemCard from "./CalendarItemCard";
+import { CATEGORIES } from "@/lib/categories";
+import {
+  EVENT_TYPE_STYLES,
+  calendarAccent,
+  fetchCalendarItems,
+  todayKeyPacific,
+  type CalendarItem,
+} from "@/lib/calendar-items";
+import type { ProjectCategory } from "@/lib/types";
 
 interface AgendaCalendarProps {
   activeCategories: Set<ProjectCategory>;
@@ -18,6 +26,24 @@ function formatDateKey(date: Date): string {
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+function chipStyle(item: CalendarItem): { backgroundColor: string; color: string } {
+  if (item.kind === "agenda" && item.category) {
+    const cat = CATEGORIES[item.category];
+    return {
+      backgroundColor: `${cat.color}20`,
+      color: cat.color,
+    };
+  }
+  const color =
+    item.kind === "event" && item.event_type
+      ? EVENT_TYPE_STYLES[item.event_type].color
+      : calendarAccent(item);
+  return {
+    backgroundColor: `${color}20`,
+    color,
+  };
 }
 
 export default function AgendaCalendar({
@@ -38,7 +64,7 @@ export default function AgendaCalendar({
     now.setDate(now.getDate() - now.getDay());
     return now;
   });
-  const [items, setItems] = useState<AgendaItem[]>([]);
+  const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [internalDay, setInternalDay] = useState<string | null>(null);
   const selectedDay = selectedDayProp !== undefined ? selectedDayProp : internalDay;
@@ -49,6 +75,7 @@ export default function AgendaCalendar({
   };
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     let since: string;
     let until: string;
@@ -63,31 +90,31 @@ export default function AgendaCalendar({
       until = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, "0")}-01`;
     }
 
-    const params = new URLSearchParams({ since, until, limit: "100" });
-    if (activeCategories.size > 0) {
-      params.set("category", Array.from(activeCategories).join(","));
-    }
+    const category =
+      activeCategories.size > 0
+        ? Array.from(activeCategories).join(",")
+        : undefined;
 
-    fetch(`/api/agenda-items?${params}`)
-      .then((res) => res.json())
+    fetchCalendarItems({ since, until, category, limit: 100 })
       .then((data) => {
-        if (Array.isArray(data)) {
-          setItems(
-            data.map((item: AgendaItem) => ({
-              ...item,
-              category: item.category ? migrateCategory(item.category) : null,
-            })),
-          );
-        }
-        setLoading(false);
+        if (!cancelled) setItems(data);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [currentMonth, weekStart, view, activeCategories]);
 
   const itemsByDay = useMemo(() => {
-    const map: Record<string, AgendaItem[]> = {};
+    const map: Record<string, CalendarItem[]> = {};
     for (const item of items) {
-      const day = item.date.split("T")[0];
+      const day = item.dayKey;
       if (!map[day]) map[day] = [];
       map[day].push(item);
     }
@@ -103,7 +130,7 @@ export default function AgendaCalendar({
     };
   }, [currentMonth]);
 
-  const todayKey = new Date().toISOString().split("T")[0];
+  const todayKey = todayKeyPacific();
 
   const formatDayKey = (day: number) => {
     const y = currentMonth.getFullYear();
@@ -160,7 +187,6 @@ export default function AgendaCalendar({
           : "bg-surface border border-line overflow-hidden"
       }
     >
-      {/* Month navigation */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-line">
         <button
           onClick={prevPeriod}
@@ -179,7 +205,6 @@ export default function AgendaCalendar({
         </button>
       </div>
 
-      {/* Day-of-week headers */}
       <div className="grid grid-cols-7 border-b border-line">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
           <div
@@ -191,7 +216,6 @@ export default function AgendaCalendar({
         ))}
       </div>
 
-      {/* Calendar grid */}
       {loading ? (
         <div className="p-2 animate-pulse">
           <div className="grid grid-cols-7 gap-1">
@@ -230,16 +254,16 @@ export default function AgendaCalendar({
                 </span>
                 <div className="space-y-0.5">
                   {dayItems.slice(0, 4).map((item) => {
-                    const cat = item.category ? CATEGORIES[item.category] : null;
+                    const style = chipStyle(item);
                     return (
                       <div
                         key={item.id}
-                        className="text-[10px] font-body truncate px-1 py-0.5 rounded"
-                        style={{
-                          backgroundColor: cat ? `${cat.color}20` : "#DDDDD020",
-                          color: cat ? cat.color : "#666",
-                        }}
+                        className={`text-[10px] font-body truncate px-1 py-0.5 rounded ${
+                          item.projected ? "opacity-80" : ""
+                        }`}
+                        style={style}
                       >
+                        {item.projected ? "· " : ""}
                         {item.title}
                       </div>
                     );
@@ -289,16 +313,16 @@ export default function AgendaCalendar({
                 </span>
                 <div className="space-y-0.5">
                   {dayItems.slice(0, 2).map((item) => {
-                    const cat = item.category ? CATEGORIES[item.category] : null;
+                    const style = chipStyle(item);
                     return (
                       <div
                         key={item.id}
-                        className="text-[10px] font-body truncate px-1 py-0.5 rounded"
-                        style={{
-                          backgroundColor: cat ? `${cat.color}20` : "#DDDDD020",
-                          color: cat ? cat.color : "#666",
-                        }}
+                        className={`text-[10px] font-body truncate px-1 py-0.5 rounded ${
+                          item.projected ? "opacity-80" : ""
+                        }`}
+                        style={style}
                       >
+                        {item.projected ? "· " : ""}
                         {item.title}
                       </div>
                     );
@@ -315,7 +339,6 @@ export default function AgendaCalendar({
         </div>
       )}
 
-      {/* Selected day event list */}
       {showDayDrawer && selectedDay && (
         <div className="border-t border-line p-4 space-y-2">
           <h4 className="font-heading font-semibold text-ink text-sm">
@@ -328,51 +351,9 @@ export default function AgendaCalendar({
           {selectedItems.length === 0 ? (
             <p className="text-forest-400 font-body text-sm">No events scheduled.</p>
           ) : (
-            selectedItems.map((item) => {
-              const cat = item.category ? CATEGORIES[item.category] : null;
-              return (
-                <div
-                  key={item.id}
-                  className="bg-canvas rounded-lg p-3 border border-line"
-                  style={{
-                    borderLeftWidth: "3px",
-                    borderLeftColor: cat ? cat.color : "#DDDDD0",
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <h5 className="font-heading font-semibold text-ink text-sm">
-                      {item.title}
-                    </h5>
-                    {cat && (
-                      <span
-                        className="text-xs font-body px-2 py-0.5 rounded-full flex-shrink-0"
-                        style={{
-                          backgroundColor: `${cat.color}20`,
-                          color: cat.color,
-                        }}
-                      >
-                        {cat.icon} {cat.label}
-                      </span>
-                    )}
-                  </div>
-                  {item.description && (
-                    <p className="text-forest-600 text-sm font-body mt-1">
-                      {item.description}
-                    </p>
-                  )}
-                  {item.source_url && (
-                    <a
-                      href={item.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-body text-forest-600 underline hover:text-ink mt-1 inline-block"
-                    >
-                      View Source ↗
-                    </a>
-                  )}
-                </div>
-              );
-            })
+            selectedItems.map((item) => (
+              <CalendarItemCard key={item.id} item={item} compact />
+            ))
           )}
         </div>
       )}

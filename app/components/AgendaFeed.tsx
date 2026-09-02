@@ -1,14 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CATEGORIES, migrateCategory } from "@/lib/categories";
-import type { AgendaItem, ProjectCategory } from "@/lib/types";
+import CalendarItemCard from "./CalendarItemCard";
+import {
+  fetchCalendarItems,
+  todayKeyPacific,
+  type CalendarItem,
+} from "@/lib/calendar-items";
+import type { ProjectCategory } from "@/lib/types";
 
 interface AgendaFeedProps {
   activeCategories: Set<ProjectCategory>;
   filterDay?: string | null;
-  onSelectItem?: (item: AgendaItem) => void;
-  selectedItemId?: number | null;
+  onSelectItem?: (item: CalendarItem) => void;
+  selectedItemId?: string | null;
 }
 
 export default function AgendaFeed({
@@ -17,45 +22,55 @@ export default function AgendaFeed({
   onSelectItem,
   selectedItemId,
 }: AgendaFeedProps) {
-  const [items, setItems] = useState<AgendaItem[]>([]);
+  const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"upcoming" | "archive">("upcoming");
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    const today = new Date().toISOString().split("T")[0];
-    const params = new URLSearchParams();
-    if (activeCategories.size > 0) {
-      params.set("category", Array.from(activeCategories).join(","));
-    }
+    const today = todayKeyPacific();
+    const category =
+      activeCategories.size > 0
+        ? Array.from(activeCategories).join(",")
+        : undefined;
+
+    let since: string | undefined;
+    let until: string | undefined;
+    let upcoming = false;
+
     if (filterDay) {
-      params.set("since", filterDay);
+      since = filterDay;
       const next = new Date(`${filterDay}T12:00:00`);
       next.setDate(next.getDate() + 1);
-      params.set(
-        "until",
-        `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`
-      );
+      until = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
     } else if (view === "upcoming") {
-      params.set("since", today);
-      params.set("upcoming", "true");
+      since = today;
+      upcoming = true;
     } else {
-      params.set("until", today);
+      until = today;
     }
-    fetch(`/api/agenda-items?${params}`)
-      .then((res) => res.json())
+
+    fetchCalendarItems({
+      since,
+      until,
+      upcoming,
+      category,
+      limit: 100,
+    })
       .then((data) => {
-        if (Array.isArray(data)) {
-          setItems(
-            data.map((item: AgendaItem) => ({
-              ...item,
-              category: item.category ? migrateCategory(item.category) : null,
-            })),
-          );
-        }
-        setLoading(false);
+        if (!cancelled) setItems(data);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) setItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [activeCategories, view, filterDay]);
 
   if (loading) {
@@ -110,93 +125,14 @@ export default function AgendaFeed({
             : "No past events match your filters."}
         </div>
       ) : (
-        items.map((item) => {
-          const cat = item.category ? CATEGORIES[item.category] : null;
-
-          return (
-            <div
-              key={item.id}
-              role={onSelectItem ? "button" : undefined}
-              tabIndex={onSelectItem ? 0 : undefined}
-              onClick={onSelectItem ? () => onSelectItem(item) : undefined}
-              onKeyDown={
-                onSelectItem
-                  ? (event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        onSelectItem(item);
-                      }
-                    }
-                  : undefined
-              }
-              className={`bg-surface border border-line p-4 ${
-                onSelectItem ? "cursor-pointer hover:border-forest-300" : ""
-              } ${selectedItemId === item.id ? "ring-1 ring-forest-400" : ""}`}
-              style={{
-                borderLeftWidth: "3px",
-                borderLeftColor: cat ? cat.color : "#DDDDD0",
-              }}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-xs font-body text-forest-400">
-                    <span className="uppercase tracking-wide text-forest-400 text-xs">Meeting </span>
-                    <span className="font-semibold text-forest-700 text-sm">
-                      {new Date(item.date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                    <span className="mx-1.5">&middot;</span>
-                    {item.body}
-                  </p>
-                  <h4 className="font-heading font-semibold text-ink text-sm mt-1">
-                    {item.title}
-                  </h4>
-                </div>
-                {cat && (
-                  <span
-                    className="text-xs font-body px-2 py-0.5 rounded-full flex-shrink-0"
-                    style={{
-                      backgroundColor: `${cat.color}20`,
-                      color: cat.color,
-                    }}
-                  >
-                    {cat.icon} {cat.label}
-                  </span>
-                )}
-              </div>
-
-              {item.description && (
-                <p className="text-forest-600 text-sm font-body mt-2 leading-relaxed">
-                  {item.description}
-                </p>
-              )}
-
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                {item.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="bg-surface-muted text-ink-muted text-xs px-2 py-0.5 rounded-full font-body"
-                  >
-                    {tag}
-                  </span>
-                ))}
-                {item.source_url && (
-                  <a
-                    href={item.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-body text-forest-600 underline hover:text-ink"
-                  >
-                    View Source ↗
-                  </a>
-                )}
-              </div>
-            </div>
-          );
-        })
+        items.map((item) => (
+          <CalendarItemCard
+            key={item.id}
+            item={item}
+            selected={selectedItemId === item.id}
+            onSelect={onSelectItem}
+          />
+        ))
       )}
     </div>
   );
