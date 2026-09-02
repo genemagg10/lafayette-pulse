@@ -4,6 +4,8 @@ A full-stack web application that monitors City of Lafayette, California governm
 
 Live site: [lafayette-pulse.vercel.app](https://lafayette-pulse.vercel.app)
 
+> **Ops note (2026-09-02):** Supabase was restored to `ACTIVE_HEALTHY` and live APIs are healthy again. Collect & Classify may still need a manual **Enable** in the Actions tab if it remains disabled after inactivity.
+
 ## What It Tracks
 
 - **Projects** — transportation, housing, parks, public safety, and city government items from agendas
