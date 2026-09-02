@@ -5,7 +5,11 @@ import Header from "./components/Header";
 import CategoryFilter from "./components/CategoryFilter";
 import StatusFilter from "./components/StatusFilter";
 import SearchBar from "./components/SearchBar";
-import ProjectMap from "./components/ProjectMap";
+import ProjectMap, {
+  DEFAULT_MAP_LAYERS,
+  type MapLayerId,
+  type MapLayers,
+} from "./components/ProjectMap";
 import GroupedProjectList from "./components/GroupedProjectList";
 import ProjectDetail from "./components/ProjectDetail";
 import AgendaFeed from "./components/AgendaFeed";
@@ -15,15 +19,37 @@ import OrganizationExplorer from "./components/OrganizationExplorer";
 import PeopleExplorer from "./components/PeopleExplorer";
 import InvolvementBoard from "./components/InvolvementBoard";
 import MeasuresPlaceholder from "./components/MeasuresPlaceholder";
+import BoardTabs from "./components/BoardTabs";
 import { CATEGORIES, migrateCategory, type ProjectCategory, type ProjectStatus } from "@/lib/categories";
 import { formatFreshness } from "@/lib/freshness";
 import type { HealthResponse, Project } from "@/lib/types";
+
+type PeopleTab = "people" | "footprint";
 
 function countLabel(n: number | null | undefined, noun: string, unavailable?: boolean): string {
   if (unavailable) return "Temporarily unavailable";
   if (n == null) return "—";
   if (n === 1) return `1 ${noun}`;
   return `${n} ${noun}`;
+}
+
+function projectDetailsSummary(
+  n: number | null | undefined,
+  unavailable?: boolean
+): string {
+  if (unavailable) return "Temporarily unavailable";
+  if (n == null) return "Project details";
+  if (n === 1) return "Project details · 1 record";
+  return `Project details · ${n} records`;
+}
+
+function mapLayerSummary(layers: MapLayers): string {
+  const on: string[] = [];
+  if (layers.events) on.push("Events");
+  if (layers.organizations) on.push("Organizations");
+  if (layers.projects) on.push("Projects");
+  if (on.length === 0) return "All layers off";
+  return `${on.join(" · ")} on the map`;
 }
 
 export default function Home() {
@@ -37,9 +63,12 @@ export default function Home() {
   const [activeStatus, setActiveStatus] = useState<ProjectStatus | null>(null);
   const [search, setSearch] = useState("");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [expanded, setExpanded] = useState<Set<TileId>>(new Set<TileId>(["projects"]));
+  const [expanded, setExpanded] = useState<Set<TileId>>(new Set<TileId>(["map"]));
   const [error, setError] = useState<string | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+  const [peopleTab, setPeopleTab] = useState<PeopleTab>("people");
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [mapLayers, setMapLayers] = useState<MapLayers>(DEFAULT_MAP_LAYERS);
 
   const toggleTile = useCallback((id: TileId, scroll = false) => {
     setExpanded((prev) => {
@@ -61,6 +90,7 @@ export default function Home() {
 
   const openPersonInWhosWho = useCallback((id: string) => {
     setSelectedPersonId(id);
+    setPeopleTab("people");
     setExpanded((prev) => {
       const next = new Set(prev);
       next.add("people");
@@ -72,6 +102,10 @@ export default function Home() {
         block: "start",
       });
     });
+  }, []);
+
+  const toggleMapLayer = useCallback((id: MapLayerId) => {
+    setMapLayers((prev) => ({ ...prev, [id]: !prev[id] }));
   }, []);
 
   useEffect(() => {
@@ -162,13 +196,14 @@ export default function Home() {
   const backendDown =
     Boolean(error) ||
     (health !== null && health.supabase_reachable === false);
-  const mappedCount = projects.filter((p) => p.latitude && p.longitude).length;
   const agendaCount = health?.counts.agenda_items ?? null;
   const peopleCount = health?.counts.people ?? null;
   const orgCount = health?.counts.organizations ?? null;
   const membershipCount = health?.counts.memberships ?? null;
   const seatHolderCount = health?.counts.seat_holders ?? null;
   const civicCountsDown = freshness.unavailable;
+  const projectCount = health?.counts.projects ?? (error ? null : projects.length);
+  const secondaryClass = moreOpen ? undefined : "max-md:hidden";
 
   return (
     <div className="min-h-screen flex flex-col bg-cream-50">
@@ -216,16 +251,152 @@ export default function Home() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           <PulseTile
+            id="map"
+            title="Map"
+            icon="🗺️"
+            summary={
+              error ? "Temporarily unavailable" : mapLayerSummary(mapLayers)
+            }
+            expanded={expanded.has("map")}
+            onToggle={() => toggleTile("map")}
+          >
+            <div className="rounded-xl overflow-hidden border border-cream-200 h-[50vh] sm:h-[55vh]">
+              <ProjectMap
+                projects={projects}
+                layers={mapLayers}
+                onToggleLayer={toggleMapLayer}
+                onSelectProject={(p) => {
+                  setSelectedProject(p);
+                  if (!expanded.has("projects")) toggleTile("projects");
+                  setMoreOpen(true);
+                }}
+                selectedProjectId={selectedProject?.id}
+              />
+            </div>
+          </PulseTile>
+
+          <PulseTile
+            id="calendar"
+            title="Calendar & Agenda"
+            icon="📅"
+            summary={countLabel(agendaCount, "agenda items", freshness.unavailable)}
+            expanded={expanded.has("calendar")}
+            onToggle={() => toggleTile("calendar")}
+          >
+            <div className="space-y-4">
+              <AgendaCalendar activeCategories={activeCategories} />
+              <AgendaFeed activeCategories={activeCategories} />
+            </div>
+          </PulseTile>
+
+          <PulseTile
+            id="people"
+            title="Who's Who"
+            icon="👥"
+            summary={countLabel(peopleCount, "people", civicCountsDown)}
+            expanded={expanded.has("people")}
+            onToggle={() => toggleTile("people")}
+          >
+            <div className="space-y-4">
+              <BoardTabs
+                value={peopleTab}
+                onChange={setPeopleTab}
+                ariaLabel="Who's Who views"
+                options={[
+                  { id: "people", label: "People" },
+                  { id: "footprint", label: "Footprint" },
+                ]}
+              />
+              {peopleTab === "people" ? (
+                <PeopleExplorer
+                  count={peopleCount}
+                  unavailable={civicCountsDown}
+                  selectedPersonId={selectedPersonId}
+                  onSelectPerson={setSelectedPersonId}
+                />
+              ) : (
+                <InvolvementBoard
+                  memberships={membershipCount}
+                  seatHolders={seatHolderCount}
+                  unavailable={civicCountsDown}
+                  onSelectPerson={openPersonInWhosWho}
+                />
+              )}
+            </div>
+          </PulseTile>
+
+          <PulseTile
+            id="organizations"
+            title="Organizations"
+            icon="🏛️"
+            summary={countLabel(orgCount, "organizations", civicCountsDown)}
+            expanded={expanded.has("organizations")}
+            onToggle={() => toggleTile("organizations")}
+          >
+            <OrganizationExplorer
+              count={orgCount}
+              unavailable={civicCountsDown}
+            />
+          </PulseTile>
+
+          <PulseTile
+            id="measures"
+            title="Measures"
+            icon="🗳️"
+            summary="Coming soon"
+            expanded={expanded.has("measures")}
+            onToggle={() => toggleTile("measures")}
+          >
+            <MeasuresPlaceholder />
+          </PulseTile>
+
+          <button
+            type="button"
+            className="md:hidden w-full bg-white rounded-xl border border-cream-200 shadow-sm p-4 flex items-center gap-3 text-left hover:bg-cream-50 transition-colors"
+            onClick={() => setMoreOpen((open) => !open)}
+            aria-expanded={moreOpen}
+            aria-controls="tile-projects"
+          >
+            <div
+              className="w-10 h-10 rounded-lg bg-forest-50 text-forest-800 flex items-center justify-center text-xl flex-shrink-0"
+              aria-hidden="true"
+            >
+              ···
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-heading font-bold text-forest-800 text-base">
+                More
+              </h2>
+              <p className="text-sm text-forest-500 font-body truncate">
+                Project details
+              </p>
+            </div>
+            <svg
+              className={`w-5 h-5 text-forest-400 flex-shrink-0 transition-transform duration-300 ${
+                moreOpen ? "rotate-180" : ""
+              }`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+
+          <PulseTile
             id="projects"
             title="Projects"
             icon="📋"
-            summary={countLabel(
-              health?.counts.projects ?? (error ? null : projects.length),
-              "active projects",
-              Boolean(error)
-            )}
+            summary={projectDetailsSummary(projectCount, Boolean(error))}
             expanded={expanded.has("projects")}
             onToggle={() => toggleTile("projects")}
+            className={secondaryClass}
           >
             <div className="space-y-4">
               <div className="space-y-3">
@@ -274,116 +445,13 @@ export default function Home() {
               )}
             </div>
           </PulseTile>
-
-          <PulseTile
-            id="map"
-            title="Map"
-            icon="🗺️"
-            summary={
-              error
-                ? "Temporarily unavailable"
-                : `${mappedCount} mapped of ${projects.length} projects`
-            }
-            expanded={expanded.has("map")}
-            onToggle={() => toggleTile("map")}
-          >
-            <div className="rounded-xl overflow-hidden border border-cream-200 h-[50vh] sm:h-[55vh]">
-              <ProjectMap
-                projects={projects}
-                onSelectProject={(p) => {
-                  setSelectedProject(p);
-                  if (!expanded.has("projects")) toggleTile("projects");
-                }}
-                selectedProjectId={selectedProject?.id}
-              />
-            </div>
-          </PulseTile>
-
-          <PulseTile
-            id="calendar"
-            title="Calendar & Agenda"
-            icon="📅"
-            summary={countLabel(agendaCount, "agenda items", freshness.unavailable)}
-            expanded={expanded.has("calendar")}
-            onToggle={() => toggleTile("calendar")}
-          >
-            <div className="space-y-4">
-              <AgendaCalendar activeCategories={activeCategories} />
-              <AgendaFeed activeCategories={activeCategories} />
-            </div>
-          </PulseTile>
-
-          <PulseTile
-            id="organizations"
-            title="Organizations"
-            icon="🏛️"
-            summary={countLabel(orgCount, "organizations", civicCountsDown)}
-            expanded={expanded.has("organizations")}
-            onToggle={() => toggleTile("organizations")}
-          >
-            <OrganizationExplorer
-              count={orgCount}
-              unavailable={civicCountsDown}
-            />
-          </PulseTile>
-
-          <PulseTile
-            id="people"
-            title="Who's Who"
-            icon="👥"
-            summary={countLabel(peopleCount, "people", civicCountsDown)}
-            expanded={expanded.has("people")}
-            onToggle={() => toggleTile("people")}
-          >
-            <PeopleExplorer
-              count={peopleCount}
-              unavailable={civicCountsDown}
-              selectedPersonId={selectedPersonId}
-              onSelectPerson={setSelectedPersonId}
-            />
-          </PulseTile>
-
-          <PulseTile
-            id="involvement"
-            title="Most involved"
-            icon="🔗"
-            summary={
-              civicCountsDown
-                ? "Temporarily unavailable"
-                : membershipCount == null && seatHolderCount == null
-                  ? "—"
-                  : (membershipCount ?? 0) + (seatHolderCount ?? 0) === 0
-                    ? "No board links yet"
-                    : "Board footprint ranking"
-            }
-            expanded={expanded.has("involvement")}
-            onToggle={() => toggleTile("involvement")}
-          >
-            <InvolvementBoard
-              memberships={membershipCount}
-              seatHolders={seatHolderCount}
-              unavailable={civicCountsDown}
-              onSelectPerson={openPersonInWhosWho}
-            />
-          </PulseTile>
-
-          <PulseTile
-            id="measures"
-            title="Measures"
-            icon="🗳️"
-            summary="Coming soon"
-            expanded={expanded.has("measures")}
-            onToggle={() => toggleTile("measures")}
-          >
-            <MeasuresPlaceholder />
-          </PulseTile>
         </div>
       </main>
 
       <footer className="bg-forest-800 text-cream-200 py-4 text-center text-xs font-body">
         <p>
-          Lafayette Pulse &middot; Community Project Tracker &middot; Data
-          sourced from City of Lafayette public notifications
+          Lafayette Pulse &middot; Map, calendar &amp; who&apos;s who &middot;
+          Public records
         </p>
       </footer>
     </div>

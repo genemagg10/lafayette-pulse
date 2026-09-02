@@ -8,7 +8,6 @@ export type TileId =
   | "calendar"
   | "organizations"
   | "people"
-  | "involvement"
   | "measures";
 
 interface PulseTileProps {
@@ -18,6 +17,7 @@ interface PulseTileProps {
   summary: string;
   expanded: boolean;
   onToggle: () => void;
+  className?: string;
   children?: ReactNode;
 }
 
@@ -28,6 +28,7 @@ export default function PulseTile({
   summary,
   expanded,
   onToggle,
+  className,
   children,
 }: PulseTileProps) {
   return (
@@ -35,7 +36,7 @@ export default function PulseTile({
       id={`tile-${id}`}
       className={`bg-white rounded-xl border border-cream-200 shadow-sm overflow-hidden transition-all duration-300 ${
         expanded ? "md:col-span-2 xl:col-span-3" : ""
-      }`}
+      } ${className ?? ""}`}
     >
       <button
         type="button"

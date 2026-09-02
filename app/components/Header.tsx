@@ -30,7 +30,7 @@ export default function Header({
                 Lafayette Pulse
               </h1>
               <p className="text-cream-200 text-xs sm:text-sm font-body tracking-widest uppercase">
-                Community Project Tracker
+                Map, calendar &amp; who&apos;s who
               </p>
             </div>
           </div>
