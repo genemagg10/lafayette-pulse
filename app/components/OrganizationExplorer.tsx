@@ -310,7 +310,7 @@ export default function OrganizationExplorer({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search organizations…"
-        className="w-full px-3 py-2 rounded-lg border border-line-strong bg-surface font-body text-sm text-ink placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
+        className="w-full px-3 py-2 rounded-md border border-line-strong bg-surface font-body text-sm text-ink placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
       />
       <div className="flex flex-wrap gap-1.5">
         <button
@@ -345,7 +345,7 @@ export default function OrganizationExplorer({
       {listLoading ? (
         <div className="space-y-2 animate-pulse">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 bg-surface-muted rounded-lg" />
+            <div key={i} className="h-14 bg-surface-muted rounded-md" />
           ))}
         </div>
       ) : listError ? (
@@ -355,7 +355,7 @@ export default function OrganizationExplorer({
           No organizations match this search.
         </p>
       ) : (
-        <ul className="divide-y divide-line rounded-lg border border-line">
+        <ul className="divide-y divide-line rounded-md border border-line">
           {items.map((org) => {
             const active = org.id === selectedId;
             return (
@@ -363,8 +363,10 @@ export default function OrganizationExplorer({
                 <button
                   type="button"
                   onClick={() => selectOrg(org.id)}
-                  className={`w-full text-left px-3 py-2.5 transition-colors ${
-                    active ? "bg-forest-soft" : "hover:bg-canvas"
+                  className={`w-full text-left px-3 py-2.5 transition-colors border-l-2 ${
+                    active
+                      ? "border-forest bg-forest-soft"
+                      : "border-transparent hover:bg-canvas"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -390,7 +392,7 @@ export default function OrganizationExplorer({
   const detailPane = (
     <div className="space-y-3">
       {detail ? (
-        <div className="rounded-lg border border-line bg-surface-muted p-3 space-y-2">
+        <div className="rounded-md border border-line bg-surface-muted p-3 space-y-2">
           <h3 className="font-heading font-semibold text-ink">{detail.name}</h3>
           {detail.description && (
             <p className="text-sm font-body text-forest-600 leading-relaxed">
@@ -421,7 +423,7 @@ export default function OrganizationExplorer({
         </p>
       )}
       {selectedEdge && (
-        <div className="rounded-lg border border-line bg-surface p-3 space-y-2">
+        <div className="rounded-md border border-line bg-surface p-3 space-y-2">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h4 className="font-heading font-semibold text-sm text-ink">
@@ -466,7 +468,7 @@ export default function OrganizationExplorer({
         </div>
       )}
       {isolates.length > 0 && (
-        <aside className="rounded-lg border border-line bg-surface-muted p-3">
+        <aside className="rounded-md border border-line bg-surface-muted p-3">
           <h4 className="font-heading font-semibold text-xs text-ink">
             No overlaps yet
           </h4>
@@ -539,7 +541,7 @@ export default function OrganizationExplorer({
       )}
       <div className="flex-1 min-h-[420px]">
         {!affinity && !affinityError ? (
-          <div className="h-full min-h-[420px] bg-surface-muted rounded-lg animate-pulse" />
+          <div className="h-full min-h-[420px] bg-surface-muted rounded-md animate-pulse" />
         ) : (
           <CivicGraph
             nodes={graphNodes.map((node) => ({

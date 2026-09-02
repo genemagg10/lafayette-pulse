@@ -62,7 +62,7 @@ Optional:
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Unused by default (OSM tiles) |
 | `GOOGLE_MAPS_API_KEY` | Optional geocoding in scripts |
 
-After deploy, open [`/api/health`](https://lafayette-pulse.vercel.app/api/health). It always returns HTTP 200 and reports whether Supabase is reachable, row counts for `projects` / `agenda_items` / `document_chunks` / `people` / `organizations` / `memberships` / `seat_holders`, and the latest `scraped_sources.scraped_at`. If the live board shows “Data temporarily unavailable”, this endpoint is the first place to look (usually missing or expired Vercel env vars — not an app crash). Pulse Board tiles for Who's Who and Organizations use these counts (not the length of a cached list).
+After deploy, open [`/api/health`](https://lafayette-pulse.vercel.app/api/health). It always returns HTTP 200 and reports whether Supabase is reachable, row counts for `projects` / `agenda_items` / `document_chunks` / `people` / `organizations` / `memberships` / `seat_holders`, and the latest `scraped_sources.scraped_at`. If pages show “Data temporarily unavailable”, this endpoint is the first place to look (usually missing or expired Vercel env vars — not an app crash). Health & freshness also live under **More** (`/more`).
 
 ### Set Up Database
 
@@ -191,7 +191,20 @@ Vercel (Next.js)          GitHub Actions (daily)
 - **Vercel** deploys the frontend + API routes. Reads from Supabase using the anon key (public, read-only via RLS).
 - **GitHub Actions** runs the daily scraper. Writes to Supabase using the service role key (bypasses RLS).
 - **Supabase** is the shared data layer. They never communicate directly with each other.
-- **Pulse** is the home orientation hub. Map, calendar, and who each have their own full-viewport routes. Chat stays global in the layout.
+
+### App routes
+
+| Route | What it is |
+| --- | --- |
+| `/` | Pulse — home orientation hub |
+| `/map` | Full-viewport map |
+| `/calendar` | Full-viewport calendar |
+| `/who` | Who's who (people, orgs, measures, footprint) |
+| `/projects` | Project archive (under **More**) |
+| `/ask` | Ask Lafayette AI (under **More**) |
+| `/more` | Secondary tools, health & freshness |
+
+Ask lives under More — there is no global chat FAB. Primary nav is Pulse, Map, Calendar, Who.
 
 ## Civic graph APIs
 

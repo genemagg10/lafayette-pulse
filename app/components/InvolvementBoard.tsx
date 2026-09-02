@@ -177,7 +177,7 @@ export default function InvolvementBoard({
       {loading ? (
         <div className="space-y-2 animate-pulse">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-10 bg-surface-muted rounded-lg" />
+            <div key={i} className="h-10 bg-surface-muted rounded-md" />
           ))}
         </div>
       ) : error ? (
@@ -203,7 +203,7 @@ export default function InvolvementBoard({
   );
 
   const detailPane = selected ? (
-    <div className="rounded-lg border border-line bg-surface-muted p-3 space-y-2">
+    <div className="rounded-md border border-line bg-surface-muted p-3 space-y-2">
       <h3 className="font-heading font-semibold text-ink">{selected.label}</h3>
       <p className="text-sm font-body text-forest-600">
         Score {selected.score} · {selected.memberships} board
@@ -289,8 +289,10 @@ function RankRow({
       <button
         type="button"
         onClick={onSelect}
-        className={`w-full text-left rounded-lg border border-line p-3 ${
-          active ? "bg-forest-soft" : "bg-surface-muted hover:bg-canvas"
+        className={`w-full text-left rounded-md border border-line p-3 ${
+          active
+            ? "border-l-2 border-l-forest bg-forest-soft"
+            : "bg-surface-muted hover:bg-canvas"
         }`}
       >
       <div className="flex items-baseline justify-between gap-3">
@@ -335,7 +337,7 @@ function Toggle<T extends string>({
   options: { id: T; label: string }[];
 }) {
   return (
-    <div className="inline-flex rounded-lg border border-line-strong bg-surface p-0.5">
+    <div className="inline-flex rounded-md border border-line-strong bg-surface p-0.5">
       {options.map((option) => {
         const active = option.id === value;
         return (

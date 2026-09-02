@@ -151,7 +151,7 @@ export default function MeasuresExplorer({
   }
 
   const emptyMeasures =
-    <div className="rounded-lg border border-dashed border-line-strong bg-canvas p-6 text-center">
+    <div className="rounded-md border border-dashed border-line-strong bg-canvas p-6 text-center">
       <p className="font-heading font-semibold text-ink">
         No measures extracted yet
       </p>
@@ -207,13 +207,13 @@ export default function MeasuresExplorer({
       {listLoading ? (
         <div className="space-y-2 animate-pulse">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-14 bg-surface-muted rounded-lg" />
+            <div key={i} className="h-14 bg-surface-muted rounded-md" />
           ))}
         </div>
       ) : listError ? (
         <p className="text-sm font-body text-ink-muted">{listError}</p>
       ) : (
-        <ul className="divide-y divide-line rounded-lg border border-line">
+        <ul className="divide-y divide-line rounded-md border border-line">
           {items.map((measure) => {
             const active = measure.id === selectedId;
             return (
@@ -259,7 +259,7 @@ export default function MeasuresExplorer({
       )}
       {detail ? (
         <>
-          <div className="rounded-lg border border-line bg-surface-muted p-3 space-y-1">
+          <div className="rounded-md border border-line bg-surface-muted p-3 space-y-1">
             <h3 className="font-heading font-semibold text-ink">
               {detail.measure.short_code
                 ? `${detail.measure.short_code} · ${detail.measure.title}`

@@ -177,7 +177,7 @@ function NavLink({
       href={href}
       className={`px-3 py-1.5 text-sm font-body transition-colors border-b-2 ${
         active
-          ? "border-forest-800 text-ink font-semibold"
+          ? "border-accent text-ink font-semibold"
           : "border-transparent text-ink-muted hover:text-ink"
       }`}
     >
