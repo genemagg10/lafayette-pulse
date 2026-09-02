@@ -49,6 +49,7 @@ export function jsonNoStore(body: unknown, status = 200): NextResponse {
 /**
  * Run a Supabase list query and always return a JSON array.
  * Missing tables, bad credentials, and network errors become [].
+ * Always sends no-store so Vercel CDN does not apply default s-maxage.
  */
 export async function safeList(
   run: (
@@ -57,11 +58,11 @@ export async function safeList(
 ): Promise<NextResponse> {
   try {
     const supabase = tryGetSupabase();
-    if (!supabase) return NextResponse.json([]);
+    if (!supabase) return jsonNoStore([]);
     const { data, error } = await run(supabase);
-    if (error || !Array.isArray(data)) return NextResponse.json([]);
-    return NextResponse.json(data);
+    if (error || !Array.isArray(data)) return jsonNoStore([]);
+    return jsonNoStore(data);
   } catch {
-    return NextResponse.json([]);
+    return jsonNoStore([]);
   }
 }
