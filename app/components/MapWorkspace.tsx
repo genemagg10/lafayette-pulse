@@ -142,7 +142,7 @@ function SelectionBody({ selection }: { selection: Selection | null }) {
     const event = selection.item;
     return (
       <div className="space-y-2">
-        <p className="text-[11px] uppercase tracking-wide text-forest-400 font-body">
+        <p className="text-[11px] uppercase tracking-wide text-ink-muted font-body">
           Event
         </p>
         <h3 className="font-heading font-semibold text-ink">{event.title}</h3>
@@ -175,7 +175,7 @@ function SelectionBody({ selection }: { selection: Selection | null }) {
     const org = selection.item;
     return (
       <div className="space-y-2">
-        <p className="text-[11px] uppercase tracking-wide text-forest-400 font-body">
+        <p className="text-[11px] uppercase tracking-wide text-ink-muted font-body">
           Organization
         </p>
         <h3 className="font-heading font-semibold text-ink">{org.name}</h3>
@@ -199,7 +199,7 @@ function SelectionBody({ selection }: { selection: Selection | null }) {
   const cat = CATEGORIES[project.category];
   return (
     <div className="space-y-2">
-      <p className="text-[11px] uppercase tracking-wide text-forest-400 font-body">
+      <p className="text-[11px] uppercase tracking-wide text-ink-muted font-body">
         Project
       </p>
       <h3 className="font-heading font-semibold text-ink">{project.title}</h3>

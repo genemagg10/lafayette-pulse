@@ -202,7 +202,7 @@ export default function PeopleExplorer({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search people…"
-          className="w-full px-3 py-2 rounded-lg border border-line-strong bg-surface font-body text-sm text-ink placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
+          className="w-full px-3 py-2 rounded-md border border-line-strong bg-surface font-body text-sm text-ink placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
         />
         <label className="inline-flex items-center gap-2 text-xs font-body text-forest-600">
           <input
@@ -216,7 +216,7 @@ export default function PeopleExplorer({
       {listLoading ? (
         <div className="space-y-2 animate-pulse">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-12 bg-surface-muted rounded-lg" />
+            <div key={i} className="h-12 bg-surface-muted rounded-md" />
           ))}
         </div>
       ) : listError ? (
@@ -226,7 +226,7 @@ export default function PeopleExplorer({
           No people match these filters.
         </p>
       ) : (
-        <ul className="divide-y divide-line rounded-lg border border-line">
+        <ul className="divide-y divide-line rounded-md border border-line">
           {items.map((person) => {
             const active = person.id === selectedId;
             return (
@@ -234,8 +234,10 @@ export default function PeopleExplorer({
                 <button
                   type="button"
                   onClick={() => selectPerson(person.id)}
-                  className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2.5 ${
-                    active ? "bg-forest-soft" : "hover:bg-canvas"
+                  className={`w-full text-left px-3 py-2.5 transition-colors flex items-center gap-2.5 border-l-2 ${
+                    active
+                      ? "border-forest bg-forest-soft"
+                      : "border-transparent hover:bg-canvas"
                   }`}
                 >
                   <PersonAvatar
@@ -270,9 +272,9 @@ export default function PeopleExplorer({
 
   const detailPane =
     detailLoading && !detail ? (
-      <div className="h-24 bg-surface-muted rounded-lg animate-pulse" />
+      <div className="h-24 bg-surface-muted rounded-md animate-pulse" />
     ) : selected ? (
-      <div className="rounded-lg border border-line bg-surface-muted p-3 space-y-2">
+      <div className="rounded-md border border-line bg-surface-muted p-3 space-y-2">
         <div className="flex items-start gap-3">
           <PersonAvatar
             name={selected.full_name}
@@ -374,7 +376,7 @@ export default function PeopleExplorer({
       </div>
       <div className="flex-1 min-h-[420px]">
         {detailLoading && !ego ? (
-          <div className="h-full min-h-[420px] bg-surface-muted rounded-lg animate-pulse" />
+          <div className="h-full min-h-[420px] bg-surface-muted rounded-md animate-pulse" />
         ) : (
           <CivicGraph
             nodes={ego?.nodes ?? []}

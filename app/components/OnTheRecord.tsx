@@ -29,7 +29,7 @@ export default function OnTheRecord({ items }: { items: OnTheRecordItem[] }) {
   if (items.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-3 space-y-2">
+    <div className="rounded-md border border-line bg-surface p-3 space-y-2">
       <h4 className="font-heading font-semibold text-sm text-ink">
         On the record
       </h4>

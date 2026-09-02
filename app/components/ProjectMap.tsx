@@ -177,7 +177,7 @@ export default function ProjectMap({
               >
                 <Popup>
                   <div className="font-body text-sm">
-                    <p className="text-[10px] uppercase tracking-wide text-forest-400">
+                    <p className="text-[10px] uppercase tracking-wide text-ink-muted">
                       Event
                     </p>
                     <p className="font-bold text-ink">{event.title}</p>
@@ -221,7 +221,7 @@ export default function ProjectMap({
               >
                 <Popup>
                   <div className="font-body text-sm">
-                    <p className="text-[10px] uppercase tracking-wide text-forest-400">
+                    <p className="text-[10px] uppercase tracking-wide text-ink-muted">
                       Organization
                     </p>
                     <p className="font-bold text-ink">{org.name}</p>
@@ -262,7 +262,7 @@ export default function ProjectMap({
               >
                 <Popup>
                   <div className="font-body text-sm">
-                    <p className="text-[10px] uppercase tracking-wide text-forest-400">
+                    <p className="text-[10px] uppercase tracking-wide text-ink-muted">
                       Project
                     </p>
                     <p className="font-bold text-ink">{project.title}</p>
