@@ -10,6 +10,11 @@ on:
         required: false
         type: boolean
         default: false
+      extract_graph:
+        description: 'Run civic graph extraction from RAG chunks (--limit 100 --apply)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   collect-and-classify:
@@ -65,3 +70,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Extract civic graph from RAG chunks
+        if: ${{ inputs.extract_graph }}
+        working-directory: scripts
+        run: python extract-civic-graph.py --limit 100 --apply
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
