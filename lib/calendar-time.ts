@@ -71,6 +71,7 @@ export function isProjectedEvent(event: {
 export function displayEventDescription(description: string | null): string | null {
   if (!description) return null;
   const cleaned = description
+    .replace(/\[[^\]]*(?:RECURRING_PROJECTION|confidence\s*=\s*medium)[^\]]*\]/gi, "")
     .replace(/RECURRING_PROJECTION/gi, "")
     .replace(/confidence\s*=\s*medium/gi, "")
     .replace(/\s{2,}/g, " ")

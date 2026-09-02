@@ -80,6 +80,12 @@ test("projected meetings are labeled from description markers", () => {
 
 test("projection markers are stripped from displayed description", () => {
   assert.equal(
+    displayEventDescription(
+      "Projected from official recurring schedule for Public Art Committee. [confidence=medium; Typically 1st Wednesday 4pm; RECURRING_PROJECTION — verify against lovelafayette.org calendar before treating as confirmed]"
+    ),
+    "Projected from official recurring schedule for Public Art Committee."
+  );
+  assert.equal(
     displayEventDescription("City Council. RECURRING_PROJECTION from schedule."),
     "City Council. from schedule."
   );
