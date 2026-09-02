@@ -511,6 +511,7 @@ export function buildOrgAffinity(
       org,
       members: membersByOrg.get(org.id) ?? new Set<string>(),
     }))
+    .filter((row) => row.members.size > 0)
     .sort((a, b) => {
       if (b.members.size !== a.members.size) {
         return b.members.size - a.members.size;
