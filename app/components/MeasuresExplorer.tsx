@@ -148,21 +148,18 @@ export default function MeasuresExplorer({
     );
   }
 
-  if (trulyEmpty) {
-    return (
-      <div className="rounded-lg border border-dashed border-cream-300 bg-cream-50 p-6 text-center">
-        <p className="font-heading font-semibold text-forest-800">
-          No measures extracted yet
-        </p>
-        <p className="text-sm font-body text-forest-500 mt-2 max-w-lg mx-auto leading-relaxed">
-          Ballot measures and attributed support / oppose appear here after{" "}
-          <code className="text-xs">extract-stances.py</code> (or a quote-backed
-          seed in the SQL editor). Overlapping membership is not a political
-          clash — this tile stays empty until stances exist.
-        </p>
-      </div>
-    );
-  }
+  const emptyMeasures =
+    <div className="rounded-lg border border-dashed border-cream-300 bg-cream-50 p-6 text-center">
+      <p className="font-heading font-semibold text-forest-800">
+        No measures extracted yet
+      </p>
+      <p className="text-sm font-body text-forest-500 mt-2 max-w-lg mx-auto leading-relaxed">
+        Ballot measures and attributed support / oppose appear here after{" "}
+        <code className="text-xs">extract-stances.py</code> (or a quote-backed
+        seed in the SQL editor). Overlapping membership is not a political
+        clash — this tile stays empty until stances exist.
+      </p>
+    </div>;
 
   return (
     <div className="space-y-4">
@@ -186,6 +183,8 @@ export default function MeasuresExplorer({
           actor={actor}
           onActor={setActor}
         />
+      ) : trulyEmpty || (!listLoading && items.length === 0 && !listError) ? (
+        emptyMeasures
       ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(240px,320px)_1fr]">
           <aside className="space-y-3">
