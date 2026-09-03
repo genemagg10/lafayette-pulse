@@ -59,6 +59,7 @@ interface ProjectMapProps {
   onSelectOrganization?: (org: Organization) => void;
   selectedEventId?: string | null;
   selectedOrgId?: string | null;
+  projectsReady?: boolean;
   className?: string;
 }
 
@@ -84,6 +85,7 @@ export default function ProjectMap({
   onSelectOrganization,
   selectedEventId,
   selectedOrgId,
+  projectsReady = true,
   className,
 }: ProjectMapProps) {
   const [mounted, setMounted] = useState(false);
@@ -131,12 +133,13 @@ export default function ProjectMap({
         copy: EMPTY_GEOCODED_LAYER_COPY.organizations,
       });
     }
-    if (layers.projects && mappedProjects.length === 0) {
+    if (projectsReady && layers.projects && mappedProjects.length === 0) {
       notes.push({ id: "projects", copy: EMPTY_GEOCODED_LAYER_COPY.projects });
     }
     return notes;
   }, [
     overlayReady,
+    projectsReady,
     layers,
     events.length,
     organizations.length,
