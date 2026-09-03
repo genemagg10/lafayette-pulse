@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ORG_TYPE_LABELS, type Organization, type OrgType } from "@/lib/types";
 import type { OrgAffinityResponse } from "@/lib/civic-graph";
@@ -15,6 +15,12 @@ import GraphLegend from "./graph/GraphLegend";
 import FocusPanes, { type MobileStep } from "./FocusPanes";
 import FootprintChip from "./FootprintChip";
 import WhyLinkedPanel from "./WhyLinkedPanel";
+import {
+  DetailLink,
+  DetailSection,
+  IdentityHeader,
+  StickyDetailChrome,
+} from "./WhoDetailChrome";
 import type { RenderableEdge } from "./graph/CivicGraph";
 import {
   buildWhyLinkedModel,
@@ -53,7 +59,7 @@ interface OrganizationExplorerProps {
   count: number | null;
   unavailable?: boolean;
   selectedOrgId?: string | null;
-  onSelectOrg?: (id: string) => void;
+  onSelectOrg?: (id: string | null) => void;
   onSelectPerson?: (id: string) => void;
 }
 
@@ -87,6 +93,10 @@ export default function OrganizationExplorer({
   const [coStanceError, setCoStanceError] = useState<string | null>(null);
   const [coStanceLoading, setCoStanceLoading] = useState(false);
   const [mobileStep, setMobileStep] = useState<MobileStep>("list");
+  const selectedOrgIdRef = useRef(selectedOrgId);
+  selectedOrgIdRef.current = selectedOrgId;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
 
   useEffect(() => {
     if (selectedOrgId) setSelectedId(selectedOrgId);
@@ -132,15 +142,16 @@ export default function OrganizationExplorer({
         setItems(nextItems);
         setTotal(typeof data?.total === "number" ? data.total : nextItems.length);
         setListLoading(false);
-        setSelectedId((current) => {
-          if (selectedOrgId) return selectedOrgId;
-          if (current && nextItems.some((org) => org.id === current)) return current;
-          const council =
-            nextItems.find((org) => /city council/i.test(org.name) || org.slug === "city-council") ||
-            nextItems[0] ||
-            null;
-          return council?.id ?? null;
-        });
+        const fromParent = selectedOrgIdRef.current;
+        const current = selectedIdRef.current;
+        const keep =
+          fromParent && nextItems.some((org) => org.id === fromParent)
+            ? fromParent
+            : current && nextItems.some((org) => org.id === current)
+              ? current
+              : null;
+        setSelectedId(keep);
+        if (!keep && fromParent) onSelectOrg?.(null);
       })
       .catch((err) => {
         setListError(err.message);
@@ -156,6 +167,8 @@ export default function OrganizationExplorer({
       min_shared: "1",
       limit_orgs: "40",
     });
+    if (orgType) params.set("org_type", orgType);
+    if (selectedId) params.set("focus_org", selectedId);
     fetch(`/api/graph/org-affinity?${params.toString()}`)
       .then(async (res) => {
         const data = await res.json().catch(() => null);
@@ -167,7 +180,7 @@ export default function OrganizationExplorer({
         setAffinityError(null);
       })
       .catch((err) => setAffinityError(err.message));
-  }, [debouncedJaccard]);
+  }, [debouncedJaccard, orgType, selectedId]);
 
   useEffect(() => {
     if (tab !== "co-stance" && !stanceLayer) return;
@@ -277,6 +290,23 @@ export default function OrganizationExplorer({
     ]);
   }, [selectedEdge, graphNodes]);
 
+  const sharedBoardOrgs = useMemo(() => {
+    if (!selectedId || !affinity) return [];
+    return affinity.edges
+      .filter((edge) => edge.source === selectedId || edge.target === selectedId)
+      .map((edge) => {
+        const otherId = edge.source === selectedId ? edge.target : edge.source;
+        const node = affinity.nodes.find((row) => row.id === otherId);
+        return {
+          id: otherId,
+          label: node?.label ?? "Organization",
+          shared: edge.shared,
+          names: edge.shared_names,
+        };
+      })
+      .sort((a, b) => b.shared - a.shared || a.label.localeCompare(b.label));
+  }, [affinity, selectedId]);
+
   const trulyEmpty =
     !listLoading && !listError && !debounced && !orgType && (count === 0 || total === 0);
 
@@ -298,16 +328,33 @@ export default function OrganizationExplorer({
   }
 
   const currentMembers = (detail?.members ?? []).filter((row) => row.is_current && row.person);
+  const currentSeats = detail?.seats ?? [];
+  const listedOrg = items.find((org) => org.id === selectedId);
 
-  const selectOrg = (id: string) => {
+  const focusOrg = (id: string) => {
     setSelectedId(id);
     onSelectOrg?.(id);
     setMobileStep("detail");
   };
 
+  const selectOrg = (id: string) => {
+    if (selectedId === id) {
+      clearOrg();
+      return;
+    }
+    focusOrg(id);
+  };
+
+  const clearOrg = () => {
+    setSelectedId(null);
+    setDetail(null);
+    setSelectedEdge(null);
+    onSelectOrg?.(null);
+  };
+
   const selectFromWhyLinked = (id: string, kind: "person" | "organization") => {
     if (kind === "organization") {
-      selectOrg(id);
+      focusOrg(id);
       return;
     }
     onSelectPerson?.(id);
@@ -445,49 +492,117 @@ export default function OrganizationExplorer({
   const detailPane = (
     <div className="space-y-3">
       {detail ? (
-        <div className="rounded-md border border-line bg-surface-muted p-3 space-y-2">
-          <h3 className="font-heading font-semibold text-ink">{detail.name}</h3>
+        <StickyDetailChrome>
+          <IdentityHeader
+            name={detail.name}
+            subtitle={
+              [
+                ORG_TYPE_LABELS[detail.org_type as OrgType] || detail.org_type,
+                `${detail.current_member_count ?? currentMembers.length} current members`,
+              ].join(" · ")
+            }
+            footprint={
+              (listedOrg?.footprint_score ??
+                detail.footprint_score ??
+                detail.current_member_count ??
+                detail.member_count ??
+                currentMembers.length) || null
+            }
+            website={detail.website}
+            showAvatar={false}
+          />
+          {whyLinkedModel && (
+            <WhyLinkedPanel
+              model={whyLinkedModel}
+              className="hidden lg:block"
+              onClose={() => setSelectedEdge(null)}
+              onSelectEntity={selectFromWhyLinked}
+            />
+          )}
+        </StickyDetailChrome>
+      ) : (
+        <>
+          {whyLinkedModel && (
+            <StickyDetailChrome>
+              <WhyLinkedPanel
+                model={whyLinkedModel}
+                className="hidden lg:block"
+                onClose={() => setSelectedEdge(null)}
+                onSelectEntity={selectFromWhyLinked}
+              />
+            </StickyDetailChrome>
+          )}
+          <p className="text-sm font-body text-ink-muted">
+            Select an organization to focus the graph on it and its shared-membership
+            neighbors.
+          </p>
+        </>
+      )}
+      {detail && (
+        <div className="space-y-3">
           {detail.description && (
-            <p className="text-sm font-body text-forest-600 leading-relaxed">
+            <p className="text-[13px] font-body text-forest-600 leading-snug">
               {detail.description}
             </p>
           )}
-          <p className="text-xs font-body text-ink-muted">
-            {detail.current_member_count ?? currentMembers.length} current members
-          </p>
+          <DetailSection
+            title="Formal seats"
+            items={currentSeats}
+            getKey={(seat) => seat.id}
+            renderItem={(seat) => {
+              const holder = seat.holders.find((row) => row.is_current && row.person);
+              return (
+                <>
+                  {seat.title}
+                  {holder?.person ? (
+                    <>
+                      {" · "}
+                      <DetailLink onClick={() => onSelectPerson?.(holder.person!.id)}>
+                        {holder.person.full_name}
+                      </DetailLink>
+                    </>
+                  ) : null}
+                </>
+              );
+            }}
+          />
+          <DetailSection
+            title="Shared boards"
+            items={sharedBoardOrgs}
+            getKey={(row) => row.id}
+            renderItem={(row) => (
+              <>
+                <DetailLink onClick={() => selectOrg(row.id)}>{row.label}</DetailLink>
+                {` · ${row.shared} shared`}
+                {row.names.length > 0 ? ` (${row.names.slice(0, 3).join(", ")})` : ""}
+              </>
+            )}
+          />
+          <DetailSection
+            title="Members"
+            items={currentMembers}
+            getKey={(row) => row.id}
+            empty={
+              <p className="text-[13px] font-body text-ink-muted">
+                No current members recorded for this organization.
+              </p>
+            }
+            renderItem={(row) => (
+              <>
+                <DetailLink
+                  onClick={
+                    row.person ? () => onSelectPerson?.(row.person!.id) : undefined
+                  }
+                >
+                  {row.person?.full_name ?? "Member"}
+                </DetailLink>
+                {row.role ? ` · ${row.role}` : ""}
+              </>
+            )}
+          />
         </div>
-      ) : (
-        <p className="text-sm font-body text-ink-muted">
-          Select an organization to see overlapping membership.
-        </p>
       )}
-      {whyLinkedModel && (
-        <WhyLinkedPanel
-          model={whyLinkedModel}
-          className="hidden lg:block sticky top-0 z-10"
-          onClose={() => setSelectedEdge(null)}
-          onSelectEntity={selectFromWhyLinked}
-        />
-      )}
-      {detail && (
-        <div className="rounded-md border border-line bg-surface-muted p-3 space-y-2">
-          {currentMembers.length > 0 ? (
-            <ul className="text-sm font-body text-forest-700 space-y-1">
-              {currentMembers.map((row) => (
-                <li key={row.id}>
-                  {row.person?.full_name}
-                  {row.role ? ` · ${row.role}` : ""}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm font-body text-ink-muted">
-              No current members recorded for this organization.
-            </p>
-          )}
-        </div>
-      )}
-      {isolates.length > 0 && (
+      {!selectedId && isolates.length > 0 && (
         <aside className="rounded-md border border-line bg-surface-muted p-3">
           <h4 className="font-heading font-semibold text-xs text-ink">
             No overlaps yet
@@ -515,12 +630,24 @@ export default function OrganizationExplorer({
 
   const vizPane = (
     <div className="flex flex-col h-full min-h-[420px] gap-2">
-      <h3 className="font-heading font-semibold text-ink text-sm">
-        Shared membership
-      </h3>
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="font-heading font-semibold text-ink text-sm">
+          Shared membership
+        </h3>
+        {selectedId && (
+          <button
+            type="button"
+            onClick={clearOrg}
+            className="text-[11px] font-body text-forest-700 underline hover:text-forest-900"
+          >
+            Clear focus
+          </button>
+        )}
+      </div>
       <p className="text-xs font-body text-ink-muted">
-        Organizations connected when they share current members (Jaccard
-        overlap). This is overlapping membership, not a political grouping.
+        {selectedId
+          ? `Focused on ${detail?.name ?? "this organization"} and organizations that share current members.`
+          : "Overview of overlapping membership (Jaccard). Select an organization to focus the graph. This is not a political grouping."}
       </p>
       <label className="flex items-center gap-3 text-xs font-body text-forest-600">
         <span className="whitespace-nowrap">Min. overlap</span>
@@ -569,9 +696,13 @@ export default function OrganizationExplorer({
               kind: "organization" as const,
               label: node.label,
               org_type: node.org_type,
-              size: node.size,
+              size:
+                selectedId && node.id === selectedId
+                  ? Math.max(node.size, 16)
+                  : node.size,
             }))}
             edges={graphEdges}
+            centerId={selectedId}
             onNodeClick={(id) => selectOrg(id)}
             onEdgeClick={(edge) =>
               setSelectedEdge((current) => toggleWhyLinkedEdge(current, edge))

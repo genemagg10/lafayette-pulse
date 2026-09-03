@@ -3,13 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { Person } from "@/lib/types";
-import type { EgoGraphResponse } from "@/lib/civic-graph";
+import type { EgoGraphResponse, SharedBoardOverlap } from "@/lib/civic-graph";
 import GraphLegend from "./graph/GraphLegend";
 import PersonAvatar from "./PersonAvatar";
 import OnTheRecord, { type OnTheRecordItem } from "./OnTheRecord";
 import FocusPanes, { type MobileStep } from "./FocusPanes";
 import FootprintChip from "./FootprintChip";
 import WhyLinkedPanel from "./WhyLinkedPanel";
+import {
+  DetailLink,
+  DetailSection,
+  IdentityHeader,
+  StickyDetailChrome,
+} from "./WhoDetailChrome";
 import type { RenderableEdge } from "./graph/CivicGraph";
 import {
   buildWhyLinkedModel,
@@ -36,6 +42,7 @@ interface PersonDetail extends Person {
     seat: { id: string; title: string; seat_type: string; district: string | null } | null;
     organization: { id: string; name: string; slug: string; org_type: string } | null;
   }[];
+  shared_boards?: SharedBoardOverlap[];
 }
 
 interface PeopleExplorerProps {
@@ -303,99 +310,110 @@ export default function PeopleExplorer({
     </div>
   );
 
+  const roleLine =
+    selected?.current_roles && selected.current_roles.length > 0
+      ? selected.current_roles
+          .map((role) =>
+            role.role ? `${role.role}, ${role.org_name}` : role.org_name
+          )
+          .join(" · ")
+      : null;
+
   const personDetail =
     detailLoading && !detail ? (
       <div className="h-24 bg-surface-muted rounded-md animate-pulse" />
     ) : selected ? (
       <>
-        <div className="rounded-md border border-line bg-surface-muted p-3 space-y-2">
-          <div className="flex items-start gap-3">
-            <PersonAvatar
-              name={selected.full_name}
-              photoUrl={selected.photo_url}
-              size={48}
+        <StickyDetailChrome>
+          <IdentityHeader
+            name={selected.full_name}
+            subtitle={roleLine}
+            footprint={
+              selected.footprint_score ??
+              ((selected.membership_count ?? 0) + (selected.seat_count ?? 0) ||
+                null)
+            }
+            email={detail?.email}
+            website={detail?.website}
+            photoUrl={selected.photo_url}
+          />
+          {whyLinkedModel && (
+            <WhyLinkedPanel
+              model={whyLinkedModel}
+              className="hidden lg:block"
+              onClose={() => setSelectedEdge(null)}
+              onSelectEntity={selectFromWhyLinked}
             />
-            <div className="min-w-0">
-              <h3 className="font-heading font-semibold text-ink">
-                {selected.full_name}
-              </h3>
-              {(detail?.email || detail?.website) && (
-                <div className="mt-1 flex flex-wrap gap-3 text-xs font-body text-ink-muted">
-                  {detail?.email && (
-                    <a
-                      href={`mailto:${detail.email}`}
-                      className="underline hover:text-ink"
-                    >
-                      {detail.email}
-                    </a>
-                  )}
-                  {detail?.website && (
-                    <a
-                      href={detail.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline hover:text-ink"
-                    >
-                      Website ↗
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+          )}
+        </StickyDetailChrome>
+        <div className="space-y-3">
           {detail?.bio && (
-            <p className="text-sm font-body text-forest-600 leading-relaxed">
+            <p className="text-[13px] font-body text-forest-600 leading-snug">
               {detail.bio}
             </p>
           )}
-        </div>
-        {whyLinkedModel && (
-          <WhyLinkedPanel
-            model={whyLinkedModel}
-            className="hidden lg:block sticky top-0 z-10"
-            onClose={() => setSelectedEdge(null)}
-            onSelectEntity={selectFromWhyLinked}
+          <DetailSection
+            title="Formal seats"
+            items={detail?.seats ?? []}
+            getKey={(row) => row.id}
+            renderItem={(row) => (
+              <>
+                {row.seat?.title}
+                {row.organization ? (
+                  <>
+                    {" · "}
+                    <DetailLink
+                      onClick={
+                        row.organization
+                          ? () => onSelectOrg?.(row.organization!.id)
+                          : undefined
+                      }
+                    >
+                      {row.organization.name}
+                    </DetailLink>
+                  </>
+                ) : null}
+                {row.is_current ? "" : " (past)"}
+              </>
+            )}
           />
-        )}
-        {(detail?.seats?.length ||
-          detail?.memberships?.length ||
-          onTheRecord.length > 0) && (
-          <div className="rounded-md border border-line bg-surface-muted p-3 space-y-2">
-            {detail?.seats && detail.seats.length > 0 && (
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-ink-muted font-body mb-1">
-                  Formal seats
-                </p>
-                <ul className="text-sm font-body text-forest-700 space-y-1">
-                  {detail.seats.map((row) => (
-                    <li key={row.id}>
-                      {row.seat?.title}
-                      {row.organization ? ` · ${row.organization.name}` : ""}
-                      {row.is_current ? "" : " (past)"}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          <DetailSection
+            title="Memberships"
+            items={detail?.memberships ?? []}
+            getKey={(row) => row.id}
+            renderItem={(row) => (
+              <>
+                <DetailLink
+                  onClick={
+                    row.organization
+                      ? () => onSelectOrg?.(row.organization!.id)
+                      : undefined
+                  }
+                >
+                  {row.organization?.name ?? "Organization"}
+                </DetailLink>
+                {row.role ? ` · ${row.role}` : ""}
+                {row.is_current ? "" : " (past)"}
+              </>
             )}
-            {detail?.memberships && detail.memberships.length > 0 && (
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-ink-muted font-body mb-1">
-                  Shared boards
-                </p>
-                <ul className="text-sm font-body text-forest-700 space-y-1">
-                  {detail.memberships.map((row) => (
-                    <li key={row.id}>
-                      {row.organization?.name}
-                      {row.role ? ` · ${row.role}` : ""}
-                      {row.is_current ? "" : " (past)"}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+          />
+          <DetailSection
+            title="Shared boards"
+            items={detail?.shared_boards ?? []}
+            getKey={(row) => row.person.id}
+            renderItem={(row) => (
+              <>
+                <DetailLink onClick={() => selectPerson(row.person.id)}>
+                  {row.person.full_name}
+                </DetailLink>
+                {row.organizations.length > 0
+                  ? ` · ${row.organizations.map((org) => org.name).join(", ")}`
+                  : ""}
+              </>
             )}
-            <OnTheRecord items={onTheRecord} />
-          </div>
-        )}
+          />
+          <OnTheRecord items={onTheRecord} bare />
+        </div>
       </>
     ) : (
       <p className="text-sm font-body text-ink-muted">

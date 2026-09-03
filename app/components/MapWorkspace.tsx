@@ -132,8 +132,7 @@ function SelectionBody({ selection }: { selection: Selection | null }) {
   if (!selection) {
     return (
       <p className="text-sm font-body text-ink-muted">
-        Tap a marker. Layers: Events and Organizations on; Projects off unless
-        you turn them on.
+        Tap a marker. Layers: Events, Organizations, and Projects on by default.
       </p>
     );
   }

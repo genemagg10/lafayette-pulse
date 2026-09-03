@@ -9,7 +9,8 @@
     "lint": "next lint",
     "test:stances": "node --experimental-strip-types --test scripts/test-stances.ts",
     "test:calendar": "node --experimental-strip-types --test scripts/test-calendar-items.ts",
-    "test:why-linked": "node --experimental-strip-types --test scripts/test-why-linked.ts"
+    "test:why-linked": "node --experimental-strip-types --test scripts/test-why-linked.ts",
+    "test:org-affinity": "node --experimental-strip-types --test scripts/test-org-affinity.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",

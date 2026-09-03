@@ -103,8 +103,15 @@ export interface OrgAffinityResponse {
   min_jaccard: number;
   min_shared: number;
   limit_orgs: number;
+  org_type: OrgType | null;
+  focus_org: string | null;
   nodes: OrgAffinityNode[];
   edges: OrgAffinityEdge[];
+}
+
+export interface SharedBoardOverlap {
+  person: { id: string; full_name: string; photo_url: string | null };
+  organizations: { id: string; name: string }[];
 }
 
 /** Paul Tol / Wong-inspired palette — colorblind-safe. */
@@ -167,6 +174,93 @@ export function involvementScore(
 ): number {
   const { weights } = INVOLVEMENT_METRICS[metric];
   return memberships * weights.membership + seatHolders * weights.seat_holder;
+}
+
+export function filterOrgsByType<T extends { org_type: OrgType }>(
+  orgs: T[],
+  orgType?: OrgType | null
+): T[] {
+  if (!orgType) return orgs;
+  return orgs.filter((org) => org.org_type === orgType);
+}
+
+/** Focus org plus 1-hop shared-membership neighbors (min shared people). */
+export function orgAffinityEgoIds(
+  focusId: string,
+  membersByOrg: Map<string, Set<string>>,
+  candidateIds: Iterable<string>,
+  minShared: number
+): string[] {
+  const focusMembers = membersByOrg.get(focusId) ?? new Set<string>();
+  const neighbors: string[] = [];
+  Array.from(candidateIds).forEach((id) => {
+    if (id === focusId) return;
+    const { shared } = jaccardSets(
+      focusMembers,
+      membersByOrg.get(id) ?? new Set<string>()
+    );
+    if (shared >= minShared) neighbors.push(id);
+  });
+  return [focusId, ...neighbors];
+}
+
+export function selectOrgAffinityIds(
+  orgs: { id: string; name: string; org_type: OrgType }[],
+  membersByOrg: Map<string, Set<string>>,
+  options: {
+    orgType?: OrgType | null;
+    focusOrg?: string | null;
+    minShared: number;
+    limitOrgs: number;
+  }
+): string[] {
+  const typed = filterOrgsByType(orgs, options.orgType);
+  const focus = options.focusOrg
+    ? orgs.find((org) => org.id === options.focusOrg)
+    : undefined;
+
+  if (focus) {
+    const candidateIds = new Set(typed.map((org) => org.id));
+    candidateIds.add(focus.id);
+    const [centerId, ...neighborIds] = orgAffinityEgoIds(
+      focus.id,
+      membersByOrg,
+      candidateIds,
+      options.minShared
+    );
+    return [centerId, ...neighborIds.slice(0, Math.max(options.limitOrgs - 1, 0))];
+  }
+
+  return typed
+    .map((org) => ({
+      id: org.id,
+      name: org.name,
+      size: membersByOrg.get(org.id)?.size ?? 0,
+    }))
+    .filter((row) => row.size > 0)
+    .sort((a, b) => {
+      if (b.size !== a.size) return b.size - a.size;
+      return a.name.localeCompare(b.name);
+    })
+    .slice(0, options.limitOrgs)
+    .map((row) => row.id);
+}
+
+export function sharedBoardPersonOverlaps(
+  personId: string,
+  boardsByPerson: Map<string, Set<string>>
+): { personId: string; orgIds: string[] }[] {
+  const mine = boardsByPerson.get(personId);
+  if (!mine || mine.size === 0) return [];
+  const overlaps: { personId: string; orgIds: string[] }[] = [];
+  Array.from(boardsByPerson.entries()).forEach(([otherId, orgs]) => {
+    if (otherId === personId) return;
+    const orgIds = Array.from(orgs).filter((id) => mine.has(id));
+    if (orgIds.length === 0) return;
+    overlaps.push({ personId: otherId, orgIds });
+  });
+  overlaps.sort((a, b) => b.orgIds.length - a.orgIds.length || a.personId.localeCompare(b.personId));
+  return overlaps;
 }
 
 export function jaccardSets(

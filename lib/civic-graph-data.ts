@@ -5,6 +5,8 @@ import {
   involvementScore,
   isCurrentTenure,
   jaccardSets,
+  selectOrgAffinityIds,
+  sharedBoardPersonOverlaps,
   scaleSize,
   type CivicGraphEdge,
   type CivicGraphNode,
@@ -14,6 +16,7 @@ import {
   type InvolvementMetric,
   type InvolvementResponse,
   type OrgAffinityResponse,
+  type SharedBoardOverlap,
 } from "./civic-graph";
 
 export interface PersonRow {
@@ -534,10 +537,14 @@ export function buildOrgAffinity(
     minJaccard: number;
     minShared: number;
     limitOrgs: number;
+    orgType?: OrgType | null;
+    focusOrg?: string | null;
   }
 ): OrgAffinityResponse {
   const { currentOnly, minJaccard, minShared, limitOrgs } = options;
+  const orgType = options.orgType ?? null;
   const peopleById = indexById(snapshot.people);
+  const orgsById = indexById(snapshot.organizations);
   const membersByOrg = new Map<string, Set<string>>();
 
   for (const membership of snapshot.memberships) {
@@ -547,19 +554,25 @@ export function buildOrgAffinity(
     membersByOrg.set(membership.organization_id, set);
   }
 
-  const ranked = snapshot.organizations
-    .map((org) => ({
-      org,
-      members: membersByOrg.get(org.id) ?? new Set<string>(),
-    }))
-    .filter((row) => row.members.size > 0)
-    .sort((a, b) => {
-      if (b.members.size !== a.members.size) {
-        return b.members.size - a.members.size;
-      }
-      return a.org.name.localeCompare(b.org.name);
+  const focus = options.focusOrg
+    ? orgsById.get(options.focusOrg)
+    : undefined;
+  const keptIds = selectOrgAffinityIds(snapshot.organizations, membersByOrg, {
+    orgType,
+    focusOrg: focus?.id ?? null,
+    minShared,
+    limitOrgs,
+  });
+  const ranked = keptIds
+    .map((id) => {
+      const found = orgsById.get(id);
+      return found
+        ? { org: found, members: membersByOrg.get(id) ?? new Set<string>() }
+        : null;
     })
-    .slice(0, limitOrgs);
+    .filter((row): row is { org: OrganizationRow; members: Set<string> } =>
+      Boolean(row)
+    );
 
   const maxMembers = ranked.reduce(
     (max, row) => Math.max(max, row.members.size),
@@ -573,13 +586,15 @@ export function buildOrgAffinity(
     size: scaleSize(members.size, 0, Math.max(maxMembers, 1), 7, 18),
   }));
 
+  // Ego mode shows every 1-hop shared-membership edge; overview still uses Jaccard.
+  const jaccardFloor = focus ? 0 : minJaccard;
   const edges: OrgAffinityResponse["edges"] = [];
   for (let i = 0; i < ranked.length; i += 1) {
     for (let j = i + 1; j < ranked.length; j += 1) {
       const left = ranked[i];
       const right = ranked[j];
       const { shared, jaccard } = jaccardSets(left.members, right.members);
-      if (shared < minShared || jaccard < minJaccard) continue;
+      if (shared < minShared || jaccard < jaccardFloor) continue;
       const sharedEntities = Array.from(left.members)
         .filter((id) => right.members.has(id))
         .map((id) => ({
@@ -607,9 +622,67 @@ export function buildOrgAffinity(
     min_jaccard: minJaccard,
     min_shared: minShared,
     limit_orgs: limitOrgs,
+    org_type: orgType,
+    focus_org: focus?.id ?? null,
     nodes,
     edges,
   };
+}
+
+export function buildSharedBoardOverlaps(
+  snapshot: GraphSnapshot,
+  personId: string,
+  options: { currentOnly: boolean; limit: number }
+): SharedBoardOverlap[] {
+  const { currentOnly, limit } = options;
+  const orgsById = indexById(snapshot.organizations);
+  const peopleById = indexById(snapshot.people);
+  const seatsById = indexById(snapshot.seats);
+  const boardsByPerson = new Map<string, Set<string>>();
+
+  const add = (id: string, orgId: string) => {
+    const set = boardsByPerson.get(id) ?? new Set<string>();
+    set.add(orgId);
+    boardsByPerson.set(id, set);
+  };
+
+  for (const membership of snapshot.memberships) {
+    if (!tenureOk(membership.end_date, currentOnly)) continue;
+    add(membership.person_id, membership.organization_id);
+  }
+  for (const holder of snapshot.seatHolders) {
+    if (!tenureOk(holder.end_date, currentOnly)) continue;
+    const orgId = seatsById.get(holder.seat_id)?.organization_id;
+    if (orgId) add(holder.person_id, orgId);
+  }
+
+  const overlaps: SharedBoardOverlap[] = [];
+  for (const row of sharedBoardPersonOverlaps(personId, boardsByPerson)) {
+    const found = peopleById.get(row.personId);
+    if (!found) continue;
+    overlaps.push({
+      person: {
+        id: found.id,
+        full_name: found.full_name,
+        photo_url: found.photo_url,
+      },
+      organizations: row.orgIds
+        .map((id) => {
+          const foundOrg = orgsById.get(id);
+          return foundOrg ? { id: foundOrg.id, name: foundOrg.name } : null;
+        })
+        .filter((item): item is { id: string; name: string } => Boolean(item))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    });
+  }
+
+  overlaps.sort((a, b) => {
+    if (b.organizations.length !== a.organizations.length) {
+      return b.organizations.length - a.organizations.length;
+    }
+    return a.person.full_name.localeCompare(b.person.full_name);
+  });
+  return overlaps.slice(0, limit);
 }
 
 export function orgFootprintScores(
