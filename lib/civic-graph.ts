@@ -126,8 +126,17 @@ export const ORG_TYPE_COLORS: Record<OrgType, string> = {
 
 export const PERSON_COLOR = "#2C3E2D";
 export const SEAT_COLOR = "#56B4E9";
-export const CURRENT_EDGE_COLOR = "#364f37";
-export const PAST_EDGE_COLOR = "#a0b5a1";
+/** Structural current edges — Facelift ink-faint, not near-black forest-700. */
+export const CURRENT_EDGE_COLOR = "#8A938C";
+/** Past tenure — Facelift line-strong. */
+export const PAST_EDGE_COLOR = "#C9C5B8";
+/** Primary role or seated edges stay Facelift forest. */
+export const PRIMARY_EDGE_COLOR = "#24352A";
+export const EGO_CENTER_SIZE = 17;
+export const EGO_HALO_COLOR = "#FFFFFF";
+export const EGO_HALO_WIDTH_PX = 2;
+/** Org affinity slider default (VIZ_PASS_V1 §9). Range 0.25–0.30. */
+export const DEFAULT_ORG_AFFINITY_JACCARD = 0.28;
 
 export const INVOLVEMENT_METRICS: Record<
   InvolvementMetric,
