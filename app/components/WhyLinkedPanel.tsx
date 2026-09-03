@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   selectableWhyLinkedKind,
   type WhyLinkedEntity,
@@ -155,6 +155,8 @@ export default function WhyLinkedPanel({
   variant = "pane",
   className = "",
 }: WhyLinkedPanelProps) {
+  const paneRef = useRef<HTMLElement>(null);
+
   useEffect(() => {
     if (variant !== "sheet") return;
     const onKey = (event: KeyboardEvent) => {
@@ -163,6 +165,13 @@ export default function WhyLinkedPanel({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [variant, onClose]);
+
+  useEffect(() => {
+    if (variant === "sheet") return;
+    const node = paneRef.current;
+    if (!node || node.offsetParent === null) return;
+    node.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [variant, model]);
 
   if (variant === "sheet") {
     return (
@@ -194,7 +203,8 @@ export default function WhyLinkedPanel({
 
   return (
     <section
-      className={`rounded-md border border-line bg-surface p-3 ${className}`}
+      ref={paneRef}
+      className={`rounded-md border border-line bg-surface p-3 scroll-mt-2 ${className}`}
       aria-label="Why linked"
     >
       <WhyLinkedBody
