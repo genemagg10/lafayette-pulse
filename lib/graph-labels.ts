@@ -1,4 +1,14 @@
-import { ORG_TYPE_LABELS, type OrgType } from "@/lib/types";
+import type { OrgType } from "./types";
+
+const ORG_TYPE_ORDER: OrgType[] = [
+  "city_body",
+  "civic",
+  "foundation",
+  "interest",
+  "campaign",
+  "other",
+];
+const ORG_TYPE_SET = new Set<string>(ORG_TYPE_ORDER);
 
 export type GraphLabelMode = "focus" | "all";
 
@@ -88,11 +98,9 @@ export function presentOrgTypesFromNodes(
 ): OrgType[] {
   const seen = new Set<OrgType>();
   for (const node of nodes) {
-    if (node.org_type && node.org_type in ORG_TYPE_LABELS) {
+    if (node.org_type && ORG_TYPE_SET.has(node.org_type)) {
       seen.add(node.org_type);
     }
   }
-  return (Object.keys(ORG_TYPE_LABELS) as OrgType[]).filter((type) =>
-    seen.has(type)
-  );
+  return ORG_TYPE_ORDER.filter((type) => seen.has(type));
 }
