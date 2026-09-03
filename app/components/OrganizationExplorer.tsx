@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ORG_TYPE_LABELS, type Organization, type OrgType } from "@/lib/types";
-import type { OrgAffinityResponse } from "@/lib/civic-graph";
+import {
+  DEFAULT_ORG_AFFINITY_JACCARD,
+  type OrgAffinityResponse,
+} from "@/lib/civic-graph";
+import type { GraphLabelMode } from "@/lib/graph-labels";
 import {
   STANCE_TEAL,
   STANCE_VERMILLION,
@@ -11,7 +15,7 @@ import {
 } from "@/lib/stances";
 import BoardTabs from "./BoardTabs";
 import CoStanceMatrix from "./CoStanceMatrix";
-import GraphLegend from "./graph/GraphLegend";
+import GraphLegend, { GraphLabelToggle } from "./graph/GraphLegend";
 import FocusPanes, { type MobileStep } from "./FocusPanes";
 import FootprintChip from "./FootprintChip";
 import WhyLinkedPanel from "./WhyLinkedPanel";
@@ -30,7 +34,7 @@ import {
 const CivicGraph = dynamic(() => import("./graph/CivicGraph"), { ssr: false });
 
 const ORG_TYPES = Object.keys(ORG_TYPE_LABELS) as OrgType[];
-const DEFAULT_JACCARD = 0.15;
+const DEFAULT_JACCARD = DEFAULT_ORG_AFFINITY_JACCARD;
 type OrgTab = "directory" | "co-stance";
 
 interface OrgMember {
@@ -93,6 +97,7 @@ export default function OrganizationExplorer({
   const [coStanceError, setCoStanceError] = useState<string | null>(null);
   const [coStanceLoading, setCoStanceLoading] = useState(false);
   const [mobileStep, setMobileStep] = useState<MobileStep>("list");
+  const [labelMode, setLabelMode] = useState<GraphLabelMode>("focus");
   const selectedOrgIdRef = useRef(selectedOrgId);
   selectedOrgIdRef.current = selectedOrgId;
   const selectedIdRef = useRef(selectedId);
@@ -666,14 +671,17 @@ export default function OrganizationExplorer({
         />
         <span className="tabular-nums w-10 text-right">{minJaccard.toFixed(2)}</span>
       </label>
-      <label className="inline-flex items-center gap-2 text-xs font-body text-forest-600">
-        <input
-          type="checkbox"
-          checked={stanceLayer}
-          onChange={(e) => setStanceLayer(e.target.checked)}
-        />
-        Show stance layer (co-stance / opposed on issues)
-      </label>
+      <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
+        <label className="inline-flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={stanceLayer}
+            onChange={(e) => setStanceLayer(e.target.checked)}
+          />
+          Show stance layer (co-stance / opposed on issues)
+        </label>
+        <GraphLabelToggle mode={labelMode} onChange={setLabelMode} />
+      </div>
       {stanceLayer && coStanceError && (
         <p className="text-sm font-body text-ink-muted">{coStanceError}</p>
       )}
@@ -696,6 +704,7 @@ export default function OrganizationExplorer({
               kind: "organization" as const,
               label: node.label,
               org_type: node.org_type,
+              member_count: node.member_count,
               size:
                 selectedId && node.id === selectedId
                   ? Math.max(node.size, 16)
@@ -703,6 +712,8 @@ export default function OrganizationExplorer({
             }))}
             edges={graphEdges}
             centerId={selectedId}
+            labelMode={labelMode}
+            selectedEdge={selectedEdge}
             onNodeClick={(id) => selectOrg(id)}
             onEdgeClick={(edge) =>
               setSelectedEdge((current) => toggleWhyLinkedEdge(current, edge))
@@ -711,7 +722,12 @@ export default function OrganizationExplorer({
           />
         )}
       </div>
-      <GraphLegend affinity showSeats={false} stance={stanceLayer} />
+      <GraphLegend
+        affinity
+        showSeats={false}
+        stance={stanceLayer}
+        nodes={graphNodes}
+      />
     </div>
   );
 

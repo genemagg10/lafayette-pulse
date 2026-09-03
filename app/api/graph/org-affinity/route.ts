@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { jsonNoStore, parseBoolParam } from "@/lib/safe-list";
 import { tryGetSupabase } from "@/lib/supabase";
-import { isUuid } from "@/lib/civic-graph";
+import { DEFAULT_ORG_AFFINITY_JACCARD, isUuid } from "@/lib/civic-graph";
 import { buildOrgAffinity, loadGraphSnapshot } from "@/lib/civic-graph-data";
 import { ORG_TYPE_LABELS, type OrgType } from "@/lib/types";
 
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const currentOnly = parseBoolParam(request, "current_only", true);
     const minJaccard = parseBounded(
       request.nextUrl.searchParams.get("min_jaccard"),
-      0.15,
+      DEFAULT_ORG_AFFINITY_JACCARD,
       0,
       1
     );

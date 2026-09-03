@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { Person } from "@/lib/types";
 import type { EgoGraphResponse, SharedBoardOverlap } from "@/lib/civic-graph";
-import GraphLegend from "./graph/GraphLegend";
+import GraphLegend, { GraphLabelToggle } from "./graph/GraphLegend";
+import type { GraphLabelMode } from "@/lib/graph-labels";
 import PersonAvatar from "./PersonAvatar";
 import OnTheRecord, { type OnTheRecordItem } from "./OnTheRecord";
 import FocusPanes, { type MobileStep } from "./FocusPanes";
@@ -76,6 +77,7 @@ export default function PeopleExplorer({
   const [onTheRecord, setOnTheRecord] = useState<OnTheRecordItem[]>([]);
   const [mobileStep, setMobileStep] = useState<MobileStep>("list");
   const [selectedEdge, setSelectedEdge] = useState<RenderableEdge | null>(null);
+  const [labelMode, setLabelMode] = useState<GraphLabelMode>("focus");
   const selectedPersonIdRef = useRef(selectedPersonId);
   selectedPersonIdRef.current = selectedPersonId;
 
@@ -442,6 +444,7 @@ export default function PeopleExplorer({
           />
           Current only
         </label>
+        <GraphLabelToggle mode={labelMode} onChange={setLabelMode} />
       </div>
       <div className="flex-1 min-h-[420px]">
         {detailLoading && !ego ? (
@@ -451,6 +454,8 @@ export default function PeopleExplorer({
             nodes={ego?.nodes ?? []}
             edges={ego?.edges ?? []}
             centerId={ego?.center.id}
+            labelMode={labelMode}
+            selectedEdge={selectedEdge}
             heightClassName="h-full min-h-[420px]"
             onNodeClick={(id, kind) => {
               if (kind === "person") selectPerson(id);
@@ -462,7 +467,7 @@ export default function PeopleExplorer({
           />
         )}
       </div>
-      <GraphLegend />
+      <GraphLegend nodes={ego?.nodes} />
     </div>
   );
 

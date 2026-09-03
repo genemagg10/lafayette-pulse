@@ -91,7 +91,7 @@ export default function ConflictRibbon({
           heightClassName={heightClassName}
         />
       )}
-      {showGraph && <GraphLegend stance showSeats={false} />}
+      {showGraph && <GraphLegend stance showSeats={false} nodes={nodes} />}
       {showList && (
         <ul className="space-y-2">
           {stances.map((row) => {

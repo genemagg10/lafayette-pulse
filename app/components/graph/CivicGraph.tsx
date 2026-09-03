@@ -8,11 +8,22 @@ import Sigma from "sigma";
 import { NodeSquareProgram } from "@sigma/node-square";
 import {
   CURRENT_EDGE_COLOR,
+  EGO_CENTER_SIZE,
+  EGO_HALO_COLOR,
+  EGO_HALO_WIDTH_PX,
   isCurrentTenure,
   nodeColor,
   nodeType,
   PAST_EDGE_COLOR,
+  PRIMARY_EDGE_COLOR,
 } from "@/lib/civic-graph";
+import {
+  degreesFromEdges,
+  FOCUS_LABEL_ALL_ACTORS_MAX,
+  topFocusLabelIds,
+  visibleFocusLabelIds,
+  type GraphLabelMode,
+} from "@/lib/graph-labels";
 import { whyLinkedTooltipLines, type WhyLinkedEntity } from "@/lib/why-linked";
 import {
   EDGE_PICK_RADIUS_PX,
@@ -32,6 +43,7 @@ export interface RenderableNode {
   seat_type?: SeatType;
   size?: number;
   color?: string;
+  member_count?: number;
   column?: "support" | "oppose" | "endorse" | "measure";
   polarity?: string;
 }
@@ -67,6 +79,8 @@ interface CivicGraphProps {
   edges: RenderableEdge[];
   centerId?: string | null;
   layout?: "force" | "ribbon";
+  labelMode?: GraphLabelMode;
+  selectedEdge?: Pick<RenderableEdge, "source" | "target"> | null;
   heightClassName?: string;
   onNodeClick?: (id: string, kind: RenderableNode["kind"]) => void;
   onEdgeClick?: (edge: RenderableEdge) => void;
@@ -306,11 +320,75 @@ function pickEdgeAt(
   );
 }
 
+function clampEgoSize(size?: number): number {
+  const value = size ?? EGO_CENTER_SIZE;
+  return Math.min(18, Math.max(16, value));
+}
+
+function structuralEdgeColor(edge: RenderableEdge, current: boolean, seated: boolean): string {
+  if (edge.color) return edge.color;
+  if (seated) return PRIMARY_EDGE_COLOR;
+  const isAffinity = edge.shared != null || edge.jaccard != null;
+  const isStance = Boolean(
+    edge.stance_kind || edge.polarity || edge.kind === "stance"
+  );
+  return current || isAffinity || isStance ? CURRENT_EDGE_COLOR : PAST_EDGE_COLOR;
+}
+
+function fitCameraWithPadding(renderer: Sigma) {
+  const graph = renderer.getGraph();
+  if (graph.order === 0) return;
+  renderer.setCustomBBox(null);
+  const bbox = renderer.getBBox();
+  const dx = Math.max(bbox.x[1] - bbox.x[0], 1);
+  const dy = Math.max(bbox.y[1] - bbox.y[0], 1);
+  renderer.setCustomBBox({
+    x: [bbox.x[0] - dx * 0.16, bbox.x[1] + dx * 0.16],
+    y: [bbox.y[0] - dy * 0.2, bbox.y[1] + dy * 0.2],
+  });
+  renderer.getCamera().setState({ x: 0.5, y: 0.5, ratio: 1, angle: 0 });
+}
+
+function drawEgoHalo(
+  ctx: CanvasRenderingContext2D,
+  renderer: Sigma,
+  graph: Graph,
+  centerId: string
+) {
+  if (!graph.hasNode(centerId)) return;
+  const attrs = graph.getNodeAttributes(centerId);
+  const display = renderer.getNodeDisplayData(centerId);
+  const pos = renderer.graphToViewport({
+    x: Number(attrs.x) || 0,
+    y: Number(attrs.y) || 0,
+  });
+  const radius = Number(display?.size ?? attrs.size ?? EGO_CENTER_SIZE);
+  const type = String(attrs.type || "circle");
+  ctx.save();
+  ctx.strokeStyle = EGO_HALO_COLOR;
+  ctx.lineWidth = EGO_HALO_WIDTH_PX;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  if (type === "square") {
+    ctx.rect(pos.x - radius, pos.y - radius, radius * 2, radius * 2);
+  } else if (type === "diamond") {
+    ctx.translate(pos.x, pos.y);
+    ctx.rotate(Math.PI / 4);
+    ctx.rect(-radius, -radius, radius * 2, radius * 2);
+  } else {
+    ctx.arc(pos.x, pos.y, radius + 1, 0, Math.PI * 2);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
 export default function CivicGraph({
   nodes,
   edges,
   centerId,
   layout = "force",
+  labelMode = "focus",
+  selectedEdge = null,
   heightClassName = "h-[320px] sm:h-[380px]",
   onNodeClick,
   onEdgeClick,
@@ -323,6 +401,11 @@ export default function CivicGraph({
   clickRef.current = onNodeClick;
   const edgeClickRef = useRef(onEdgeClick);
   edgeClickRef.current = onEdgeClick;
+  const labelModeRef = useRef(labelMode);
+  labelModeRef.current = labelMode;
+  const selectedEdgeRef = useRef(selectedEdge);
+  selectedEdgeRef.current = selectedEdge;
+  const applyLabelsRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const container = containerRef.current;
@@ -334,16 +417,21 @@ export default function CivicGraph({
     for (const node of nodes) {
       if (graph.hasNode(node.id)) continue;
       const kind = node.kind;
+      const isCenter = Boolean(centerId && node.id === centerId);
       graph.addNode(node.id, {
         label: node.label,
         kind,
-        size: node.size ?? (kind === "person" ? 9 : kind === "seat" ? 8 : 10),
+        size: isCenter
+          ? clampEgoSize(node.size)
+          : node.size ?? (kind === "person" ? 9 : kind === "seat" ? 8 : 10),
         color:
           node.color ||
           nodeColor(kind, "org_type" in node ? node.org_type : undefined),
         type: nodeType(kind),
         column: node.column,
         polarity: node.polarity,
+        member_count: node.member_count,
+        forceLabel: false,
         x: 0,
         y: 0,
       });
@@ -391,15 +479,36 @@ export default function CivicGraph({
           seated || (edge.shared ?? 0) > 1 || stanceWeight > 1
             ? 2.4 * Math.min(isStance ? stanceWeight : affinityWeight, 3)
             : 1.4,
-        color:
-          edge.color ||
-          (current || isAffinity || isStance ? CURRENT_EDGE_COLOR : PAST_EDGE_COLOR),
+        color: structuralEdgeColor(edge, current, seated),
         hidden: dashed,
         forceLabel: false,
       });
     }
 
     layoutGraph(graph, centerId, layout);
+
+    const degreeById = degreesFromEdges(
+      graph.nodes(),
+      edges.map((edge) => ({ source: edge.source, target: edge.target }))
+    );
+    const topFocusIds = topFocusLabelIds(
+      graph.nodes().map((id) => ({
+        id,
+        degree: degreeById.get(id) ?? graph.degree(id),
+        member_count: graph.getNodeAttribute(id, "member_count") as
+          | number
+          | undefined,
+      })),
+      centerId
+    );
+    const actorIds = graph.nodes().filter((id) => {
+      const kind = graph.getNodeAttribute(id, "kind");
+      const column = graph.getNodeAttribute(id, "column");
+      if (centerId && id === centerId) return false;
+      if (column === "measure") return false;
+      return kind === "person" || kind === "organization";
+    });
+    const ribbonCast = layout === "ribbon";
 
     const hideTooltip = () => {
       if (!tooltip) return;
@@ -442,6 +551,9 @@ export default function CivicGraph({
       labelColor: { color: "#243324" },
       defaultNodeType: "circle",
       defaultEdgeColor: CURRENT_EDGE_COLOR,
+      labelRenderedSizeThreshold: 10_000,
+      labelDensity: 10,
+      stagePadding: 64,
       minCameraRatio: 0.15,
       maxCameraRatio: 4,
       nodeProgramClasses: {
@@ -450,7 +562,36 @@ export default function CivicGraph({
       },
     });
 
-    const drawDashed = () => {
+    let hoveredEdge: string | null = null;
+    let hoveredNode: string | null = null;
+
+    const applyLabels = () => {
+      const hoveredEndpoints =
+        hoveredEdge && graph.hasEdge(hoveredEdge)
+          ? [graph.source(hoveredEdge), graph.target(hoveredEdge)]
+          : null;
+      const selected = selectedEdgeRef.current;
+      const visible = visibleFocusLabelIds({
+        mode: labelModeRef.current,
+        nodeIds: graph.nodes(),
+        centerId,
+        hoveredNodeId: hoveredNode,
+        hoveredEdgeEndpoints: hoveredEndpoints,
+        selectedEdgeEndpoints: selected
+          ? [selected.source, selected.target]
+          : null,
+        topFocusIds,
+        actorIds,
+        labelAllActorsMax: ribbonCast ? FOCUS_LABEL_ALL_ACTORS_MAX : undefined,
+      });
+      graph.forEachNode((id) => {
+        graph.setNodeAttribute(id, "forceLabel", visible.has(id));
+      });
+    };
+    applyLabelsRef.current = applyLabels;
+    applyLabels();
+
+    const drawOverlay = () => {
       if (!overlay) return;
       const ctx = overlay.getContext("2d");
       if (!ctx) return;
@@ -480,9 +621,10 @@ export default function CivicGraph({
         ctx.lineTo(to.x, to.y);
         ctx.stroke();
       });
+      if (centerId) drawEgoHalo(ctx, renderer, graph, centerId);
     };
 
-    renderer.on("afterRender", drawDashed);
+    renderer.on("afterRender", drawOverlay);
     const emitEdgeClick = (edgeKey: string) => {
       const attrs = graph.getEdgeAttributes(edgeKey);
       edgeClickRef.current?.(
@@ -490,7 +632,6 @@ export default function CivicGraph({
       );
     };
 
-    let hoveredEdge: string | null = null;
     const applyHover = (edgeKey: string | null, clientX: number, clientY: number) => {
       if (hoveredEdge === edgeKey) {
         if (edgeKey) showTooltip(edgeKey, clientX, clientY);
@@ -503,6 +644,7 @@ export default function CivicGraph({
         }
       }
       hoveredEdge = edgeKey;
+      applyLabels();
       if (!edgeKey) {
         hideTooltip();
         return;
@@ -532,40 +674,65 @@ export default function CivicGraph({
       }
       hideTooltip();
     });
+    renderer.on("enterNode", ({ node }) => {
+      hoveredNode = node;
+      applyLabels();
+    });
+    renderer.on("leaveNode", () => {
+      hoveredNode = null;
+      applyLabels();
+    });
 
     const onMove = (ev: PointerEvent) => {
       lastMouseRef.current = { x: ev.clientX, y: ev.clientY };
       const rect = container.getBoundingClientRect();
-      const edge = pickEdgeAt(
-        renderer,
-        graph,
-        ev.clientX - rect.left,
-        ev.clientY - rect.top
-      );
+      const x = ev.clientX - rect.left;
+      const y = ev.clientY - rect.top;
+      const node = pickClosestNode(viewportNodes(renderer, graph), x, y);
+      if (node !== hoveredNode) {
+        hoveredNode = node;
+        applyLabels();
+      }
+      const edge = pickEdgeAt(renderer, graph, x, y);
       applyHover(edge, ev.clientX, ev.clientY);
     };
     container.addEventListener("pointermove", onMove);
+    container.addEventListener("pointerleave", hideTooltip);
+
+    let fitted = false;
+    const tryFit = () => {
+      if (container.clientWidth < 8 || container.clientHeight < 8) return;
+      fitCameraWithPadding(renderer);
+      fitted = true;
+    };
+    tryFit();
 
     const resize = () => {
       renderer.resize();
-      drawDashed();
+      if (!fitted) tryFit();
+      drawOverlay();
     };
     window.addEventListener("resize", resize);
     const observer =
       typeof ResizeObserver !== "undefined" ? new ResizeObserver(resize) : null;
     observer?.observe(container);
 
-    drawDashed();
+    drawOverlay();
 
     return () => {
       observer?.disconnect();
       window.removeEventListener("resize", resize);
       container.removeEventListener("pointermove", onMove);
+      container.removeEventListener("pointerleave", hideTooltip);
       hideTooltip();
       renderer.kill();
       graph.clear();
     };
   }, [nodes, edges, centerId, layout]);
+
+  useEffect(() => {
+    applyLabelsRef.current();
+  }, [labelMode, selectedEdge]);
 
   if (nodes.length === 0) {
     return (
