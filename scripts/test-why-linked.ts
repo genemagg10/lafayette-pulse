@@ -9,6 +9,12 @@ import {
   type WhyLinkedEdge,
 } from "../lib/why-linked.ts";
 import {
+  EDGE_PICK_RADIUS_PX,
+  distanceToSegment,
+  pickClosestEdge,
+  pickClosestNode,
+} from "../lib/graph-edge-pick.ts";
+import {
   isRetiredFootprintTab,
   parseWhoTab,
   resolveBoardRedirect,
@@ -212,5 +218,30 @@ test("shared-boards Why linked lists org names", () => {
   assert.deepEqual(
     model.shared_items?.map((item) => item.label),
     ["City Council", "Planning Commission"]
+  );
+});
+
+test("edge pick radius is fat enough to hit mid-edge without pixel hunting", () => {
+  assert.ok(EDGE_PICK_RADIUS_PX >= 12);
+  assert.equal(distanceToSegment(50, 8, 0, 0, 100, 0), 8);
+  const edges = [{ key: "affinity", x1: 0, y1: 0, x2: 100, y2: 0 }];
+  assert.equal(pickClosestEdge(edges, 50, 8, EDGE_PICK_RADIUS_PX), "affinity");
+  assert.equal(pickClosestEdge(edges, 50, 2, 1.4), null);
+  assert.equal(pickClosestEdge(edges, 50, 40, EDGE_PICK_RADIUS_PX), null);
+});
+
+test("edge pick prefers the closer stroke and yields to a node disc", () => {
+  const edges = [
+    { key: "near", x1: 0, y1: 0, x2: 100, y2: 0 },
+    { key: "far", x1: 0, y1: 20, x2: 100, y2: 20 },
+  ];
+  assert.equal(pickClosestEdge(edges, 50, 6, EDGE_PICK_RADIUS_PX), "near");
+  assert.equal(
+    pickClosestNode([{ key: "org", x: 50, y: 0, size: 12 }], 50, 4),
+    "org"
+  );
+  assert.equal(
+    pickClosestNode([{ key: "org", x: 50, y: 0, size: 12 }], 50, 20),
+    null
   );
 });

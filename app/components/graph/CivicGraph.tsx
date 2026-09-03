@@ -14,6 +14,13 @@ import {
   PAST_EDGE_COLOR,
 } from "@/lib/civic-graph";
 import { whyLinkedTooltipLines, type WhyLinkedEntity } from "@/lib/why-linked";
+import {
+  EDGE_PICK_RADIUS_PX,
+  pickClosestEdge,
+  pickClosestNode,
+  type ViewportEdge,
+  type ViewportNode,
+} from "@/lib/graph-edge-pick";
 import { NodeDiamondProgram } from "./NodeDiamondProgram";
 import type { OrgType, SeatType } from "@/lib/types";
 
@@ -256,6 +263,49 @@ function edgeFromAttrs(
   };
 }
 
+function viewportNodes(renderer: Sigma, graph: Graph): ViewportNode[] {
+  const nodes: ViewportNode[] = [];
+  graph.forEachNode((key) => {
+    const data = renderer.getNodeDisplayData(key);
+    if (!data) return;
+    nodes.push({ key, x: data.x, y: data.y, size: data.size });
+  });
+  return nodes;
+}
+
+function viewportEdges(renderer: Sigma, graph: Graph): ViewportEdge[] {
+  const edges: ViewportEdge[] = [];
+  graph.forEachEdge((key, _attrs, source, target) => {
+    const from = renderer.getNodeDisplayData(source);
+    const to = renderer.getNodeDisplayData(target);
+    if (!from || !to) return;
+    edges.push({ key, x1: from.x, y1: from.y, x2: to.x, y2: to.y });
+  });
+  return edges;
+}
+
+/** Fat hit-test in viewport pixels. Includes hidden/dashed overlay edges. */
+function pickEdgeAt(
+  renderer: Sigma,
+  graph: Graph,
+  x: number,
+  y: number,
+  options: { ignoreNodes?: boolean } = {}
+): string | null {
+  if (
+    !options.ignoreNodes &&
+    pickClosestNode(viewportNodes(renderer, graph), x, y)
+  ) {
+    return null;
+  }
+  return pickClosestEdge(
+    viewportEdges(renderer, graph),
+    x,
+    y,
+    EDGE_PICK_RADIUS_PX
+  );
+}
+
 export default function CivicGraph({
   nodes,
   edges,
@@ -336,6 +386,7 @@ export default function CivicGraph({
         opposed: edge.opposed,
         current,
         dashed,
+        // Visual stroke only — picking uses EDGE_PICK_RADIUS_PX, not this size.
         size:
           seated || (edge.shared ?? 0) > 1 || stanceWeight > 1
             ? 2.4 * Math.min(isStance ? stanceWeight : affinityWeight, 3)
@@ -432,39 +483,68 @@ export default function CivicGraph({
     };
 
     renderer.on("afterRender", drawDashed);
+    const emitEdgeClick = (edgeKey: string) => {
+      const attrs = graph.getEdgeAttributes(edgeKey);
+      edgeClickRef.current?.(
+        edgeFromAttrs(graph.source(edgeKey), graph.target(edgeKey), attrs)
+      );
+    };
+
+    let hoveredEdge: string | null = null;
+    const applyHover = (edgeKey: string | null, clientX: number, clientY: number) => {
+      if (hoveredEdge === edgeKey) {
+        if (edgeKey) showTooltip(edgeKey, clientX, clientY);
+        return;
+      }
+      if (hoveredEdge && graph.hasEdge(hoveredEdge)) {
+        const hoverSize = graph.getEdgeAttribute(hoveredEdge, "hoverSize");
+        if (typeof hoverSize === "number") {
+          graph.setEdgeAttribute(hoveredEdge, "size", hoverSize);
+        }
+      }
+      hoveredEdge = edgeKey;
+      if (!edgeKey) {
+        hideTooltip();
+        return;
+      }
+      const original = Number(graph.getEdgeAttribute(edgeKey, "size") || 1.4);
+      if (typeof graph.getEdgeAttribute(edgeKey, "hoverSize") !== "number") {
+        graph.setEdgeAttribute(edgeKey, "hoverSize", original);
+      }
+      graph.setEdgeAttribute(edgeKey, "size", Math.max(original * 1.6, 2.4));
+      showTooltip(edgeKey, clientX, clientY);
+    };
+
     renderer.on("clickNode", ({ node }) => {
       const kind = graph.getNodeAttribute(node, "kind") as RenderableNode["kind"];
       clickRef.current?.(node, kind);
     });
     renderer.on("clickEdge", ({ edge }) => {
-      const attrs = graph.getEdgeAttributes(edge);
-      edgeClickRef.current?.(
-        edgeFromAttrs(graph.source(edge), graph.target(edge), attrs)
-      );
+      emitEdgeClick(edge);
     });
-    renderer.on("enterEdge", ({ edge }) => {
-      const original = Number(graph.getEdgeAttribute(edge, "size") || 1.4);
-      graph.setEdgeAttribute(edge, "hoverSize", original);
-      graph.setEdgeAttribute(edge, "size", Math.max(original * 1.6, 2.4));
-      showTooltip(edge, lastMouseRef.current.x, lastMouseRef.current.y);
-    });
-    renderer.on("leaveEdge", ({ edge }) => {
-      const hoverSize = graph.getEdgeAttribute(edge, "hoverSize");
-      if (typeof hoverSize === "number") {
-        graph.setEdgeAttribute(edge, "size", hoverSize);
+    renderer.on("clickStage", ({ event }) => {
+      const edge = pickEdgeAt(renderer, graph, event.x, event.y, {
+        ignoreNodes: true,
+      });
+      if (edge) {
+        emitEdgeClick(edge);
+        return;
       }
       hideTooltip();
     });
-    renderer.on("clickStage", hideTooltip);
 
-    const onMove = (ev: MouseEvent) => {
+    const onMove = (ev: PointerEvent) => {
       lastMouseRef.current = { x: ev.clientX, y: ev.clientY };
-      if (!tooltip || tooltip.classList.contains("hidden")) return;
       const rect = container.getBoundingClientRect();
-      tooltip.style.left = `${ev.clientX - rect.left + 12}px`;
-      tooltip.style.top = `${ev.clientY - rect.top + 12}px`;
+      const edge = pickEdgeAt(
+        renderer,
+        graph,
+        ev.clientX - rect.left,
+        ev.clientY - rect.top
+      );
+      applyHover(edge, ev.clientX, ev.clientY);
     };
-    container.addEventListener("mousemove", onMove);
+    container.addEventListener("pointermove", onMove);
 
     const resize = () => {
       renderer.resize();
@@ -480,7 +560,7 @@ export default function CivicGraph({
     return () => {
       observer?.disconnect();
       window.removeEventListener("resize", resize);
-      container.removeEventListener("mousemove", onMove);
+      container.removeEventListener("pointermove", onMove);
       hideTooltip();
       renderer.kill();
       graph.clear();

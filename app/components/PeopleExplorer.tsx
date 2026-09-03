@@ -307,99 +307,103 @@ export default function PeopleExplorer({
     detailLoading && !detail ? (
       <div className="h-24 bg-surface-muted rounded-md animate-pulse" />
     ) : selected ? (
-      <div className="rounded-md border border-line bg-surface-muted p-3 space-y-2">
-        <div className="flex items-start gap-3">
-          <PersonAvatar
-            name={selected.full_name}
-            photoUrl={selected.photo_url}
-            size={48}
+      <>
+        <div className="rounded-md border border-line bg-surface-muted p-3 space-y-2">
+          <div className="flex items-start gap-3">
+            <PersonAvatar
+              name={selected.full_name}
+              photoUrl={selected.photo_url}
+              size={48}
+            />
+            <div className="min-w-0">
+              <h3 className="font-heading font-semibold text-ink">
+                {selected.full_name}
+              </h3>
+              {(detail?.email || detail?.website) && (
+                <div className="mt-1 flex flex-wrap gap-3 text-xs font-body text-ink-muted">
+                  {detail?.email && (
+                    <a
+                      href={`mailto:${detail.email}`}
+                      className="underline hover:text-ink"
+                    >
+                      {detail.email}
+                    </a>
+                  )}
+                  {detail?.website && (
+                    <a
+                      href={detail.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-ink"
+                    >
+                      Website ↗
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          {detail?.bio && (
+            <p className="text-sm font-body text-forest-600 leading-relaxed">
+              {detail.bio}
+            </p>
+          )}
+        </div>
+        {whyLinkedModel && (
+          <WhyLinkedPanel
+            model={whyLinkedModel}
+            className="hidden lg:block sticky top-0 z-10"
+            onClose={() => setSelectedEdge(null)}
+            onSelectEntity={selectFromWhyLinked}
           />
-          <div className="min-w-0">
-            <h3 className="font-heading font-semibold text-ink">
-              {selected.full_name}
-            </h3>
-            {(detail?.email || detail?.website) && (
-              <div className="mt-1 flex flex-wrap gap-3 text-xs font-body text-ink-muted">
-                {detail?.email && (
-                  <a
-                    href={`mailto:${detail.email}`}
-                    className="underline hover:text-ink"
-                  >
-                    {detail.email}
-                  </a>
-                )}
-                {detail?.website && (
-                  <a
-                    href={detail.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-ink"
-                  >
-                    Website ↗
-                  </a>
-                )}
+        )}
+        {(detail?.seats?.length ||
+          detail?.memberships?.length ||
+          onTheRecord.length > 0) && (
+          <div className="rounded-md border border-line bg-surface-muted p-3 space-y-2">
+            {detail?.seats && detail.seats.length > 0 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-ink-muted font-body mb-1">
+                  Formal seats
+                </p>
+                <ul className="text-sm font-body text-forest-700 space-y-1">
+                  {detail.seats.map((row) => (
+                    <li key={row.id}>
+                      {row.seat?.title}
+                      {row.organization ? ` · ${row.organization.name}` : ""}
+                      {row.is_current ? "" : " (past)"}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
-          </div>
-        </div>
-        {detail?.bio && (
-          <p className="text-sm font-body text-forest-600 leading-relaxed">
-            {detail.bio}
-          </p>
-        )}
-        {detail?.seats && detail.seats.length > 0 && (
-          <div>
-            <p className="text-[11px] uppercase tracking-wide text-ink-muted font-body mb-1">
-              Formal seats
-            </p>
-            <ul className="text-sm font-body text-forest-700 space-y-1">
-              {detail.seats.map((row) => (
-                <li key={row.id}>
-                  {row.seat?.title}
-                  {row.organization ? ` · ${row.organization.name}` : ""}
-                  {row.is_current ? "" : " (past)"}
-                </li>
-              ))}
-            </ul>
+            {detail?.memberships && detail.memberships.length > 0 && (
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-ink-muted font-body mb-1">
+                  Shared boards
+                </p>
+                <ul className="text-sm font-body text-forest-700 space-y-1">
+                  {detail.memberships.map((row) => (
+                    <li key={row.id}>
+                      {row.organization?.name}
+                      {row.role ? ` · ${row.role}` : ""}
+                      {row.is_current ? "" : " (past)"}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <OnTheRecord items={onTheRecord} />
           </div>
         )}
-        {detail?.memberships && detail.memberships.length > 0 && (
-          <div>
-            <p className="text-[11px] uppercase tracking-wide text-ink-muted font-body mb-1">
-              Shared boards
-            </p>
-            <ul className="text-sm font-body text-forest-700 space-y-1">
-              {detail.memberships.map((row) => (
-                <li key={row.id}>
-                  {row.organization?.name}
-                  {row.role ? ` · ${row.role}` : ""}
-                  {row.is_current ? "" : " (past)"}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        <OnTheRecord items={onTheRecord} />
-      </div>
+      </>
     ) : (
       <p className="text-sm font-body text-ink-muted">
         Select a person to see overlapping membership and seats.
       </p>
     );
 
-  const detailPane = (
-    <div className="space-y-3">
-      {personDetail}
-      {whyLinkedModel && (
-        <WhyLinkedPanel
-          model={whyLinkedModel}
-          className="hidden lg:block"
-          onClose={() => setSelectedEdge(null)}
-          onSelectEntity={selectFromWhyLinked}
-        />
-      )}
-    </div>
-  );
+  const detailPane = <div className="space-y-3">{personDetail}</div>;
 
   const vizPane = (
     <div className="flex flex-col h-full min-h-[420px] gap-2">

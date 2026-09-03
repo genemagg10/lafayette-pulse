@@ -455,6 +455,22 @@ export default function OrganizationExplorer({
           <p className="text-xs font-body text-ink-muted">
             {detail.current_member_count ?? currentMembers.length} current members
           </p>
+        </div>
+      ) : (
+        <p className="text-sm font-body text-ink-muted">
+          Select an organization to see overlapping membership.
+        </p>
+      )}
+      {whyLinkedModel && (
+        <WhyLinkedPanel
+          model={whyLinkedModel}
+          className="hidden lg:block sticky top-0 z-10"
+          onClose={() => setSelectedEdge(null)}
+          onSelectEntity={selectFromWhyLinked}
+        />
+      )}
+      {detail && (
+        <div className="rounded-md border border-line bg-surface-muted p-3 space-y-2">
           {currentMembers.length > 0 ? (
             <ul className="text-sm font-body text-forest-700 space-y-1">
               {currentMembers.map((row) => (
@@ -470,18 +486,6 @@ export default function OrganizationExplorer({
             </p>
           )}
         </div>
-      ) : (
-        <p className="text-sm font-body text-ink-muted">
-          Select an organization to see overlapping membership.
-        </p>
-      )}
-      {whyLinkedModel && (
-        <WhyLinkedPanel
-          model={whyLinkedModel}
-          className="hidden lg:block"
-          onClose={() => setSelectedEdge(null)}
-          onSelectEntity={selectFromWhyLinked}
-        />
       )}
       {isolates.length > 0 && (
         <aside className="rounded-md border border-line bg-surface-muted p-3">
