@@ -40,7 +40,13 @@ export interface MapLayers {
 export const DEFAULT_MAP_LAYERS: MapLayers = {
   events: true,
   organizations: true,
-  projects: false,
+  projects: true,
+};
+
+export const EMPTY_GEOCODED_LAYER_COPY: Record<MapLayerId, string> = {
+  events: "No geocoded events yet",
+  organizations: "No geocoded organizations yet",
+  projects: "No geocoded projects yet",
 };
 
 interface ProjectMapProps {
@@ -53,6 +59,7 @@ interface ProjectMapProps {
   onSelectOrganization?: (org: Organization) => void;
   selectedEventId?: string | null;
   selectedOrgId?: string | null;
+  projectsReady?: boolean;
   className?: string;
 }
 
@@ -78,9 +85,11 @@ export default function ProjectMap({
   onSelectOrganization,
   selectedEventId,
   selectedOrgId,
+  projectsReady = true,
   className,
 }: ProjectMapProps) {
   const [mounted, setMounted] = useState(false);
+  const [overlayReady, setOverlayReady] = useState(false);
   const [events, setEvents] = useState<CivicEvent[]>([]);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
 
@@ -101,6 +110,7 @@ export default function ProjectMap({
       if (cancelled) return;
       setEvents(asList<CivicEvent>(eventData).filter(hasCoords));
       setOrganizations(asList<Organization>(orgData).filter(hasCoords));
+      setOverlayReady(true);
     });
     return () => {
       cancelled = true;
@@ -111,6 +121,30 @@ export default function ProjectMap({
     () => projects.filter(hasCoords),
     [projects]
   );
+
+  const emptyLayerNotes = useMemo(() => {
+    const notes: { id: MapLayerId; copy: string }[] = [];
+    if (overlayReady && layers.events && events.length === 0) {
+      notes.push({ id: "events", copy: EMPTY_GEOCODED_LAYER_COPY.events });
+    }
+    if (overlayReady && layers.organizations && organizations.length === 0) {
+      notes.push({
+        id: "organizations",
+        copy: EMPTY_GEOCODED_LAYER_COPY.organizations,
+      });
+    }
+    if (projectsReady && layers.projects && mappedProjects.length === 0) {
+      notes.push({ id: "projects", copy: EMPTY_GEOCODED_LAYER_COPY.projects });
+    }
+    return notes;
+  }, [
+    overlayReady,
+    projectsReady,
+    layers,
+    events.length,
+    organizations.length,
+    mappedProjects.length,
+  ]);
 
   if (!mounted) {
     return (
@@ -144,6 +178,18 @@ export default function ProjectMap({
           checked={layers.projects}
           onChange={() => onToggleLayer("projects")}
         />
+        {emptyLayerNotes.length > 0 && (
+          <div className="pt-1 mt-1 border-t border-line space-y-0.5">
+            {emptyLayerNotes.map((note) => (
+              <p
+                key={note.id}
+                className="text-[10px] font-body text-ink-muted px-1 leading-snug"
+              >
+                {note.copy}
+              </p>
+            ))}
+          </div>
+        )}
       </div>
 
       <MapContainer

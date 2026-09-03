@@ -25,20 +25,39 @@ function polarityColor(polarity: StancePolarity): string {
   return "#6B6B6B";
 }
 
-export default function OnTheRecord({ items }: { items: OnTheRecordItem[] }) {
+export default function OnTheRecord({
+  items,
+  bare = false,
+}: {
+  items: OnTheRecordItem[];
+  bare?: boolean;
+}) {
   if (items.length === 0) return null;
 
-  return (
-    <div className="rounded-md border border-line bg-surface p-3 space-y-2">
-      <h4 className="font-heading font-semibold text-sm text-ink">
-        On the record
-      </h4>
+  const body = (
+    <>
+      <div className="flex items-baseline justify-between gap-2">
+        <h4
+          className={
+            bare
+              ? "text-[11px] uppercase tracking-wide text-ink-muted font-body"
+              : "font-heading font-semibold text-sm text-ink"
+          }
+        >
+          On the record
+        </h4>
+        {bare && (
+          <span className="text-[10px] font-body tabular-nums text-ink-faint">
+            {items.length}
+          </span>
+        )}
+      </div>
       <p className="text-[11px] font-body text-ink-muted">
         Quote-backed support, oppose, or endorse — not inferred from boards.
       </p>
-      <ul className="space-y-2">
+      <ul className="space-y-1.5">
         {items.map((row) => (
-          <li key={row.id} className="text-sm font-body text-forest-700">
+          <li key={row.id} className="text-[13px] font-body text-forest-700 leading-snug">
             <span
               className="text-[11px] uppercase tracking-wide mr-1.5"
               style={{ color: polarityColor(row.polarity) }}
@@ -67,6 +86,14 @@ export default function OnTheRecord({ items }: { items: OnTheRecordItem[] }) {
           </li>
         ))}
       </ul>
+    </>
+  );
+
+  if (bare) return <section className="space-y-1">{body}</section>;
+
+  return (
+    <div className="rounded-md border border-line bg-surface p-3 space-y-2">
+      {body}
     </div>
   );
 }

@@ -1,7 +1,9 @@
 import { NextRequest } from "next/server";
 import { jsonNoStore, parseBoolParam } from "@/lib/safe-list";
 import { tryGetSupabase } from "@/lib/supabase";
+import { isUuid } from "@/lib/civic-graph";
 import { buildOrgAffinity, loadGraphSnapshot } from "@/lib/civic-graph-data";
+import { ORG_TYPE_LABELS, type OrgType } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -35,6 +37,11 @@ export async function GET(request: NextRequest) {
     const limitOrgs = Math.round(
       parseBounded(request.nextUrl.searchParams.get("limit_orgs"), 40, 1, 80)
     );
+    const rawType = request.nextUrl.searchParams.get("org_type")?.trim() || "";
+    const orgType =
+      rawType && rawType in ORG_TYPE_LABELS ? (rawType as OrgType) : null;
+    const rawFocus = request.nextUrl.searchParams.get("focus_org")?.trim() || "";
+    const focusOrg = rawFocus && isUuid(rawFocus) ? rawFocus : null;
 
     const snapshot = await loadGraphSnapshot(supabase);
     const payload = buildOrgAffinity(snapshot, {
@@ -42,6 +49,8 @@ export async function GET(request: NextRequest) {
       minJaccard,
       minShared,
       limitOrgs,
+      orgType,
+      focusOrg,
     });
     return jsonNoStore(payload);
   } catch (err) {

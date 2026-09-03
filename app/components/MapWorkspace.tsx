@@ -18,6 +18,7 @@ type Selection =
 
 export default function MapWorkspace() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsReady, setProjectsReady] = useState(false);
   const [layers, setLayers] = useState<MapLayers>(DEFAULT_MAP_LAYERS);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
@@ -33,7 +34,8 @@ export default function MapWorkspace() {
       .then((rows: Project[]) =>
         setProjects(rows.map((p) => ({ ...p, category: migrateCategory(p.category) })))
       )
-      .catch(() => setProjects([]));
+      .catch(() => setProjects([]))
+      .finally(() => setProjectsReady(true));
   }, []);
 
   const toggleLayer = useCallback((id: MapLayerId) => {
@@ -60,6 +62,7 @@ export default function MapWorkspace() {
             selectedProjectId={selection?.kind === "project" ? selection.item.id : null}
             selectedEventId={selection?.kind === "event" ? selection.item.id : null}
             selectedOrgId={selection?.kind === "organization" ? selection.item.id : null}
+            projectsReady={projectsReady}
           />
         </div>
 
@@ -132,8 +135,7 @@ function SelectionBody({ selection }: { selection: Selection | null }) {
   if (!selection) {
     return (
       <p className="text-sm font-body text-ink-muted">
-        Tap a marker. Layers: Events and Organizations on; Projects off unless
-        you turn them on.
+        Tap a marker. Layers: Events, Organizations, and Projects on by default.
       </p>
     );
   }

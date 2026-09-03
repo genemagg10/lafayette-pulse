@@ -3,6 +3,7 @@ import { jsonNoStore } from "@/lib/safe-list";
 import { tryGetSupabase } from "@/lib/supabase";
 import { isUuid } from "@/lib/civic-graph";
 import {
+  buildSharedBoardOverlaps,
   loadGraphSnapshot,
   type MembershipRow,
   type PersonRow,
@@ -92,6 +93,10 @@ export async function GET(
       ...person,
       memberships,
       seats: seatsHeld,
+      shared_boards: buildSharedBoardOverlaps(snapshot, id, {
+        currentOnly: true,
+        limit: 25,
+      }),
       membership_count: memberships.filter((row) => row.is_current).length,
       seat_count: seatsHeld.filter((row) => row.is_current).length,
     });
