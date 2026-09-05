@@ -35,10 +35,10 @@ function membershipEdge(partial: Partial<WhyLinkedEdge> = {}): WhyLinkedEdge {
   };
 }
 
-test("Who primary tabs are People, Organizations, Measures only", () => {
+test("Who primary tabs are People, Organizations, Measures, Candidates", () => {
   assert.deepEqual(
     WHO_TABS.map((tab) => tab.id),
-    ["people", "orgs", "measures"]
+    ["people", "orgs", "measures", "candidates"]
   );
   assert.equal(parseWhoTab("footprint"), "people");
   assert.equal(isRetiredFootprintTab("footprint"), true);

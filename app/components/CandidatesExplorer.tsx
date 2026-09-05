@@ -313,6 +313,7 @@ export default function CandidatesExplorer({
             nodes={ego?.nodes ?? []}
             edges={ego?.edges ?? []}
             centerId={ego?.center.id}
+            layout="ego"
             labelMode={labelMode}
             heightClassName="h-full min-h-[420px]"
             onNodeClick={(id, kind) => {

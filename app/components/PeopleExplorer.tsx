@@ -158,7 +158,9 @@ export default function PeopleExplorer({
     const egoParams = new URLSearchParams({
       hops: String(hops),
       current_only: String(currentOnly),
-      alter_cap: "25",
+      // Keep the graph legible: cap peers shown; the full set is in the
+      // "Shared boards" list in the detail pane.
+      alter_cap: "12",
     });
     setDetailLoading(true);
     Promise.all([
@@ -428,13 +430,16 @@ export default function PeopleExplorer({
   const vizPane = (
     <div className="flex flex-col h-full min-h-[420px] gap-2">
       <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
-        <label className="inline-flex items-center gap-1.5">
+        <label
+          className="inline-flex items-center gap-1.5"
+          title="Add the other people who currently sit on this person's boards, clustered under the board they share."
+        >
           <input
             type="checkbox"
             checked={hops === 2}
             onChange={(e) => setHops(e.target.checked ? 2 : 1)}
           />
-          Two hops (shared boards)
+          Show shared boards
         </label>
         <label className="inline-flex items-center gap-1.5">
           <input
@@ -454,6 +459,7 @@ export default function PeopleExplorer({
             nodes={ego?.nodes ?? []}
             edges={ego?.edges ?? []}
             centerId={ego?.center.id}
+            layout="ego"
             labelMode={labelMode}
             selectedEdge={selectedEdge}
             heightClassName="h-full min-h-[420px]"
@@ -467,6 +473,12 @@ export default function PeopleExplorer({
           />
         )}
       </div>
+      {hops === 2 && (
+        <p className="text-[11px] font-body text-ink-muted">
+          Each spoke is a board this person sits on; the people fanned beside it
+          also sit on that board. Full list under “Shared boards”.
+        </p>
+      )}
       <GraphLegend nodes={ego?.nodes} />
     </div>
   );
