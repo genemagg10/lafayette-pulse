@@ -113,6 +113,7 @@ export interface HealthCounts {
   seat_holders: number | null;
   measures: number | null;
   stances: number | null;
+  candidacies: number | null;
 }
 
 export interface HealthResponse {

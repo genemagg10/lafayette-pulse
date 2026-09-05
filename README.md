@@ -12,7 +12,8 @@ Live site: [lafayette-pulse.vercel.app](https://lafayette-pulse.vercel.app)
 - **Calendar & agenda** — union of civic-graph `events` (timed meetings / community) and `agenda_items` (topic rows) for the visible date range. Many meetings are **Projected** from recurring schedules (`RECURRING_PROJECTION` or `confidence=medium` in the description) until Granicus or the city calendar confirms.
 - **Organizations** — city bodies, civic groups, foundations, and campaigns
 - **People** — commissioners, councilmembers, and other civic actors (as the graph is populated)
-- **Measures & candidates** — quote-backed support/oppose under Who → Measures (DEMO-SAFE ribbon when stances exist)
+- **Measures** — quote-backed support/oppose under Who → Measures (DEMO-SAFE ribbon when stances exist)
+- **Candidates** — who is running for local office under Who → Candidates: office and term, organizational affinities (their board/commission memberships), and their positions on the record (attributed, quote-backed stances). Never inferred from co-membership.
 
 ## Tech Stack
 
@@ -79,6 +80,8 @@ After deploy, open [`/api/health`](https://lafayette-pulse.vercel.app/api/health
    - `supabase/migrations/007_seed_civic_orgs.sql` (Lafayette orgs directory)
    - `supabase/migrations/008_civic_graph_proposals.sql` (staging for graph extraction; idempotent)
    - `supabase/migrations/009_stances.sql` (stances + proposal kinds `stance`/`measure`; idempotent)
+   - `supabase/migrations/010_seed_candidates_measures.sql` (2026 City Council candidates + seats, ballot measures H/L, org affinities, and quote-backed stances; idempotent, source-backed)
+   - `supabase/migrations/011_seed_org_members.sql` (Lafayette Community Foundation board + Sustainable Lafayette; backfills orgs that showed zero members; idempotent, source-backed)
 4. Copy the project URL and anon key from Settings > API
 
 Civic graph tables are **public read, service-role write**. They do not use the older `FOR ALL USING (true)` policy from 001.
@@ -199,7 +202,7 @@ Vercel (Next.js)          GitHub Actions (daily)
 | `/` | Pulse — home orientation hub |
 | `/map` | Full-viewport map |
 | `/calendar` | Full-viewport calendar — `events` + `agenda_items` for the selected window |
-| `/who` | Who's who — People, Organizations, Measures. Lists are ranked by board footprint. Hover a graph edge for a short Why linked tooltip; click for the full panel (sheet on mobile). `?tab=footprint` redirects to `?tab=people&rank=footprint`. |
+| `/who` | Who's who — People, Organizations, Measures, Candidates. Lists are ranked by board footprint. Hover a graph edge for a short Why linked tooltip; click for the full panel (sheet on mobile). `?tab=footprint` redirects to `?tab=people&rank=footprint`. |
 | `/projects` | Project archive (under **More**) |
 | `/ask` | Ask Lafayette AI (under **More**) |
 | `/more` | Secondary tools, health & freshness |
@@ -231,7 +234,8 @@ Measures and attributed support / oppose. Civic graph routes send `Cache-Control
 
 | Route | Purpose |
 | --- | --- |
-| `GET /api/health` | Also counts `measures` and `stances` |
+| `GET /api/health` | Also counts `measures`, `stances`, and `candidacies` |
+| `GET /api/candidates?limit=&offset=` | Candidate list (`{ items, total, limit, offset }`): person, office (seat + org), election date, status, `party_or_slate`, organizational `affinities` (memberships), and `positions` (attributed stances). Sorted by election date. |
 | `GET /api/measures?limit=&offset=` | Measure list with `support_count` / `oppose_count` / `endorse_count` |
 | `GET /api/measures/:id` | One measure plus those counts |
 | `GET /api/measures/:id/stances` | Actors with polarity, confidence, evidence_quote, source_url, as_of, and actor labels; includes a conflict-ribbon graph payload |
