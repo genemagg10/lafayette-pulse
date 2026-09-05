@@ -78,7 +78,7 @@ interface CivicGraphProps {
   nodes: RenderableNode[];
   edges: RenderableEdge[];
   centerId?: string | null;
-  layout?: "force" | "ribbon";
+  layout?: "force" | "ribbon" | "ego";
   labelMode?: GraphLabelMode;
   selectedEdge?: Pick<RenderableEdge, "source" | "target"> | null;
   heightClassName?: string;
@@ -129,10 +129,95 @@ function layoutRibbon(graph: Graph, centerId?: string | null) {
   }
 }
 
+/**
+ * Deterministic "petal" ego layout. The center person sits at the origin; each
+ * board (organization) they sit on is a spoke, and that board's other members
+ * (alters) are fanned right next to it. Peers cluster under the board that
+ * connects them instead of all landing on one outer ring, so the shared-board
+ * relationship reads without any person-to-person lines crossing the center.
+ */
+function layoutEgo(graph: Graph, centerId: string) {
+  const R_SEAT = 66;
+  const R_ORG = 138;
+  const R_PERSON = 224;
+
+  graph.setNodeAttribute(centerId, "x", 0);
+  graph.setNodeAttribute(centerId, "y", 0);
+
+  const orgIds: string[] = [];
+  const seatIds: string[] = [];
+  const alterIds: string[] = [];
+  graph.forEachNode((id, attrs) => {
+    if (id === centerId) return;
+    const kind = (attrs.kind as string) || "person";
+    if (kind === "organization") orgIds.push(id);
+    else if (kind === "seat") seatIds.push(id);
+    else alterIds.push(id);
+  });
+  orgIds.sort();
+  seatIds.sort();
+
+  const orgAngle = new Map<string, number>();
+  const orgCount = Math.max(orgIds.length, 1);
+  orgIds.forEach((id, i) => {
+    const angle = -Math.PI / 2 + (2 * Math.PI * i) / orgCount;
+    orgAngle.set(id, angle);
+    graph.setNodeAttribute(id, "x", Math.cos(angle) * R_ORG);
+    graph.setNodeAttribute(id, "y", Math.sin(angle) * R_ORG);
+  });
+
+  // Seats sit on an inner ring, offset half a step so they don't overlap spokes.
+  const seatCount = Math.max(seatIds.length, 1);
+  seatIds.forEach((id, i) => {
+    const angle = -Math.PI / 2 + (2 * Math.PI * (i + 0.5)) / seatCount;
+    graph.setNodeAttribute(id, "x", Math.cos(angle) * R_SEAT);
+    graph.setNodeAttribute(id, "y", Math.sin(angle) * R_SEAT);
+  });
+
+  // Group each alter under one of the center's boards it shares (an org neighbor).
+  const altersByOrg = new Map<string, string[]>();
+  const orphans: string[] = [];
+  for (const alter of alterIds) {
+    let primary: string | null = null;
+    graph.forEachNeighbor(alter, (nb) => {
+      if (!primary && orgAngle.has(nb)) primary = nb;
+    });
+    if (primary) {
+      const list = altersByOrg.get(primary) ?? [];
+      list.push(alter);
+      altersByOrg.set(primary, list);
+    } else {
+      orphans.push(alter);
+    }
+  }
+
+  const slice = (2 * Math.PI) / orgCount;
+  altersByOrg.forEach((list, org) => {
+    const base = orgAngle.get(org) ?? 0;
+    const k = list.length;
+    const fan = Math.min(slice * 0.82, 0.24 * k);
+    list.sort();
+    list.forEach((alter, i) => {
+      const t = k === 1 ? 0 : i / (k - 1) - 0.5; // -0.5..0.5 across the fan
+      const angle = base + t * fan;
+      // Stagger radius so a wide fan's nodes and labels don't collide.
+      const r = R_PERSON + (i % 2 === 0 ? 0 : 26);
+      graph.setNodeAttribute(alter, "x", Math.cos(angle) * r);
+      graph.setNodeAttribute(alter, "y", Math.sin(angle) * r);
+    });
+  });
+
+  orphans.forEach((alter, i) => {
+    const angle = -Math.PI / 2 + (2 * Math.PI * i) / Math.max(orphans.length, 1);
+    graph.setNodeAttribute(alter, "x", Math.cos(angle) * (R_PERSON + 34));
+    graph.setNodeAttribute(alter, "y", Math.sin(angle) * (R_PERSON + 34));
+  });
+}
+
 function layoutGraph(
   graph: Graph,
   centerId?: string | null,
-  layout: "force" | "ribbon" = "force"
+  layout: "force" | "ribbon" | "ego" = "force"
 ) {
   if (graph.order === 0) return;
   if (graph.order === 1) {
@@ -144,6 +229,11 @@ function layoutGraph(
 
   if (layout === "ribbon") {
     layoutRibbon(graph, centerId);
+    return;
+  }
+
+  if (layout === "ego" && centerId && graph.hasNode(centerId)) {
+    layoutEgo(graph, centerId);
     return;
   }
 
@@ -439,6 +529,9 @@ export default function CivicGraph({
 
     for (const edge of edges) {
       if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
+      // Shared-board ties are shown structurally (peers cluster under the board
+      // they share) rather than as person-to-person lines across the center.
+      if (edge.kind === "shared_board") continue;
       const current = isCurrentTenure(edge.end_date);
       const seated = edge.kind === "seat_holder" || Boolean(edge.is_primary);
       const isAffinity = edge.shared != null || edge.jaccard != null;
