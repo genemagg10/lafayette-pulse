@@ -13,6 +13,7 @@ export const WHO_TABS = [
   { id: "people", label: "People" },
   { id: "orgs", label: "Organizations" },
   { id: "measures", label: "Measures" },
+  { id: "candidates", label: "Candidates" },
 ] as const;
 
 export type WhoTab = (typeof WHO_TABS)[number]["id"];
@@ -43,6 +44,8 @@ export const BOARD_REDIRECTS: Record<string, string> = {
   "tile-organizations": "/who?tab=orgs",
   measures: "/who?tab=measures",
   "tile-measures": "/who?tab=measures",
+  candidates: "/who?tab=candidates",
+  "tile-candidates": "/who?tab=candidates",
   footprint: WHO_FOOTPRINT_REDIRECT,
   projects: "/projects",
   "tile-projects": "/projects",
@@ -51,6 +54,7 @@ export const BOARD_REDIRECTS: Record<string, string> = {
 export function parseWhoTab(value: string | null | undefined): WhoTab {
   if (value === "orgs" || value === "organizations") return "orgs";
   if (value === "measures") return "measures";
+  if (value === "candidates") return "candidates";
   return "people";
 }
 

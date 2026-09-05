@@ -21,6 +21,7 @@ function emptyHealth(): HealthResponse {
       seat_holders: null,
       measures: null,
       stances: null,
+      candidacies: null,
     },
     last_scraped_at: null,
     checked_at: new Date().toISOString(),
@@ -123,7 +124,7 @@ export async function GET() {
       });
     }
 
-    const [projects, agendaItems, events, documentChunks, people, organizations, memberships, seatHolders, measures, stances, scraped] =
+    const [projects, agendaItems, events, documentChunks, people, organizations, memberships, seatHolders, measures, stances, candidacies, scraped] =
       await Promise.all([
         countTable("projects"),
         countTable("agenda_items"),
@@ -135,6 +136,7 @@ export async function GET() {
         countTable("seat_holders"),
         countTable("measures"),
         countTable("stances"),
+        countTable("candidacies"),
         latestScrapedAt(),
       ]);
 
@@ -149,6 +151,7 @@ export async function GET() {
       seatHolders.reachable ||
       measures.reachable ||
       stances.reachable ||
+      candidacies.reachable ||
       scraped.reachable;
 
     payload.supabase_reachable = reachable;
@@ -163,6 +166,7 @@ export async function GET() {
     payload.counts.seat_holders = seatHolders.count;
     payload.counts.measures = measures.count;
     payload.counts.stances = stances.count;
+    payload.counts.candidacies = candidacies.count;
     payload.last_scraped_at = scraped.last_scraped_at;
     payload.checked_at = new Date().toISOString();
 

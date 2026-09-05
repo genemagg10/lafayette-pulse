@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import BoardRedirect from "../components/BoardRedirect";
 import BoardTabs from "../components/BoardTabs";
 import FocusFrame from "../components/FocusFrame";
+import CandidatesExplorer from "../components/CandidatesExplorer";
 import MeasuresExplorer from "../components/MeasuresExplorer";
 import OrganizationExplorer from "../components/OrganizationExplorer";
 import PeopleExplorer from "../components/PeopleExplorer";
@@ -63,6 +64,7 @@ function WhoWorkspace() {
   const peopleCount = health?.counts.people ?? null;
   const orgCount = health?.counts.organizations ?? null;
   const measureCount = health?.counts.measures ?? null;
+  const candidateCount = health?.counts.candidacies ?? null;
 
   return (
     <FocusFrame>
@@ -99,6 +101,14 @@ function WhoWorkspace() {
             <MeasuresExplorer
               count={measureCount}
               unavailable={civicCountsDown}
+            />
+          )}
+          {tab === "candidates" && (
+            <CandidatesExplorer
+              count={candidateCount}
+              unavailable={civicCountsDown}
+              onSelectPerson={goToPerson}
+              onSelectOrg={goToOrg}
             />
           )}
         </div>

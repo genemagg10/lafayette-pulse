@@ -27,6 +27,7 @@ export default function MorePage() {
             <li>People: {health.counts.people ?? "—"}</li>
             <li>Organizations: {health.counts.organizations ?? "—"}</li>
             <li>Measures: {health.counts.measures ?? "—"}</li>
+            <li>Candidates: {health.counts.candidacies ?? "—"}</li>
             <li>Stances: {health.counts.stances ?? "—"}</li>
             <li>Projects: {health.counts.projects ?? "—"}</li>
             <li>Events: {health.counts.events ?? "—"}</li>
