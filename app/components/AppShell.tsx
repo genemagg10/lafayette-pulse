@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import lafayetteMark from "../../public/lafayette-emblem.png";
 import { MORE_LINKS, PRIMARY_NAV, isFocusPath } from "@/lib/layout-ia";
 import { useHealth } from "@/lib/use-health";
 
@@ -154,6 +156,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <Link href="/" className="flex items-center gap-2 flex-shrink-0 text-ink">
+      <Image
+        src={lafayetteMark}
+        alt="City of Lafayette emblem"
+        priority
+        height={compact ? 24 : 28}
+        width={compact ? 27 : 32}
+        className="flex-shrink-0"
+      />
       <span
         className={`font-heading font-bold tracking-tight ${compact ? "text-base" : "text-lg"}`}
       >

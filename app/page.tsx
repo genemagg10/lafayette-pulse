@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import lafayetteMark from "../public/lafayette-emblem.png";
 import BackendBanner from "./components/BackendBanner";
 import BoardRedirect from "./components/BoardRedirect";
 import { useHealth } from "@/lib/use-health";
@@ -61,9 +63,19 @@ export default function Home() {
       <BoardRedirect />
 
       <div>
-        <h1 className="font-heading text-2xl sm:text-3xl font-bold text-ink">
-          Lafayette Pulse
-        </h1>
+        <div className="flex items-center gap-3">
+          <Image
+            src={lafayetteMark}
+            alt="City of Lafayette emblem"
+            priority
+            height={44}
+            width={50}
+            className="flex-shrink-0"
+          />
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-ink">
+            Lafayette Pulse
+          </h1>
+        </div>
         <p className="mt-1 text-sm font-body text-forest-600 max-w-2xl">
           Orientation hub for the civic record — who sits where, what is coming
           up, and doorways into the map, calendar, and who&apos;s who. Deep
