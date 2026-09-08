@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   assemblePeopleAffinity,
-  personDegreeNodeSize,
+  personFootprintNodeSize,
 } from "../lib/civic-graph.ts";
 
 const people = [
@@ -41,18 +41,32 @@ test("people overview links people who share a board", () => {
   );
 });
 
-test("people overview size is person-person degree, not a seat title", () => {
+test("people overview ranks and sizes by board footprint as area", () => {
   const graph = assemblePeopleAffinity(people, boardsByPerson, orgLabels, {
     currentOnly: true,
     minShared: 1,
     limitPeople: 40,
+    footprintByPerson: new Map([
+      ["ada", 5],
+      ["bea", 1],
+      ["cam", 2],
+      ["dee", 8],
+    ]),
   });
+  assert.deepEqual(
+    graph.nodes.map((node) => node.id),
+    ["ada", "cam", "bea"]
+  );
+  assert.equal(graph.connected_count, 3);
   const ada = graph.nodes.find((node) => node.id === "ada");
   const bea = graph.nodes.find((node) => node.id === "bea");
-  assert.equal(ada?.degree, 2);
-  assert.equal(bea?.degree, 1);
-  assert.equal(ada?.size, personDegreeNodeSize(2, 2));
+  assert.equal(ada?.footprint, 5);
+  assert.equal(ada?.size, personFootprintNodeSize(5, 5));
   assert.ok((ada?.size ?? 0) > (bea?.size ?? 0));
+  assert.equal(
+    graph.nodes.some((node) => node.id === "dee"),
+    false
+  );
 });
 
 test("has_seat uses existing seat holders only and does not invent commission seats", () => {

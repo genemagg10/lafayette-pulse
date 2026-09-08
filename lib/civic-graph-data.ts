@@ -6,6 +6,8 @@ import {
   isCurrentTenure,
   jaccardSets,
   assemblePeopleAffinity,
+  connectedOrgIds,
+  filterOrgsByType,
   orgAffinityNodeSize,
   personDegreeNodeSize,
   selectOrgAffinityIds,
@@ -607,11 +609,13 @@ export function buildOrgAffinity(
   const focus = options.focusOrg
     ? orgsById.get(options.focusOrg)
     : undefined;
+  const footprints = orgFootprintScores(snapshot, currentOnly);
   const keptIds = selectOrgAffinityIds(snapshot.organizations, membersByOrg, {
     orgType,
     focusOrg: focus?.id ?? null,
     minShared,
     limitOrgs,
+    footprints,
   });
   const ranked = keptIds
     .map((id) => {
@@ -633,18 +637,18 @@ export function buildOrgAffinity(
     label: org.name,
     org_type: org.org_type,
     member_count: members.size,
+    footprint: footprints.get(org.id) ?? members.size,
     size: orgAffinityNodeSize(members.size, maxMembers),
   }));
 
-  // Ego mode shows every 1-hop shared-membership edge; overview still uses Jaccard.
-  const jaccardFloor = focus ? 0 : minJaccard;
+  // No Jaccard floor — any shared current member ≥ 1 is an edge.
   const edges: OrgAffinityResponse["edges"] = [];
   for (let i = 0; i < ranked.length; i += 1) {
     for (let j = i + 1; j < ranked.length; j += 1) {
       const left = ranked[i];
       const right = ranked[j];
       const { shared, jaccard } = jaccardSets(left.members, right.members);
-      if (shared < minShared || jaccard < jaccardFloor) continue;
+      if (shared < minShared) continue;
       const sharedEntities = Array.from(left.members)
         .filter((id) => right.members.has(id))
         .map((id) => ({
@@ -666,6 +670,13 @@ export function buildOrgAffinity(
 
   edges.sort((a, b) => b.jaccard - a.jaccard || b.shared - a.shared);
 
+  const typedIds = filterOrgsByType(snapshot.organizations, orgType).map(
+    (org) => org.id
+  );
+  const connectedCount = focus
+    ? nodes.length
+    : connectedOrgIds(typedIds, membersByOrg, minShared).length;
+
   return {
     label: "Shared membership",
     current_only: currentOnly,
@@ -674,6 +685,7 @@ export function buildOrgAffinity(
     limit_orgs: limitOrgs,
     org_type: orgType,
     focus_org: focus?.id ?? null,
+    connected_count: connectedCount,
     nodes,
     edges,
   };
@@ -702,6 +714,20 @@ export function buildPeopleAffinity(
       if (seatsById.has(holder.seat_id)) seatedIds.add(holder.person_id);
     }
   }
+  const roles = personRoleSummary(
+    snapshot,
+    snapshot.people.map((row) => row.id),
+    currentOnly
+  );
+  const footprintByPerson = new Map(
+    snapshot.people.map((row) => {
+      const summary = roles.get(row.id);
+      return [
+        row.id,
+        (summary?.membership_count ?? 0) + (summary?.seat_count ?? 0),
+      ] as const;
+    })
+  );
   return assemblePeopleAffinity(
     snapshot.people.map((row) => ({
       id: row.id,
@@ -716,6 +742,7 @@ export function buildPeopleAffinity(
       limitPeople,
       hasSeat,
       seatedIds,
+      footprintByPerson,
     }
   );
 }

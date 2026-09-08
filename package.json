@@ -12,6 +12,7 @@
     "test:why-linked": "node --experimental-strip-types --test scripts/test-why-linked.ts",
     "test:org-affinity": "node --experimental-strip-types --test scripts/test-org-affinity.ts",
     "test:people-affinity": "node --experimental-strip-types --test scripts/test-people-affinity.ts",
+    "test:graph-range": "node --experimental-strip-types --test scripts/test-graph-range.ts",
     "test:graph-labels": "node --experimental-strip-types --test scripts/test-graph-labels.ts",
     "test:org-plot": "node --experimental-strip-types --test scripts/test-org-plot.ts"
   },

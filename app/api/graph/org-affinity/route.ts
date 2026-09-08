@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { jsonNoStore, parseBoolParam } from "@/lib/safe-list";
 import { tryGetSupabase } from "@/lib/supabase";
-import { DEFAULT_ORG_AFFINITY_JACCARD, isUuid } from "@/lib/civic-graph";
+import { isUuid } from "@/lib/civic-graph";
 import { buildOrgAffinity, loadGraphSnapshot } from "@/lib/civic-graph-data";
 import { ORG_TYPE_LABELS, type OrgType } from "@/lib/types";
 
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const currentOnly = parseBoolParam(request, "current_only", true);
     const minJaccard = parseBounded(
       request.nextUrl.searchParams.get("min_jaccard"),
-      DEFAULT_ORG_AFFINITY_JACCARD,
+      0,
       0,
       1
     );
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       parseBounded(request.nextUrl.searchParams.get("min_shared"), 1, 1, 50)
     );
     const limitOrgs = Math.round(
-      parseBounded(request.nextUrl.searchParams.get("limit_orgs"), 40, 1, 80)
+      parseBounded(request.nextUrl.searchParams.get("limit_orgs"), 200, 1, 250)
     );
     const rawType = request.nextUrl.searchParams.get("org_type")?.trim() || "";
     const orgType =

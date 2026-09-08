@@ -3,22 +3,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ORG_TYPE_LABELS, type Organization, type OrgType } from "@/lib/types";
-import {
-  DEFAULT_ORG_AFFINITY_JACCARD,
-  type OrgAffinityResponse,
-} from "@/lib/civic-graph";
+import { type OrgAffinityResponse } from "@/lib/civic-graph";
 import type { GraphLabelMode } from "@/lib/graph-labels";
-import {
-  STANCE_TEAL,
-  STANCE_VERMILLION,
-  type CoStanceResponse,
-} from "@/lib/stances";
+import { type CoStanceResponse } from "@/lib/stances";
 import BoardTabs from "./BoardTabs";
 import CoStanceMatrix from "./CoStanceMatrix";
 import GraphLegend, { GraphLabelToggle } from "./graph/GraphLegend";
 import FocusPanes, { type MobileStep } from "./FocusPanes";
 import FootprintChip from "./FootprintChip";
 import WhyLinkedPanel from "./WhyLinkedPanel";
+import GraphRangeControl from "./GraphRangeControl";
+import {
+  resolveGraphRangeStop,
+  sliceConnectedByFootprint,
+  type GraphRangeStop,
+} from "@/lib/graph-range";
 import {
   DetailLink,
   DetailSection,
@@ -34,7 +33,6 @@ import {
 const CivicGraph = dynamic(() => import("./graph/CivicGraph"), { ssr: false });
 
 const ORG_TYPES = Object.keys(ORG_TYPE_LABELS) as OrgType[];
-const DEFAULT_JACCARD = DEFAULT_ORG_AFFINITY_JACCARD;
 type OrgTab = "directory" | "co-stance";
 
 interface OrgMember {
@@ -85,11 +83,8 @@ export default function OrganizationExplorer({
   const [detail, setDetail] = useState<OrgDetail | null>(null);
   const [affinity, setAffinity] = useState<OrgAffinityResponse | null>(null);
   const [affinityError, setAffinityError] = useState<string | null>(null);
-  const [minJaccard, setMinJaccard] = useState(DEFAULT_JACCARD);
-  const [debouncedJaccard, setDebouncedJaccard] = useState(DEFAULT_JACCARD);
   const [selectedEdge, setSelectedEdge] = useState<RenderableEdge | null>(null);
   const [tab, setTab] = useState<OrgTab>("directory");
-  const [stanceLayer, setStanceLayer] = useState(false);
   const [coActor, setCoActor] = useState<"organization" | "person">("organization");
   const [minShared, setMinShared] = useState(2);
   const [debouncedShared, setDebouncedShared] = useState(2);
@@ -98,6 +93,7 @@ export default function OrganizationExplorer({
   const [coStanceLoading, setCoStanceLoading] = useState(false);
   const [mobileStep, setMobileStep] = useState<MobileStep>("list");
   const [labelMode, setLabelMode] = useState<GraphLabelMode>("focus");
+  const [rangeStop, setRangeStop] = useState<GraphRangeStop>("most");
   const selectedOrgIdRef = useRef(selectedOrgId);
   selectedOrgIdRef.current = selectedOrgId;
   const selectedIdRef = useRef(selectedId);
@@ -111,11 +107,6 @@ export default function OrganizationExplorer({
     const timer = setTimeout(() => setDebounced(query.trim()), 250);
     return () => clearTimeout(timer);
   }, [query]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedJaccard(minJaccard), 150);
-    return () => clearTimeout(timer);
-  }, [minJaccard]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedShared(minShared), 150);
@@ -168,9 +159,9 @@ export default function OrganizationExplorer({
   useEffect(() => {
     const params = new URLSearchParams({
       current_only: "true",
-      min_jaccard: String(debouncedJaccard),
+      min_jaccard: "0",
       min_shared: "1",
-      limit_orgs: "40",
+      limit_orgs: "200",
     });
     if (orgType) params.set("org_type", orgType);
     if (selectedId) params.set("focus_org", selectedId);
@@ -185,10 +176,10 @@ export default function OrganizationExplorer({
         setAffinityError(null);
       })
       .catch((err) => setAffinityError(err.message));
-  }, [debouncedJaccard, orgType, selectedId]);
+  }, [orgType, selectedId]);
 
   useEffect(() => {
-    if (tab !== "co-stance" && !stanceLayer) return;
+    if (tab !== "co-stance") return;
     const params = new URLSearchParams({
       actor: tab === "co-stance" && coActor === "person" ? "person" : "org",
       min_shared: String(debouncedShared),
@@ -207,7 +198,7 @@ export default function OrganizationExplorer({
       })
       .catch((err) => setCoStanceError(err.message))
       .finally(() => setCoStanceLoading(false));
-  }, [tab, stanceLayer, coActor, debouncedShared]);
+  }, [tab, coActor, debouncedShared]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -224,64 +215,57 @@ export default function OrganizationExplorer({
       .catch(() => setDetail(null));
   }, [selectedId]);
 
+  const connectedOrgs = useMemo(() => {
+    if (!affinity) return [] as OrgAffinityResponse["nodes"];
+    const linked = new Set<string>();
+    for (const edge of affinity.edges) {
+      linked.add(edge.source);
+      linked.add(edge.target);
+    }
+    return affinity.nodes.filter((node) => linked.has(node.id));
+  }, [affinity]);
+
+  const connectedOrgCount = affinity?.connected_count ?? connectedOrgs.length;
+  const activeOrgStop = resolveGraphRangeStop(rangeStop, connectedOrgCount);
+
+  const { graphNodes, graphEdges } = useMemo(() => {
+    if (!affinity) {
+      return {
+        graphNodes: [] as OrgAffinityResponse["nodes"],
+        graphEdges: [] as RenderableEdge[],
+      };
+    }
+    const sliced = selectedId
+      ? { nodes: connectedOrgs, edges: affinity.edges }
+      : sliceConnectedByFootprint(
+          connectedOrgs,
+          affinity.edges,
+          activeOrgStop,
+          { dropIsolates: true }
+        );
+    return {
+      graphNodes: sliced.nodes,
+      graphEdges: sliced.edges.map((edge) => ({
+        source: edge.source,
+        target: edge.target,
+        kind: "membership" as const,
+        shared: edge.shared,
+        jaccard: edge.jaccard,
+        shared_names: edge.shared_names,
+        shared_entities: edge.shared_entities,
+      })),
+    };
+  }, [affinity, connectedOrgs, selectedId, activeOrgStop]);
+
   useEffect(() => {
-    if (!selectedEdge || !affinity) return;
-    const stillThere = affinity.edges.some(
+    if (!selectedEdge) return;
+    const stillThere = graphEdges.some(
       (edge) =>
         (edge.source === selectedEdge.source && edge.target === selectedEdge.target) ||
         (edge.source === selectedEdge.target && edge.target === selectedEdge.source)
     );
     if (!stillThere) setSelectedEdge(null);
-  }, [affinity, selectedEdge]);
-
-  const { graphNodes, graphEdges, isolates } = useMemo(() => {
-    if (!affinity) {
-      return {
-        graphNodes: [] as OrgAffinityResponse["nodes"],
-        graphEdges: [] as RenderableEdge[],
-        isolates: [] as OrgAffinityResponse["nodes"],
-      };
-    }
-    const connected = new Set<string>();
-    for (const edge of affinity.edges) {
-      connected.add(edge.source);
-      connected.add(edge.target);
-    }
-    const graphNodes = affinity.nodes.filter((node) => connected.has(node.id));
-    const graphEdges: RenderableEdge[] = affinity.edges.map((edge) => ({
-      source: edge.source,
-      target: edge.target,
-      kind: "membership",
-      shared: edge.shared,
-      jaccard: edge.jaccard,
-      shared_names: edge.shared_names,
-      shared_entities: edge.shared_entities,
-    }));
-    if (stanceLayer && coStance) {
-      const present = new Set(graphNodes.map((node) => node.id));
-      for (const cell of coStance.cells) {
-        if (!present.has(cell.source) || !present.has(cell.target)) continue;
-        if (cell.kind === "insufficient") continue;
-        graphEdges.push({
-          source: cell.source,
-          target: cell.target,
-          kind: cell.kind,
-          stance_kind: cell.kind,
-          co_stance: cell.co_stance,
-          opposed: cell.opposed,
-          shared: cell.shared,
-          shared_subjects: cell.shared_subjects,
-          color: cell.kind === "co-stance" ? STANCE_TEAL : STANCE_VERMILLION,
-          dashed: cell.kind === "opposed-on-issues",
-        });
-      }
-    }
-    return {
-      graphNodes,
-      graphEdges,
-      isolates: affinity.nodes.filter((node) => !connected.has(node.id)),
-    };
-  }, [affinity, stanceLayer, coStance]);
+  }, [graphEdges, selectedEdge]);
 
   const whyLinkedModel = useMemo(() => {
     if (!selectedEdge) return null;
@@ -516,32 +500,12 @@ export default function OrganizationExplorer({
             website={detail.website}
             showAvatar={false}
           />
-          {whyLinkedModel && (
-            <WhyLinkedPanel
-              model={whyLinkedModel}
-              className="hidden lg:block"
-              onClose={() => setSelectedEdge(null)}
-              onSelectEntity={selectFromWhyLinked}
-            />
-          )}
         </StickyDetailChrome>
       ) : (
-        <>
-          {whyLinkedModel && (
-            <StickyDetailChrome>
-              <WhyLinkedPanel
-                model={whyLinkedModel}
-                className="hidden lg:block"
-                onClose={() => setSelectedEdge(null)}
-                onSelectEntity={selectFromWhyLinked}
-              />
-            </StickyDetailChrome>
-          )}
-          <p className="text-sm font-body text-ink-muted">
-            Select an organization to focus the graph on it and its shared-membership
-            neighbors.
-          </p>
-        </>
+        <p className="text-sm font-body text-ink-muted">
+          Select an organization to focus the graph on it and its shared-membership
+          neighbors.
+        </p>
       )}
       {detail && (
         <div className="space-y-3">
@@ -607,29 +571,6 @@ export default function OrganizationExplorer({
           />
         </div>
       )}
-      {!selectedId && isolates.length > 0 && (
-        <aside className="rounded-md border border-line bg-surface-muted p-3">
-          <h4 className="font-heading font-semibold text-xs text-ink">
-            No overlaps yet
-          </h4>
-          <p className="text-[11px] font-body text-ink-muted mt-0.5 mb-2">
-            Orgs with members but no shared membership at this threshold.
-          </p>
-          <ul className="space-y-1">
-            {isolates.map((org) => (
-              <li key={org.id}>
-                <button
-                  type="button"
-                  onClick={() => selectOrg(org.id)}
-                  className="w-full text-left text-xs font-body text-forest-700 hover:text-forest-900 hover:underline"
-                >
-                  {org.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </aside>
-      )}
     </div>
   );
 
@@ -652,49 +593,25 @@ export default function OrganizationExplorer({
       <p className="text-xs font-body text-ink-muted">
         {selectedId
           ? `Focused on ${detail?.name ?? "this organization"} and organizations that share current members.`
-          : "Overview of overlapping membership (Jaccard). Square size is current members. Select an organization to focus the graph. This is not a political grouping."}
+          : "Overview of overlapping membership. Square size is current members, as area. Select an organization to focus the graph. This is not a political grouping."}
       </p>
-      <label className="flex items-center gap-3 text-xs font-body text-forest-600">
-        <span className="whitespace-nowrap">Min. overlap</span>
-        <input
-          type="range"
-          min={0.05}
-          max={0.5}
-          step={0.01}
-          value={minJaccard}
-          onChange={(e) => setMinJaccard(Number(e.target.value))}
-          className="flex-1 accent-forest-700"
-          aria-valuemin={0.05}
-          aria-valuemax={0.5}
-          aria-valuenow={minJaccard}
-          aria-label="Minimum Jaccard overlap"
+      {!selectedId && affinity && (
+        <GraphRangeControl
+          stop={rangeStop}
+          onChange={setRangeStop}
+          connectedCount={connectedOrgCount}
+          drawnCount={graphNodes.length}
         />
-        <span className="tabular-nums w-10 text-right">{minJaccard.toFixed(2)}</span>
-      </label>
-      <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
-        <label className="inline-flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={stanceLayer}
-            onChange={(e) => setStanceLayer(e.target.checked)}
-          />
-          Show stance layer (co-stance / opposed on issues)
-        </label>
-        <GraphLabelToggle mode={labelMode} onChange={setLabelMode} />
-      </div>
-      {stanceLayer && coStanceError && (
-        <p className="text-sm font-body text-ink-muted">{coStanceError}</p>
       )}
-      {stanceLayer && (
-        <p className="text-xs font-body text-ink-muted">
-          Teal solid = co-stance. Dashed vermillion = opposed on issues.
-          Hidden unless both organizations already appear on shared membership.
-        </p>
+      {selectedId && (
+        <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
+          <GraphLabelToggle mode={labelMode} onChange={setLabelMode} />
+        </div>
       )}
       {affinityError && (
         <p className="text-sm font-body text-ink-muted">{affinityError}</p>
       )}
-      <div className="flex-1 min-h-[420px]">
+      <div className="relative flex-1 min-h-[420px]">
         {!affinity && !affinityError ? (
           <div className="h-full min-h-[420px] bg-canvas animate-pulse" />
         ) : (
@@ -705,11 +622,20 @@ export default function OrganizationExplorer({
               label: node.label,
               org_type: node.org_type,
               member_count: node.member_count,
+              footprint: node.footprint,
               size: node.size,
             }))}
             edges={graphEdges}
             centerId={selectedId}
-            labelMode={labelMode}
+            labelMode={
+              selectedId
+                ? labelMode
+                : activeOrgStop === "most"
+                  ? "all"
+                  : activeOrgStop === "wider"
+                    ? "focus"
+                    : "hover"
+            }
             selectedEdge={selectedEdge}
             onNodeClick={(id) => selectOrg(id)}
             onEdgeClick={(edge) =>
@@ -718,35 +644,34 @@ export default function OrganizationExplorer({
             heightClassName="h-full min-h-[420px]"
           />
         )}
+        {whyLinkedModel && (
+          <div className="absolute inset-x-3 bottom-3 z-20 max-h-[55%] lg:inset-x-auto lg:left-3 lg:top-3 lg:bottom-auto lg:w-[22rem] lg:max-h-[min(70%,24rem)]">
+            <WhyLinkedPanel
+              model={whyLinkedModel}
+              variant="overlay"
+              onClose={() => setSelectedEdge(null)}
+              onSelectEntity={selectFromWhyLinked}
+            />
+          </div>
+        )}
       </div>
       <GraphLegend
         affinity
         showSeats={false}
-        stance={stanceLayer}
         nodes={graphNodes}
       />
     </div>
   );
 
   return (
-    <>
-      <FocusPanes
-        master={master}
-        viz={vizPane}
-        detail={detailPane}
-        vizLabel="Affinity"
-        mobileStep={mobileStep}
-        onMobileStep={setMobileStep}
-      />
-      {whyLinkedModel && (
-        <WhyLinkedPanel
-          model={whyLinkedModel}
-          variant="sheet"
-          onClose={() => setSelectedEdge(null)}
-          onSelectEntity={selectFromWhyLinked}
-        />
-      )}
-    </>
+    <FocusPanes
+      master={master}
+      viz={vizPane}
+      detail={detailPane}
+      vizLabel="Affinity"
+      mobileStep={mobileStep}
+      onMobileStep={setMobileStep}
+    />
   );
 }
 

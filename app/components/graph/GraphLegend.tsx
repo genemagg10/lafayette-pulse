@@ -160,7 +160,7 @@ export default function GraphLegend({
         </>
       ) : peopleAffinity ? (
         <>
-          <span>Size = connections to other people</span>
+          <span>Size = board footprint</span>
           <span>Line weight = shared boards</span>
         </>
       ) : !stance ? (

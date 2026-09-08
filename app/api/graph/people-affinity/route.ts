@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       parseBounded(request.nextUrl.searchParams.get("min_shared"), 1, 1, 50)
     );
     const limitPeople = Math.round(
-      parseBounded(request.nextUrl.searchParams.get("limit_people"), 40, 1, 80)
+      parseBounded(request.nextUrl.searchParams.get("limit_people"), 200, 1, 250)
     );
     const hasSeat = parseOptionalBool(request, "has_seat");
 

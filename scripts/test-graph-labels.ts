@@ -11,13 +11,16 @@ import {
   PAST_EDGE_COLOR,
   PRIMARY_EDGE_COLOR,
   personDegreeNodeSize,
+  personFootprintNodeSize,
 } from "../lib/civic-graph.ts";
 import {
   degreesFromEdges,
+  dropCollidingLabels,
   FOCUS_LABEL_ALL_ACTORS_MAX,
   FOCUS_LABEL_TOP_N,
   presentOrgTypesFromNodes,
   topFocusLabelIds,
+  truncateGraphLabel,
   visibleFocusLabelIds,
 } from "../lib/graph-labels.ts";
 
@@ -183,4 +186,58 @@ test("person node size follows degree, not title", () => {
   const large = personDegreeNodeSize(8, 8);
   assert.ok(large > small);
   assert.equal(personDegreeNodeSize(0, 8), 8);
+});
+
+test("people overview circle size is footprint as area", () => {
+  const small = personFootprintNodeSize(1, 9);
+  const large = personFootprintNodeSize(9, 9);
+  assert.ok(large > small);
+  assert.equal(large, 36);
+  assert.ok(small >= 10);
+});
+
+test("graph labels truncate at 28 characters", () => {
+  assert.equal(truncateGraphLabel("Short name"), "Short name");
+  const long = "Lafayette Parks Recreation and Open Space Advisory";
+  const cut = truncateGraphLabel(long);
+  assert.ok(cut.endsWith("…"));
+  assert.equal(cut.length <= 29, true);
+});
+
+test("hover label mode is hover and selected only", () => {
+  const visible = visibleFocusLabelIds({
+    mode: "hover",
+    nodeIds: ["a", "b", "c"],
+    hoveredNodeId: "b",
+    selectedEdgeEndpoints: ["c", "a"],
+    topFocusIds: ["a"],
+  });
+  assert.deepEqual([...visible].sort(), ["a", "b", "c"]);
+  const idle = visibleFocusLabelIds({
+    mode: "hover",
+    nodeIds: ["a", "b", "c"],
+    topFocusIds: ["a", "b"],
+  });
+  assert.equal(idle.size, 0);
+});
+
+test("colliding labels drop the lower footprint", () => {
+  const kept = dropCollidingLabels([
+    { id: "big", x: 0, y: 0, w: 80, h: 12, rank: 20 },
+    { id: "small", x: 10, y: 2, w: 80, h: 12, rank: 4 },
+  ]);
+  assert.deepEqual([...kept], ["big"]);
+});
+
+test("focus labels prefer footprint over member count", () => {
+  const top = topFocusLabelIds(
+    [
+      { id: "council", footprint: 4, member_count: 12, degree: 1 },
+      { id: "chamber", footprint: 9, member_count: 3, degree: 4 },
+      { id: "rotary", footprint: 2, member_count: 9, degree: 3 },
+    ],
+    null,
+    1
+  );
+  assert.deepEqual(top, ["chamber"]);
 });

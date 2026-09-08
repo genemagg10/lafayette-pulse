@@ -1,6 +1,8 @@
 /** Viewport-pixel corridor around a stroke. Sigma picking uses the visual
  *  edge width (~1–3px), so mid-edge clicks miss without this. */
-export const EDGE_PICK_RADIUS_PX = 16;
+export const EDGE_PICK_RADIUS_PX = 24;
+/** Inner disc that still selects the node; the fringe yields to a fat edge. */
+export const NODE_CORE_HIT_FRACTION = 0.55;
 
 export interface ViewportEdge {
   key: string;
@@ -70,4 +72,33 @@ export function pickClosestNode(
     }
   }
   return bestKey;
+}
+
+export function nodeCoreContains(
+  node: ViewportNode,
+  x: number,
+  y: number,
+  coreFraction = NODE_CORE_HIT_FRACTION
+): boolean {
+  return Math.hypot(x - node.x, y - node.y) <= node.size * coreFraction;
+}
+
+/** Node core wins; the fringe of a disc yields to a nearby edge. */
+export function pickPreferredTarget(
+  nodes: ViewportNode[],
+  edges: ViewportEdge[],
+  x: number,
+  y: number,
+  radius = EDGE_PICK_RADIUS_PX
+): { node: string | null; edge: string | null } {
+  const nodeKey = pickClosestNode(nodes, x, y);
+  const edgeKey = pickClosestEdge(edges, x, y, radius);
+  if (nodeKey) {
+    const node = nodes.find((row) => row.key === nodeKey);
+    if (edgeKey && node && !nodeCoreContains(node, x, y)) {
+      return { node: null, edge: edgeKey };
+    }
+    return { node: nodeKey, edge: null };
+  }
+  return { node: null, edge: edgeKey };
 }

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  connectedOrgIds,
   filterOrgsByType,
   ORG_AFFINITY_DIAMETER_CAP_PX,
   ORG_AFFINITY_DIAMETER_FLOOR_PX,
@@ -18,6 +19,7 @@ const orgs = [
   { id: "rotary", name: "Rotary", org_type: "civic" as OrgType },
   { id: "planning", name: "Planning Commission", org_type: "city_body" as OrgType },
   { id: "foundation", name: "Community Foundation", org_type: "foundation" as OrgType },
+  { id: "loner", name: "Solo Club", org_type: "other" as OrgType },
 ];
 
 const membersByOrg = new Map<string, Set<string>>([
@@ -26,6 +28,7 @@ const membersByOrg = new Map<string, Set<string>>([
   ["rotary", new Set(["cam"])],
   ["planning", new Set(["bea"])],
   ["foundation", new Set(["ada"])],
+  ["loner", new Set(["zed"])],
 ]);
 
 const boardsByPerson = new Map<string, Set<string>>([
@@ -39,7 +42,7 @@ test("filterOrgsByType keeps only the requested org_type", () => {
     filterOrgsByType(orgs, "civic").map((row) => row.id).sort(),
     ["chamber", "rotary"]
   );
-  assert.equal(filterOrgsByType(orgs, null).length, 5);
+  assert.equal(filterOrgsByType(orgs, null).length, 6);
 });
 
 test("orgAffinityEgoIds returns focus plus 1-hop shared-membership neighbors", () => {
@@ -49,7 +52,7 @@ test("orgAffinityEgoIds returns focus plus 1-hop shared-membership neighbors", (
   assert.equal(ego.includes("rotary"), false);
 });
 
-test("overview selectOrgAffinityIds includes every type with members", () => {
+test("overview selectOrgAffinityIds includes connected orgs and drops isolates", () => {
   const ids = selectOrgAffinityIds(orgs, membersByOrg, {
     minShared: 1,
     limitOrgs: 40,
@@ -61,6 +64,32 @@ test("overview selectOrgAffinityIds includes every type with members", () => {
     "planning",
     "rotary",
   ]);
+  assert.equal(ids.includes("loner"), false);
+  assert.deepEqual(
+    connectedOrgIds(
+      orgs.map((org) => org.id),
+      membersByOrg,
+      1
+    ).sort(),
+    ["chamber", "council", "foundation", "planning", "rotary"]
+  );
+});
+
+test("overview ranks connected orgs by footprint, not member count", () => {
+  const ids = selectOrgAffinityIds(orgs, membersByOrg, {
+    minShared: 1,
+    limitOrgs: 40,
+    footprints: new Map([
+      ["rotary", 20],
+      ["council", 8],
+      ["chamber", 5],
+      ["planning", 4],
+      ["foundation", 3],
+      ["loner", 99],
+    ]),
+  });
+  assert.equal(ids[0], "rotary");
+  assert.equal(ids.includes("loner"), false);
 });
 
 test("org_type civic changes graph membership", () => {
@@ -129,17 +158,17 @@ test("shared board overlaps list people who sit on the same boards", () => {
   assert.deepEqual(bea?.orgIds.sort(), ["council"]);
 });
 
-test("org affinity node diameter is area (sqrt) with an 18px floor and 56px cap", () => {
+test("org affinity node diameter is true area with a small floor and wide cap", () => {
   assert.equal(orgAffinityNodeDiameter(0, 16), ORG_AFFINITY_DIAMETER_FLOOR_PX);
   const small = orgAffinityNodeDiameter(1, 16);
   const large = orgAffinityNodeDiameter(16, 16);
   const mid = orgAffinityNodeDiameter(4, 16);
-  assert.ok(small > ORG_AFFINITY_DIAMETER_FLOOR_PX);
+  assert.ok(small >= ORG_AFFINITY_DIAMETER_FLOOR_PX);
   assert.equal(large, ORG_AFFINITY_DIAMETER_CAP_PX);
-  const expectedMid =
-    ORG_AFFINITY_DIAMETER_FLOOR_PX +
-    Math.sqrt(4 / 16) * (ORG_AFFINITY_DIAMETER_CAP_PX - ORG_AFFINITY_DIAMETER_FLOOR_PX);
-  assert.equal(mid, expectedMid);
+  assert.equal(mid, ORG_AFFINITY_DIAMETER_CAP_PX * Math.sqrt(4 / 16));
   assert.equal(orgAffinityNodeSize(16, 16), ORG_AFFINITY_DIAMETER_CAP_PX / 2);
   assert.equal(orgAffinityNodeSize(0, 16), ORG_AFFINITY_DIAMETER_FLOOR_PX / 2);
+  const committee = orgAffinityNodeDiameter(6, 53);
+  const lpie = orgAffinityNodeDiameter(53, 53);
+  assert.ok(lpie / committee > 2);
 });

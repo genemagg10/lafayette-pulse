@@ -13,6 +13,7 @@ import {
   distanceToSegment,
   pickClosestEdge,
   pickClosestNode,
+  pickPreferredTarget,
 } from "../lib/graph-edge-pick.ts";
 import {
   isRetiredFootprintTab,
@@ -222,7 +223,7 @@ test("shared-boards Why linked lists org names", () => {
 });
 
 test("edge pick radius is fat enough to hit mid-edge without pixel hunting", () => {
-  assert.ok(EDGE_PICK_RADIUS_PX >= 12);
+  assert.ok(EDGE_PICK_RADIUS_PX >= 20);
   assert.equal(distanceToSegment(50, 8, 0, 0, 100, 0), 8);
   const edges = [{ key: "affinity", x1: 0, y1: 0, x2: 100, y2: 0 }];
   assert.equal(pickClosestEdge(edges, 50, 8, EDGE_PICK_RADIUS_PX), "affinity");
@@ -244,4 +245,15 @@ test("edge pick prefers the closer stroke and yields to a node disc", () => {
     pickClosestNode([{ key: "org", x: 50, y: 0, size: 12 }], 50, 20),
     null
   );
+});
+
+test("node fringe yields to a fat people-line hit", () => {
+  const nodes = [{ key: "ada", x: 0, y: 0, size: 20 }];
+  const edges = [{ key: "shared", x1: 0, y1: 0, x2: 100, y2: 0 }];
+  const fringe = pickPreferredTarget(nodes, edges, 16, 0);
+  assert.equal(fringe.edge, "shared");
+  assert.equal(fringe.node, null);
+  const core = pickPreferredTarget(nodes, edges, 2, 0);
+  assert.equal(core.node, "ada");
+  assert.equal(core.edge, null);
 });
