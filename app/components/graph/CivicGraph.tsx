@@ -20,8 +20,10 @@ import {
 } from "@/lib/civic-graph";
 import {
   degreesFromEdges,
+  dropCollidingLabels,
   FOCUS_LABEL_ALL_ACTORS_MAX,
   topFocusLabelIds,
+  truncateGraphLabel,
   visibleFocusLabelIds,
   type GraphLabelMode,
 } from "@/lib/graph-labels";
@@ -30,6 +32,7 @@ import {
   EDGE_PICK_RADIUS_PX,
   pickClosestEdge,
   pickClosestNode,
+  pickPreferredTarget,
   type ViewportEdge,
   type ViewportNode,
 } from "@/lib/graph-edge-pick";
@@ -45,6 +48,7 @@ export interface RenderableNode {
   size?: number;
   color?: string;
   member_count?: number;
+  footprint?: number;
   type?: "circle" | "square" | "diamond";
   column?: "support" | "oppose" | "endorse" | "measure";
   polarity?: string;
@@ -512,7 +516,7 @@ export default function CivicGraph({
       const kind = node.kind;
       const isCenter = Boolean(centerId && node.id === centerId);
       graph.addNode(node.id, {
-        label: node.label,
+        label: truncateGraphLabel(node.label),
         kind,
         size:
           node.size ??
@@ -530,6 +534,8 @@ export default function CivicGraph({
         column: node.column,
         polarity: node.polarity,
         member_count: node.member_count,
+        footprint: node.footprint,
+        fullLabel: node.label,
         forceLabel: false,
         x: 0,
         y: 0,
@@ -600,6 +606,9 @@ export default function CivicGraph({
         member_count: graph.getNodeAttribute(id, "member_count") as
           | number
           | undefined,
+        footprint: graph.getNodeAttribute(id, "footprint") as
+          | number
+          | undefined,
       })),
       centerId
     );
@@ -618,15 +627,8 @@ export default function CivicGraph({
       tooltip.replaceChildren();
     };
 
-    const showTooltip = (edgeKey: string, clientX: number, clientY: number) => {
+    const placeTooltip = (lines: string[], clientX: number, clientY: number) => {
       if (!tooltip) return;
-      const attrs = graph.getEdgeAttributes(edgeKey);
-      const source = graph.source(edgeKey);
-      const target = graph.target(edgeKey);
-      const lines = whyLinkedTooltipLines(edgeFromAttrs(source, target, attrs)).slice(
-        0,
-        2
-      );
       if (lines.length === 0) {
         hideTooltip();
         return;
@@ -641,6 +643,33 @@ export default function CivicGraph({
       tooltip.style.left = `${clientX - rect.left + 12}px`;
       tooltip.style.top = `${clientY - rect.top + 12}px`;
       tooltip.classList.remove("hidden");
+    };
+
+    const showEdgeTooltip = (edgeKey: string, clientX: number, clientY: number) => {
+      const attrs = graph.getEdgeAttributes(edgeKey);
+      const source = graph.source(edgeKey);
+      const target = graph.target(edgeKey);
+      placeTooltip(
+        whyLinkedTooltipLines(edgeFromAttrs(source, target, attrs)).slice(0, 2),
+        clientX,
+        clientY
+      );
+    };
+
+    const showNodeTooltip = (nodeKey: string, clientX: number, clientY: number) => {
+      const attrs = graph.getNodeAttributes(nodeKey);
+      const full =
+        typeof attrs.fullLabel === "string" ? attrs.fullLabel : String(attrs.label ?? "");
+      const lines: string[] = [];
+      if (full) lines.push(full);
+      if (attrs.kind === "person" && typeof attrs.footprint === "number") {
+        lines.push(`Board footprint ${attrs.footprint}`);
+      } else if (typeof attrs.member_count === "number") {
+        lines.push(`${attrs.member_count} current members`);
+      } else if (typeof attrs.footprint === "number") {
+        lines.push(`Board footprint ${attrs.footprint}`);
+      }
+      placeTooltip(lines, clientX, clientY);
     };
 
     const renderer = new Sigma(graph, container, {
@@ -686,8 +715,42 @@ export default function CivicGraph({
         actorIds,
         labelAllActorsMax: ribbonCast ? FOCUS_LABEL_ALL_ACTORS_MAX : undefined,
       });
+      const pinned = new Set<string>();
+      if (hoveredNode) pinned.add(hoveredNode);
+      for (const id of hoveredEndpoints ?? []) pinned.add(id);
+      if (selected) {
+        pinned.add(selected.source);
+        pinned.add(selected.target);
+      }
+      const boxes = [];
+      for (const id of Array.from(visible)) {
+        const display = renderer.getNodeDisplayData(id);
+        if (!display) continue;
+        const full = String(
+          graph.getNodeAttribute(id, "fullLabel") ??
+            graph.getNodeAttribute(id, "label") ??
+            ""
+        );
+        const text = truncateGraphLabel(full);
+        const width = Math.max(text.length, 1) * 6.8;
+        const height = 13;
+        boxes.push({
+          id,
+          x: display.x + display.size + 3,
+          y: display.y - height / 2,
+          w: width,
+          h: height,
+          rank: Number(
+            graph.getNodeAttribute(id, "footprint") ??
+              graph.getNodeAttribute(id, "member_count") ??
+              0
+          ),
+        });
+      }
+      const shown =
+        boxes.length > 0 ? dropCollidingLabels(boxes, pinned) : visible;
       graph.forEachNode((id) => {
-        graph.setNodeAttribute(id, "forceLabel", visible.has(id));
+        graph.setNodeAttribute(id, "forceLabel", shown.has(id));
       });
     };
     applyLabelsRef.current = applyLabels;
@@ -736,7 +799,8 @@ export default function CivicGraph({
 
     const applyHover = (edgeKey: string | null, clientX: number, clientY: number) => {
       if (hoveredEdge === edgeKey) {
-        if (edgeKey) showTooltip(edgeKey, clientX, clientY);
+        if (edgeKey) showEdgeTooltip(edgeKey, clientX, clientY);
+        else hideTooltip();
         return;
       }
       if (hoveredEdge && graph.hasEdge(hoveredEdge)) {
@@ -756,10 +820,20 @@ export default function CivicGraph({
         graph.setEdgeAttribute(edgeKey, "hoverSize", original);
       }
       graph.setEdgeAttribute(edgeKey, "size", Math.max(original * 1.6, 2.4));
-      showTooltip(edgeKey, clientX, clientY);
+      showEdgeTooltip(edgeKey, clientX, clientY);
     };
 
-    renderer.on("clickNode", ({ node }) => {
+    renderer.on("clickNode", ({ node, event }) => {
+      const preferred = pickPreferredTarget(
+        viewportNodes(renderer, graph),
+        viewportEdges(renderer, graph),
+        event.x,
+        event.y
+      );
+      if (preferred.edge) {
+        emitEdgeClick(preferred.edge);
+        return;
+      }
       const kind = graph.getNodeAttribute(node, "kind") as RenderableNode["kind"];
       clickRef.current?.(node, kind);
     });
@@ -790,13 +864,22 @@ export default function CivicGraph({
       const rect = container.getBoundingClientRect();
       const x = ev.clientX - rect.left;
       const y = ev.clientY - rect.top;
-      const node = pickClosestNode(viewportNodes(renderer, graph), x, y);
-      if (node !== hoveredNode) {
-        hoveredNode = node;
+      const preferred = pickPreferredTarget(
+        viewportNodes(renderer, graph),
+        viewportEdges(renderer, graph),
+        x,
+        y
+      );
+      if (preferred.node !== hoveredNode) {
+        hoveredNode = preferred.node;
         applyLabels();
       }
-      const edge = pickEdgeAt(renderer, graph, x, y);
-      applyHover(edge, ev.clientX, ev.clientY);
+      if (preferred.node) {
+        applyHover(null, ev.clientX, ev.clientY);
+        showNodeTooltip(preferred.node, ev.clientX, ev.clientY);
+        return;
+      }
+      applyHover(preferred.edge, ev.clientX, ev.clientY);
     };
     container.addEventListener("pointermove", onMove);
     container.addEventListener("pointerleave", hideTooltip);
@@ -808,6 +891,7 @@ export default function CivicGraph({
       fitted = true;
     };
     tryFit();
+    applyLabels();
 
     const resize = () => {
       renderer.resize();

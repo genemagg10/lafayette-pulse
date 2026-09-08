@@ -85,6 +85,7 @@ export interface OrgAffinityNode {
   label: string;
   org_type: OrgType;
   member_count: number;
+  footprint: number;
   size: number;
 }
 
@@ -105,6 +106,7 @@ export interface OrgAffinityResponse {
   limit_orgs: number;
   org_type: OrgType | null;
   focus_org: string | null;
+  connected_count: number;
   nodes: OrgAffinityNode[];
   edges: OrgAffinityEdge[];
 }
@@ -213,6 +215,27 @@ export function orgAffinityEgoIds(
   return [focusId, ...neighbors];
 }
 
+export function connectedOrgIds(
+  orgIds: Iterable<string>,
+  membersByOrg: Map<string, Set<string>>,
+  minShared: number
+): string[] {
+  const ids = Array.from(orgIds);
+  const connected = new Set<string>();
+  for (let i = 0; i < ids.length; i += 1) {
+    for (let j = i + 1; j < ids.length; j += 1) {
+      const { shared } = jaccardSets(
+        membersByOrg.get(ids[i]) ?? new Set<string>(),
+        membersByOrg.get(ids[j]) ?? new Set<string>()
+      );
+      if (shared < minShared) continue;
+      connected.add(ids[i]);
+      connected.add(ids[j]);
+    }
+  }
+  return ids.filter((id) => connected.has(id));
+}
+
 export function selectOrgAffinityIds(
   orgs: { id: string; name: string; org_type: OrgType }[],
   membersByOrg: Map<string, Set<string>>,
@@ -221,6 +244,7 @@ export function selectOrgAffinityIds(
     focusOrg?: string | null;
     minShared: number;
     limitOrgs: number;
+    footprints?: Map<string, number>;
   }
 ): string[] {
   const typed = filterOrgsByType(orgs, options.orgType);
@@ -240,19 +264,22 @@ export function selectOrgAffinityIds(
     return [centerId, ...neighborIds.slice(0, Math.max(options.limitOrgs - 1, 0))];
   }
 
+  const typedIds = typed.map((org) => org.id);
+  const connected = new Set(
+    connectedOrgIds(typedIds, membersByOrg, options.minShared)
+  );
   return typed
-    .map((org) => ({
-      id: org.id,
-      name: org.name,
-      size: membersByOrg.get(org.id)?.size ?? 0,
-    }))
-    .filter((row) => row.size > 0)
+    .filter((org) => connected.has(org.id))
     .sort((a, b) => {
-      if (b.size !== a.size) return b.size - a.size;
+      const footA =
+        options.footprints?.get(a.id) ?? membersByOrg.get(a.id)?.size ?? 0;
+      const footB =
+        options.footprints?.get(b.id) ?? membersByOrg.get(b.id)?.size ?? 0;
+      if (footB !== footA) return footB - footA;
       return a.name.localeCompare(b.name);
     })
     .slice(0, options.limitOrgs)
-    .map((row) => row.id);
+    .map((org) => org.id);
 }
 
 export function sharedBoardPersonOverlaps(
@@ -319,11 +346,11 @@ export function scaleSize(value: number, min: number, max: number, lo = 6, hi = 
   return lo + t * (hi - lo);
 }
 
-/** Affinity-graph circle diameter (px at camera 1). Area encodes current members. */
-export const ORG_AFFINITY_DIAMETER_FLOOR_PX = 18;
-export const ORG_AFFINITY_DIAMETER_CAP_PX = 56;
+/** Affinity-graph square diameter (px at camera 1). Area encodes current members. */
+export const ORG_AFFINITY_DIAMETER_FLOOR_PX = 16;
+export const ORG_AFFINITY_DIAMETER_CAP_PX = 112;
 
-/** Diameter from member count as AREA (sqrt), floor 18px, cap 56px. */
+/** Diameter from member count as true area (sqrt), small floor, wide cap. */
 export function orgAffinityNodeDiameter(
   memberCount: number,
   maxMembers: number,
@@ -332,13 +359,10 @@ export function orgAffinityNodeDiameter(
   const n = Math.max(0, memberCount);
   const max = Math.max(maxMembers, 1);
   const t = Math.sqrt(n / max);
-  return (
-    ORG_AFFINITY_DIAMETER_FLOOR_PX +
-    t * (cap - ORG_AFFINITY_DIAMETER_FLOOR_PX)
-  );
+  return Math.max(ORG_AFFINITY_DIAMETER_FLOOR_PX, cap * t);
 }
 
-/** Sigma node `size` is radius; keep diameter in the 18–56px band. */
+/** Sigma node `size` is radius. */
 export function orgAffinityNodeSize(
   memberCount: number,
   maxMembers: number,
@@ -347,7 +371,22 @@ export function orgAffinityNodeSize(
   return orgAffinityNodeDiameter(memberCount, maxMembers, cap) / 2;
 }
 
-/** People-overview circle size from person–person degree, not title. */
+/** People-overview circle radius from board footprint as area, not title. */
+export const PERSON_FOOTPRINT_SIZE_FLOOR = 10;
+export const PERSON_FOOTPRINT_SIZE_CAP = 36;
+
+export function personFootprintNodeSize(
+  footprint: number,
+  maxFootprint: number,
+  minSize = PERSON_FOOTPRINT_SIZE_FLOOR,
+  maxSize = PERSON_FOOTPRINT_SIZE_CAP
+): number {
+  if (maxFootprint <= 0) return minSize;
+  const t = Math.sqrt(Math.max(0, footprint) / maxFootprint);
+  return Math.max(minSize, maxSize * t);
+}
+
+/** Ego-neighborhood person size from person–person degree, not title. */
 export function personDegreeNodeSize(
   degree: number,
   maxDegree: number,
@@ -362,6 +401,7 @@ export interface PeopleAffinityNode {
   label: string;
   photo_url: string | null;
   degree: number;
+  footprint: number;
   size: number;
 }
 
@@ -379,8 +419,18 @@ export interface PeopleAffinityResponse {
   min_shared: number;
   limit_people: number;
   has_seat: boolean | null;
+  connected_count: number;
   nodes: PeopleAffinityNode[];
   edges: PeopleAffinityEdge[];
+}
+
+function readFootprint(
+  source: Map<string, number> | Record<string, number> | undefined,
+  id: string
+): number {
+  if (!source) return 0;
+  if (source instanceof Map) return source.get(id) ?? 0;
+  return source[id] ?? 0;
 }
 
 export function assemblePeopleAffinity(
@@ -393,6 +443,7 @@ export function assemblePeopleAffinity(
     limitPeople: number;
     hasSeat?: boolean | null;
     seatedIds?: Set<string> | null;
+    footprintByPerson?: Map<string, number> | Record<string, number>;
   }
 ): PeopleAffinityResponse {
   const hasSeat = options.hasSeat ?? null;
@@ -439,20 +490,25 @@ export function assemblePeopleAffinity(
     }
   }
 
-  const ranked = candidateIds
-    .filter((id) => (degree.get(id) ?? 0) > 0)
+  const connected = candidateIds.filter((id) => (degree.get(id) ?? 0) > 0);
+  const ranked = connected
+    .slice()
     .sort((a, b) => {
+      const foot =
+        readFootprint(options.footprintByPerson, b) -
+        readFootprint(options.footprintByPerson, a);
+      if (foot) return foot;
       const deg = (degree.get(b) ?? 0) - (degree.get(a) ?? 0);
       if (deg) return deg;
       return peopleById.get(a)!.full_name.localeCompare(
         peopleById.get(b)!.full_name
       );
-    })
-    .slice(0, options.limitPeople);
+    });
 
-  const kept = new Set(ranked);
-  const maxDegree = ranked.reduce(
-    (max, id) => Math.max(max, degree.get(id) ?? 0),
+  const shown = ranked.slice(0, options.limitPeople);
+  const kept = new Set(shown);
+  const maxFootprint = shown.reduce(
+    (max, id) => Math.max(max, readFootprint(options.footprintByPerson, id)),
     0
   );
 
@@ -462,15 +518,18 @@ export function assemblePeopleAffinity(
     min_shared: options.minShared,
     limit_people: options.limitPeople,
     has_seat: hasSeat,
-    nodes: ranked.map((id) => {
+    connected_count: connected.length,
+    nodes: shown.map((id) => {
       const person = peopleById.get(id)!;
       const personDegree = degree.get(id) ?? 0;
+      const footprint = readFootprint(options.footprintByPerson, id);
       return {
         id: person.id,
         label: person.full_name,
         photo_url: person.photo_url,
         degree: personDegree,
-        size: personDegreeNodeSize(personDegree, maxDegree),
+        footprint,
+        size: personFootprintNodeSize(footprint, maxFootprint),
       };
     }),
     edges: edges.filter(

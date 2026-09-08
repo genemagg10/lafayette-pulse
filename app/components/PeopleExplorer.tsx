@@ -9,12 +9,16 @@ import type {
   SharedBoardOverlap,
 } from "@/lib/civic-graph";
 import GraphLegend, { GraphLabelToggle } from "./graph/GraphLegend";
-import type { GraphLabelMode } from "@/lib/graph-labels";
+import {
+  labelModeForWidthStop,
+  type GraphLabelMode,
+} from "@/lib/graph-labels";
 import PersonAvatar from "./PersonAvatar";
 import OnTheRecord, { type OnTheRecordItem } from "./OnTheRecord";
 import FocusPanes, { type MobileStep } from "./FocusPanes";
 import FootprintChip from "./FootprintChip";
 import WhyLinkedPanel from "./WhyLinkedPanel";
+import GraphRangeControl from "./GraphRangeControl";
 import {
   DetailLink,
   DetailSection,
@@ -26,6 +30,11 @@ import {
   buildWhyLinkedModel,
   toggleWhyLinkedEdge,
 } from "@/lib/why-linked";
+import {
+  resolveGraphRangeStop,
+  sliceConnectedByFootprint,
+  type GraphRangeStop,
+} from "@/lib/graph-range";
 
 const CivicGraph = dynamic(() => import("./graph/CivicGraph"), { ssr: false });
 
@@ -84,6 +93,7 @@ export default function PeopleExplorer({
   const [mobileStep, setMobileStep] = useState<MobileStep>("list");
   const [selectedEdge, setSelectedEdge] = useState<RenderableEdge | null>(null);
   const [labelMode, setLabelMode] = useState<GraphLabelMode>("focus");
+  const [rangeStop, setRangeStop] = useState<GraphRangeStop>("most");
   const selectedPersonIdRef = useRef(selectedPersonId);
   selectedPersonIdRef.current = selectedPersonId;
   const selectedIdRef = useRef(selectedId);
@@ -225,7 +235,7 @@ export default function PeopleExplorer({
     const params = new URLSearchParams({
       current_only: String(currentOnly),
       min_shared: "1",
-      limit_people: "40",
+      limit_people: "200",
     });
     if (hasSeat === "seated") params.set("has_seat", "true");
     fetch(`/api/graph/people-affinity?${params.toString()}`)
@@ -254,11 +264,36 @@ export default function PeopleExplorer({
     [items, selectedId, detail]
   );
 
+  const connectedPeople = overview?.nodes ?? [];
+  const connectedPeopleCount =
+    overview?.connected_count ?? connectedPeople.length;
+  const activePeopleStop = resolveGraphRangeStop(
+    rangeStop,
+    connectedPeopleCount
+  );
+  const rangedPeople = useMemo(
+    () =>
+      sliceConnectedByFootprint(
+        connectedPeople,
+        overview?.edges ?? [],
+        activePeopleStop
+      ),
+    [connectedPeople, overview, activePeopleStop]
+  );
+
+  useEffect(() => {
+    if (!selectedEdge || selectedId) return;
+    const ids = new Set(rangedPeople.nodes.map((node) => node.id));
+    if (!ids.has(selectedEdge.source) || !ids.has(selectedEdge.target)) {
+      setSelectedEdge(null);
+    }
+  }, [rangedPeople, selectedEdge, selectedId]);
+
   const whyLinkedModel = useMemo(() => {
     if (!selectedEdge) return null;
     const entities = selectedId
       ? (ego?.nodes ?? [])
-      : (overview?.nodes ?? []).map((node) => ({
+      : rangedPeople.nodes.map((node) => ({
           id: node.id,
           label: node.label,
           kind: "person" as const,
@@ -267,7 +302,7 @@ export default function PeopleExplorer({
       ...entities,
       ...(selectedEdge.shared_entities ?? []),
     ]);
-  }, [selectedEdge, selectedId, ego, overview]);
+  }, [selectedEdge, selectedId, ego, rangedPeople]);
 
   if (unavailable && (count == null || count === 0) && items.length === 0 && !listLoading) {
     return (
@@ -401,14 +436,6 @@ export default function PeopleExplorer({
             website={detail?.website}
             photoUrl={selected.photo_url}
           />
-          {whyLinkedModel && (
-            <WhyLinkedPanel
-              model={whyLinkedModel}
-              className="hidden lg:block"
-              onClose={() => setSelectedEdge(null)}
-              onSelectEntity={selectFromWhyLinked}
-            />
-          )}
         </StickyDetailChrome>
         <div className="space-y-3">
           {detail?.bio && (
@@ -487,14 +514,15 @@ export default function PeopleExplorer({
 
   const detailPane = <div className="space-y-3">{personDetail}</div>;
 
-  const overviewNodes = (overview?.nodes ?? []).map((node) => ({
+  const overviewNodes = rangedPeople.nodes.map((node) => ({
     id: node.id,
     kind: "person" as const,
     label: node.label,
     size: node.size,
     photo_url: node.photo_url,
+    footprint: node.footprint,
   }));
-  const overviewEdges = (overview?.edges ?? []).map((edge) => ({
+  const overviewEdges = rangedPeople.edges.map((edge) => ({
     source: edge.source,
     target: edge.target,
     kind: "shared_board" as const,
@@ -527,10 +555,18 @@ export default function PeopleExplorer({
       <p className="text-xs font-body text-ink-muted">
         {selectedId
           ? `Focused on ${selected?.full_name ?? "this person"} and the boards they sit on.`
-          : "People who sit on the same boards. Circle size is how many other people they connect to. Select a person to focus. This is not a political grouping."}
+          : "People who sit on the same boards. Circle size is board footprint — current memberships and seats, as area. Select a person to focus. This is not a political grouping."}
       </p>
-      <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
-        {selectedId && (
+      {!selectedId && overview && (
+        <GraphRangeControl
+          stop={rangeStop}
+          onChange={setRangeStop}
+          connectedCount={connectedPeopleCount}
+          drawnCount={rangedPeople.nodes.length}
+        />
+      )}
+      {selectedId && (
+        <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
           <label
             className="inline-flex items-center gap-1.5"
             title="Add the other people who currently sit on this person's boards, clustered under the board they share."
@@ -542,21 +578,21 @@ export default function PeopleExplorer({
             />
             Show shared boards
           </label>
-        )}
-        <label className="inline-flex items-center gap-1.5">
-          <input
-            type="checkbox"
-            checked={currentOnly}
-            onChange={(e) => setCurrentOnly(e.target.checked)}
-          />
-          Current only
-        </label>
-        <GraphLabelToggle mode={labelMode} onChange={setLabelMode} />
-      </div>
+          <label className="inline-flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={currentOnly}
+              onChange={(e) => setCurrentOnly(e.target.checked)}
+            />
+            Current only
+          </label>
+          <GraphLabelToggle mode={labelMode} onChange={setLabelMode} />
+        </div>
+      )}
       {overviewError && !selectedId && (
         <p className="text-sm font-body text-ink-muted">{overviewError}</p>
       )}
-      <div className="flex-1 min-h-[420px]">
+      <div className="relative flex-1 min-h-[420px]">
         {graphLoading ? (
           <div className="h-full min-h-[420px] bg-surface-muted rounded-md animate-pulse" />
         ) : (
@@ -565,7 +601,9 @@ export default function PeopleExplorer({
             edges={graphEdges}
             centerId={selectedId ? ego?.center.id : null}
             layout={selectedId ? "ego" : "force"}
-            labelMode={labelMode}
+            labelMode={
+              selectedId ? labelMode : labelModeForWidthStop(activePeopleStop)
+            }
             selectedEdge={selectedEdge}
             heightClassName="h-full min-h-[420px]"
             onNodeClick={(id, kind) => {
@@ -576,6 +614,16 @@ export default function PeopleExplorer({
               setSelectedEdge((current) => toggleWhyLinkedEdge(current, edge))
             }
           />
+        )}
+        {whyLinkedModel && (
+          <div className="absolute inset-x-3 bottom-3 z-20 max-h-[55%] lg:inset-x-auto lg:left-3 lg:top-3 lg:bottom-auto lg:w-[22rem] lg:max-h-[min(70%,24rem)]">
+            <WhyLinkedPanel
+              model={whyLinkedModel}
+              variant="overlay"
+              onClose={() => setSelectedEdge(null)}
+              onSelectEntity={selectFromWhyLinked}
+            />
+          </div>
         )}
       </div>
       {selectedId && hops === 2 && (
@@ -593,23 +641,13 @@ export default function PeopleExplorer({
   );
 
   return (
-    <>
-      <FocusPanes
-        master={master}
-        viz={vizPane}
-        detail={detailPane}
-        vizLabel="Network"
-        mobileStep={mobileStep}
-        onMobileStep={setMobileStep}
-      />
-      {whyLinkedModel && (
-        <WhyLinkedPanel
-          model={whyLinkedModel}
-          variant="sheet"
-          onClose={() => setSelectedEdge(null)}
-          onSelectEntity={selectFromWhyLinked}
-        />
-      )}
-    </>
+    <FocusPanes
+      master={master}
+      viz={vizPane}
+      detail={detailPane}
+      vizLabel="Network"
+      mobileStep={mobileStep}
+      onMobileStep={setMobileStep}
+    />
   );
 }

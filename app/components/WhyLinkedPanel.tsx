@@ -11,7 +11,7 @@ interface WhyLinkedPanelProps {
   model: WhyLinkedModel;
   onClose: () => void;
   onSelectEntity?: (id: string, kind: "person" | "organization") => void;
-  variant?: "pane" | "sheet";
+  variant?: "pane" | "sheet" | "overlay";
   className?: string;
 }
 
@@ -167,11 +167,28 @@ export default function WhyLinkedPanel({
   }, [variant, onClose]);
 
   useEffect(() => {
-    if (variant === "sheet") return;
+    if (variant === "sheet" || variant === "overlay") return;
     const node = paneRef.current;
     if (!node || node.offsetParent === null) return;
     node.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [variant, model]);
+
+  if (variant === "overlay") {
+    return (
+      <section
+        ref={paneRef}
+        className={`rounded-md border border-line bg-surface p-3 shadow-sheet max-h-full overflow-y-auto ${className}`}
+        aria-label="Why linked"
+      >
+        <WhyLinkedBody
+          model={model}
+          onClose={onClose}
+          onSelectEntity={onSelectEntity}
+          closeLabel="✕"
+        />
+      </section>
+    );
+  }
 
   if (variant === "sheet") {
     return (
