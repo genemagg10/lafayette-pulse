@@ -24,11 +24,18 @@ import {
 import NetworkPreviewCard from "./NetworkPreviewCard";
 import { personNetworkPreviewLabel } from "@/lib/network-preview";
 import type { RenderableEdge } from "./graph/CivicGraph";
+import PeopleOrgEdgeFilter from "./PeopleOrgEdgeFilter";
 import {
   MIXED_BOARDS_LABEL,
   clusterCauseOnStop,
   type ClusterCause,
 } from "@/lib/cluster-cause";
+import {
+  chipContainsOrg,
+  edgeHiddenByOrgFilter,
+  orgEdgeFilterChips,
+  peopleOrgEdgeFilterOnStop,
+} from "@/lib/people-org-edge-filter";
 import {
   buildWhyLinkedModel,
   toggleWhyLinkedEdge,
@@ -97,6 +104,7 @@ export default function PeopleExplorer({
   const [selectedEdge, setSelectedEdge] = useState<RenderableEdge | null>(null);
   const [mixedCause, setMixedCause] = useState<ClusterCause | null>(null);
   const [rangeStop, setRangeStop] = useState<GraphRangeStop>("most");
+  const [edgeOrgId, setEdgeOrgId] = useState<string | null>(null);
   const selectedPersonIdRef = useRef(selectedPersonId);
   selectedPersonIdRef.current = selectedPersonId;
   const selectedIdRef = useRef(selectedId);
@@ -118,6 +126,7 @@ export default function PeopleExplorer({
     setOnTheRecord([]);
     setSelectedEdge(null);
     setMixedCause(null);
+    setEdgeOrgId(null);
     onSelectPerson?.(null);
   };
 
@@ -292,8 +301,31 @@ export default function PeopleExplorer({
     const ids = new Set(rangedPeople.nodes.map((node) => node.id));
     if (!ids.has(selectedEdge.source) || !ids.has(selectedEdge.target)) {
       setSelectedEdge(null);
+      return;
     }
-  }, [rangedPeople, selectedEdge, selectedId]);
+    if (edgeOrgId && edgeHiddenByOrgFilter(selectedEdge, edgeOrgId)) {
+      setSelectedEdge(null);
+    }
+  }, [rangedPeople, selectedEdge, selectedId, edgeOrgId]);
+
+  const showOrgEdgeFilter =
+    !selectedId && peopleOrgEdgeFilterOnStop(activePeopleStop);
+  const orgFilterChips = useMemo(
+    () =>
+      showOrgEdgeFilter
+        ? orgEdgeFilterChips(
+            rangedPeople.nodes.map((node) => node.id),
+            rangedPeople.edges
+          )
+        : [],
+    [showOrgEdgeFilter, rangedPeople]
+  );
+
+  useEffect(() => {
+    if (!showOrgEdgeFilter || !chipContainsOrg(orgFilterChips, edgeOrgId)) {
+      if (edgeOrgId) setEdgeOrgId(null);
+    }
+  }, [showOrgEdgeFilter, orgFilterChips, edgeOrgId]);
 
   useEffect(() => {
     if (!mixedCause || selectedId) return;
@@ -587,6 +619,20 @@ export default function PeopleExplorer({
           drawnCount={rangedPeople.nodes.length}
         />
       )}
+      {showOrgEdgeFilter && overview && (
+        <PeopleOrgEdgeFilter
+          chips={orgFilterChips}
+          selectedOrgId={edgeOrgId}
+          onSelectOrg={(id) => {
+            setSelectedEdge(null);
+            setEdgeOrgId(id);
+          }}
+          onClear={() => {
+            setSelectedEdge(null);
+            setEdgeOrgId(null);
+          }}
+        />
+      )}
       {selectedId && (
         <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
           <label
@@ -625,6 +671,7 @@ export default function PeopleExplorer({
             nameEveryNode
             selectedEdge={selectedEdge}
             showClusterCause={!selectedId && clusterCauseOnStop(activePeopleStop)}
+            visibleSharedOrgId={showOrgEdgeFilter ? edgeOrgId : null}
             heightClassName="h-full min-h-[420px]"
             onClusterCauseClick={(cause) => {
               setSelectedEdge(null);
