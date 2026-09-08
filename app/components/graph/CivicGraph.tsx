@@ -663,7 +663,7 @@ export default function CivicGraph({
           "absolute pointer-events-auto -translate-x-1/2 -translate-y-1/2 z-[5]";
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.textContent = truncateGraphLabel(clusterLabelText(cause));
+        btn.textContent = clusterLabelText(cause);
         btn.style.fontSize = `${CLUSTER_LABEL_SIZE_PX}px`;
         btn.style.fontWeight = "600";
         btn.style.color = CLUSTER_LABEL_INK;
@@ -928,6 +928,24 @@ export default function CivicGraph({
         }
         ctx.save();
         ctx.globalCompositeOperation = "destination-out";
+        graph.forEachEdge((edgeId, attrs, _source, _target, sourceAttr, targetAttr) => {
+          const from = renderer.graphToViewport({
+            x: Number(sourceAttr.x) || 0,
+            y: Number(sourceAttr.y) || 0,
+          });
+          const to = renderer.graphToViewport({
+            x: Number(targetAttr.x) || 0,
+            y: Number(targetAttr.y) || 0,
+          });
+          const display = renderer.getEdgeDisplayData(edgeId);
+          const size = Number(display?.size ?? attrs.size ?? 1.4) + 1.5;
+          ctx.lineWidth = size;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(from.x, from.y);
+          ctx.lineTo(to.x, to.y);
+          ctx.stroke();
+        });
         graph.forEachNode((id, attrs) => {
           const display = renderer.getNodeDisplayData(id);
           if (!display) return;
@@ -961,7 +979,7 @@ export default function CivicGraph({
                 })
               );
             }
-            const center = clusterCentroid(viewPoints);
+            const center = clusterCentroid(viewPoints) ?? viewPoints[0];
             if (!center) {
               wrap.style.display = "none";
               continue;
