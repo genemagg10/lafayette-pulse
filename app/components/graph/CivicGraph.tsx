@@ -41,6 +41,20 @@ import {
 } from "@/lib/graph-edge-pick";
 import { NodeDiamondProgram } from "./NodeDiamondProgram";
 import type { OrgType, SeatType } from "@/lib/types";
+import {
+  buildClusterCauses,
+  clusterCentroid,
+  clusterLabelAnchor,
+  clusterLabelText,
+  clusterRadius,
+  clusterWashColor,
+  nudgePointOffNodes,
+  CLUSTER_LABEL_INK,
+  CLUSTER_LABEL_SIZE_PX,
+  CLUSTER_MIXED_STROKE,
+  CLUSTER_WASH_OPACITY,
+  type ClusterCause,
+} from "@/lib/cluster-cause";
 
 /** Who graphs: ring only. Sigma's default hover chip would redraw the name. */
 class WhoSquareProgram extends NodeSquareProgram {
@@ -112,6 +126,9 @@ interface CivicGraphProps {
   nameEveryNode?: boolean;
   selectedEdge?: Pick<RenderableEdge, "source" | "target"> | null;
   heightClassName?: string;
+  /** People overview only — org/mixed cause in the open middle of a group. */
+  showClusterCause?: boolean;
+  onClusterCauseClick?: (cause: ClusterCause) => void;
   onNodeClick?: (id: string, kind: RenderableNode["kind"]) => void;
   onEdgeClick?: (edge: RenderableEdge) => void;
   onStageClick?: () => void;
@@ -512,12 +529,15 @@ export default function CivicGraph({
   nameEveryNode = false,
   selectedEdge = null,
   heightClassName = "h-[320px] sm:h-[380px]",
+  showClusterCause = false,
+  onClusterCauseClick,
   onNodeClick,
   onEdgeClick,
   onStageClick,
 }: CivicGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
+  const clusterLabelsRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const lastMouseRef = useRef({ x: 0, y: 0 });
   const clickRef = useRef(onNodeClick);
@@ -532,6 +552,10 @@ export default function CivicGraph({
   nameEveryNodeRef.current = nameEveryNode;
   const selectedEdgeRef = useRef(selectedEdge);
   selectedEdgeRef.current = selectedEdge;
+  const showClusterCauseRef = useRef(showClusterCause);
+  showClusterCauseRef.current = showClusterCause;
+  const clusterClickRef = useRef(onClusterCauseClick);
+  clusterClickRef.current = onClusterCauseClick;
   const applyLabelsRef = useRef<() => void>(() => {});
   const drawOverlayRef = useRef<() => void>(() => {});
 
@@ -626,6 +650,48 @@ export default function CivicGraph({
     }
 
     layoutGraph(graph, centerId, layout);
+
+    const clusterCauses = showClusterCause
+      ? buildClusterCauses(graph.nodes(), edges)
+      : [];
+    const labelsRoot = clusterLabelsRef.current;
+    if (labelsRoot) {
+      labelsRoot.replaceChildren();
+      for (const cause of clusterCauses) {
+        const wrap = document.createElement("div");
+        wrap.dataset.clusterId = cause.id;
+        wrap.className =
+          "absolute pointer-events-auto -translate-x-1/2 -translate-y-1/2 z-[5]";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = truncateGraphLabel(clusterLabelText(cause));
+        btn.style.fontSize = `${CLUSTER_LABEL_SIZE_PX}px`;
+        btn.style.fontWeight = "600";
+        btn.style.color = CLUSTER_LABEL_INK;
+        btn.style.background = "#F5F5F0";
+        btn.style.border = "1px solid #E3E0D7";
+        btn.style.borderRadius = "999px";
+        btn.style.padding = "2px 8px";
+        btn.style.lineHeight = "1.2";
+        btn.style.fontFamily = "var(--font-dm-sans), DM Sans, sans-serif";
+        btn.style.whiteSpace = "nowrap";
+        btn.style.cursor = "pointer";
+        btn.style.userSelect = "none";
+        btn.setAttribute(
+          "aria-label",
+          cause.kind === "org"
+            ? `Select ${cause.label}`
+            : "Mixed boards, list shared organizations"
+        );
+        btn.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          clusterClickRef.current?.(cause);
+        });
+        wrap.appendChild(btn);
+        labelsRoot.appendChild(wrap);
+      }
+    }
 
     const degreeById = degreesFromEdges(
       graph.nodes(),
@@ -825,6 +891,93 @@ export default function CivicGraph({
       overlay.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
+      if (showClusterCauseRef.current && clusterCauses.length > 0) {
+        const nodeView = viewportNodes(renderer, graph);
+        for (const cause of clusterCauses) {
+          const graphPoints = [];
+          for (const id of cause.memberIds) {
+            if (!graph.hasNode(id)) continue;
+            graphPoints.push({
+              x: Number(graph.getNodeAttribute(id, "x")) || 0,
+              y: Number(graph.getNodeAttribute(id, "y")) || 0,
+            });
+          }
+          const viewPoints = graphPoints.map((point) =>
+            renderer.graphToViewport(point)
+          );
+          const center = clusterCentroid(viewPoints);
+          if (!center) continue;
+          const radius = clusterRadius(viewPoints, 36);
+          if (cause.kind === "org") {
+            ctx.save();
+            ctx.globalAlpha = CLUSTER_WASH_OPACITY;
+            ctx.fillStyle = clusterWashColor(cause.orgId);
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          } else {
+            ctx.save();
+            ctx.globalAlpha = 0.45;
+            ctx.strokeStyle = CLUSTER_MIXED_STROKE;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+        ctx.save();
+        ctx.globalCompositeOperation = "destination-out";
+        graph.forEachNode((id, attrs) => {
+          const display = renderer.getNodeDisplayData(id);
+          if (!display) return;
+          const pos = renderer.graphToViewport({
+            x: Number(attrs.x) || 0,
+            y: Number(attrs.y) || 0,
+          });
+          const radius = Number(display.size ?? attrs.size ?? 8) + 1;
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
+        if (labelsRoot) {
+          for (const wrap of Array.from(labelsRoot.children)) {
+            if (!(wrap instanceof HTMLElement)) continue;
+            const cause = clusterCauses.find(
+              (row) => row.id === wrap.dataset.clusterId
+            );
+            if (!cause) {
+              wrap.style.display = "none";
+              continue;
+            }
+            const graphPoints = [];
+            for (const id of cause.memberIds) {
+              if (!graph.hasNode(id)) continue;
+              graphPoints.push({
+                x: Number(graph.getNodeAttribute(id, "x")) || 0,
+                y: Number(graph.getNodeAttribute(id, "y")) || 0,
+              });
+            }
+            const anchor =
+              clusterLabelAnchor(graphPoints, 12) ??
+              clusterCentroid(graphPoints);
+            if (!anchor) {
+              wrap.style.display = "none";
+              continue;
+            }
+            const view = nudgePointOffNodes(
+              renderer.graphToViewport(anchor),
+              nodeView,
+              14
+            );
+            wrap.style.display = "block";
+            wrap.style.left = `${view.x}px`;
+            wrap.style.top = `${view.y}px`;
+          }
+        }
+      }
       graph.forEachEdge((_edge, attrs, _source, _target, sourceAttr, targetAttr) => {
         if (!attrs.dashed) return;
         const from = renderer.graphToViewport({
@@ -1018,10 +1171,11 @@ export default function CivicGraph({
       container.removeEventListener("pointermove", onMove);
       container.removeEventListener("pointerleave", hideTooltip);
       hideTooltip();
+      labelsRoot?.replaceChildren();
       renderer.kill();
       graph.clear();
     };
-  }, [nodes, edges, centerId, layout, nameEveryNode]);
+  }, [nodes, edges, centerId, layout, nameEveryNode, showClusterCause]);
 
   useEffect(() => {
     applyLabelsRef.current();
@@ -1042,6 +1196,10 @@ export default function CivicGraph({
     <div className={`relative ${heightClassName} border border-line bg-canvas overflow-hidden`}>
       <div ref={containerRef} className="absolute inset-0 cursor-pointer" />
       <canvas ref={overlayRef} className="absolute inset-0 pointer-events-none" />
+      <div
+        ref={clusterLabelsRef}
+        className="absolute inset-0 pointer-events-none overflow-hidden"
+      />
       <div
         ref={tooltipRef}
         className="absolute z-10 hidden pointer-events-none max-w-[240px] bg-forest-900 text-cream-50 text-[11px] font-body leading-snug px-2 py-1.5 border border-line"
