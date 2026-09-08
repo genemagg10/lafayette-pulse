@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { closedKindChip } from "@/lib/calendar-layout";
+import { calendarCategoryToken } from "@/lib/calendar-layout";
 import type { CalendarItem } from "@/lib/calendar-items";
 
 interface CalendarItemCardProps {
@@ -15,7 +15,7 @@ export default function CalendarItemCard({
   open = false,
   onToggle,
 }: CalendarItemCardProps) {
-  const kindChip = closedKindChip(item);
+  const category = calendarCategoryToken(item);
   const notes = item.description?.trim() || null;
 
   return (
@@ -41,11 +41,16 @@ export default function CalendarItemCard({
         <h3 className="font-heading text-[14px] font-semibold leading-snug text-ink min-w-0">
           {item.title}
         </h3>
-        {kindChip ? (
-          <span className="flex-shrink-0 text-[11px] font-body text-ink-muted">
-            {kindChip}
-          </span>
-        ) : null}
+        <span
+          className="flex-shrink-0 text-[12px] leading-[12px] font-body text-ink"
+          style={{
+            backgroundColor: category.color,
+            padding: "2px 6px",
+            borderRadius: 4,
+          }}
+        >
+          {category.label}
+        </span>
       </div>
 
       {item.timeLabel ? (

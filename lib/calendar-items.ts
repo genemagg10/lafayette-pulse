@@ -20,6 +20,11 @@ export {
   shiftDayKey,
   todayKeyPacific,
   upcomingWindow,
+  monthWindow,
+  shiftMonth,
+  monthContainsDay,
+  formatMonthTitle,
+  formatMonthName,
 } from "./calendar-time";
 
 export type CalendarItemKind = "agenda" | "event";

@@ -3,15 +3,25 @@ import { test } from "node:test";
 import {
   dayKeyInPacific,
   displayEventDescription,
+  formatMonthName,
+  formatMonthTitle,
   formatTimePacific,
   isProjectedEvent,
+  monthContainsDay,
+  monthWindow,
   ptBoundIso,
+  shiftMonth,
   todayKeyPacific,
   upcomingWindow,
 } from "../lib/calendar-time.ts";
 import {
+  CALENDAR_CATEGORY_TOKENS,
+  EVENT_LINE_PX,
+  calendarCategoryKey,
+  calendarCategoryToken,
   cellVisibleCount,
   closedKindChip,
+  eventChipText,
   eventLineText,
   gridRowTemplate,
   weekRailStacks,
@@ -140,27 +150,124 @@ test("cell lines never reserve a half-cut slot; remainder is N more", () => {
   assert.deepEqual(cellVisibleCount(1, 1), { show: 1, more: 0 });
 });
 
-test("event line uses the recorded time only; kind chip is Meeting or nothing", () => {
+test("event line keeps recorded time; month chips use the event name only", () => {
   assert.equal(
     eventLineText({ timeLabel: "7:00 PM", title: "City Council" }),
     "7:00 PM City Council"
   );
   assert.equal(
-    eventLineText({ timeLabel: null, title: "Capital projects" }),
-    "Capital projects"
+    eventChipText({ title: "Art & Wine Festival" }),
+    "Art & Wine Festival"
+  );
+});
+
+test("category tokens are four locked washes and never hash the title", () => {
+  const council = calendarCategoryToken({
+    kind: "event",
+    event_type: "meeting",
+    title: "City Council Regular Meeting",
+    body: "City Council",
+  });
+  const planningMeeting = calendarCategoryToken({
+    kind: "event",
+    event_type: "meeting",
+    title: "Planning Commission",
+    body: "Planning Commission",
+  });
+  assert.equal(council.key, "meeting");
+  assert.equal(council.color, "#E4EDE8");
+  assert.equal(planningMeeting.color, council.color);
+  assert.equal(
+    calendarCategoryToken({
+      kind: "event",
+      event_type: "community",
+      title: "Art & Wine Festival",
+    }).color,
+    "#F6E6D4"
   );
   assert.equal(
-    closedKindChip({ kind: "agenda", event_type: null }),
+    calendarCategoryToken({
+      kind: "event",
+      event_type: "community",
+      title: "Ribbon cutting at the library",
+    }).color,
+    "#F6E6D4"
+  );
+  assert.equal(
+    calendarCategoryKey({
+      kind: "agenda",
+      event_type: null,
+      title: "Design guidelines",
+      body: "Planning Commission",
+    }),
+    "commission"
+  );
+  assert.equal(
+    calendarCategoryToken({
+      kind: "agenda",
+      event_type: null,
+      title: "Design guidelines",
+      body: "Planning Commission",
+    }).color,
+    "#E7EEF4"
+  );
+  assert.equal(
+    calendarCategoryKey({
+      kind: "agenda",
+      event_type: null,
+      title: "Consent calendar",
+      body: "City Council",
+    }),
+    "meeting"
+  );
+  assert.equal(
+    calendarCategoryKey({
+      kind: "event",
+      event_type: "other",
+      title: "Utility notice",
+    }),
+    "other"
+  );
+  assert.equal(
+    calendarCategoryToken({
+      kind: "event",
+      event_type: "deadline",
+      title: "File papers",
+    }).color,
+    "#F0EEE8"
+  );
+  assert.equal(Object.keys(CALENDAR_CATEGORY_TOKENS).length, 4);
+  assert.equal(
+    closedKindChip({
+      kind: "event",
+      event_type: "community",
+      title: "Farmers market",
+      body: null,
+    }),
+    "Civic event"
+  );
+  assert.equal(
+    closedKindChip({
+      kind: "event",
+      event_type: "meeting",
+      title: "City Council",
+      body: "City Council",
+    }),
     "Meeting"
   );
-  assert.equal(
-    closedKindChip({ kind: "event", event_type: "meeting" }),
-    "Meeting"
-  );
-  assert.equal(
-    closedKindChip({ kind: "event", event_type: "community" }),
-    null
-  );
+});
+
+test("rail month window is the civil month, not a 7-day Upcoming cap", () => {
+  const october = new Date(2026, 9, 1);
+  assert.deepEqual(monthWindow(october), {
+    since: "2026-10-01",
+    until: "2026-11-01",
+  });
+  assert.equal(monthContainsDay(october, "2026-10-15"), true);
+  assert.equal(monthContainsDay(october, "2026-09-08"), false);
+  assert.equal(formatMonthTitle(october), "October 2026");
+  assert.equal(formatMonthName(shiftMonth(october, 1)), "November");
+  assert.equal(EVENT_LINE_PX, 18);
 });
 
 test("evening UTC timestamps keep Pacific clock time", () => {

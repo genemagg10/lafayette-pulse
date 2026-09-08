@@ -6,11 +6,16 @@ import AgendaFeed from "./AgendaFeed";
 import CalendarItemCard from "./CalendarItemCard";
 import FocusFrame from "./FocusFrame";
 import { CARD_RAIL_PX, formatRailDay, weekRailStacks } from "@/lib/calendar-layout";
+import { shiftMonth } from "@/lib/calendar-time";
 import type { CalendarItem } from "@/lib/calendar-items";
 import type { ProjectCategory } from "@/lib/types";
 
 export default function CalendarWorkspace() {
   const [view, setView] = useState<"month" | "week">("month");
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [mobileMonth, setMobileMonth] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [openItemId, setOpenItemId] = useState<string | null>(null);
@@ -18,6 +23,13 @@ export default function CalendarWorkspace() {
   const [stackRail, setStackRail] = useState(false);
   const shellRef = useRef<HTMLDivElement>(null);
   const activeCategories = useMemo(() => new Set<ProjectCategory>(), []);
+
+  const advanceMonth = () => {
+    setVisibleMonth((month) => shiftMonth(month, 1));
+    setSelectedDay(null);
+    setOpenItemId(null);
+    setSheetItem(null);
+  };
 
   useEffect(() => {
     const el = shellRef.current;
@@ -37,7 +49,7 @@ export default function CalendarWorkspace() {
     setSheetItem(null);
   };
 
-  const railHeading = selectedDay ? formatRailDay(selectedDay) : "Upcoming";
+  const railHeading = selectedDay ? formatRailDay(selectedDay) : undefined;
 
   return (
     <FocusFrame className="flex flex-col">
@@ -55,9 +67,16 @@ export default function CalendarWorkspace() {
             selectedDay={selectedDay}
             onSelectDay={selectDay}
             density="fill"
+            visibleMonth={visibleMonth}
+            onVisibleMonthChange={(month) => {
+              setVisibleMonth((prev) =>
+                prev.getTime() === month.getTime() ? prev : month
+              );
+            }}
           />
         </section>
         <aside
+          data-rail-scroll
           className={`bg-canvas overflow-y-auto ${
             stackRail
               ? "w-full max-h-[42%] border-t border-line"
@@ -70,6 +89,8 @@ export default function CalendarWorkspace() {
               activeCategories={activeCategories}
               filterDay={selectedDay}
               heading={railHeading}
+              visibleMonth={visibleMonth}
+              onAdvanceMonth={advanceMonth}
               openItemId={openItemId}
               onToggleItem={(item) => {
                 setOpenItemId((id) => (id === item.id ? null : item.id));
@@ -98,14 +119,22 @@ export default function CalendarWorkspace() {
               selectedDay={selectedDay}
               onSelectDay={selectDay}
               density="compact"
+              visibleMonth={visibleMonth}
+              onVisibleMonthChange={(month) => {
+                setVisibleMonth((prev) =>
+                  prev.getTime() === month.getTime() ? prev : month
+                );
+              }}
             />
           </div>
         ) : null}
-        <div className="flex-1 min-h-0 overflow-y-auto p-3">
+        <div data-rail-scroll className="flex-1 min-h-0 overflow-y-auto p-3">
           <AgendaFeed
             activeCategories={activeCategories}
             filterDay={selectedDay}
             heading={railHeading}
+            visibleMonth={visibleMonth}
+            onAdvanceMonth={advanceMonth}
             onToggleItem={setSheetItem}
           />
         </div>

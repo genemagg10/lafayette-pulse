@@ -1,15 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import CalendarItemCard from "./CalendarItemCard";
 import { formatGroupDay } from "@/lib/calendar-layout";
 import {
   fetchCalendarItems,
   shiftDayKey,
   todayKeyPacific,
-  upcomingWindow,
   type CalendarItem,
 } from "@/lib/calendar-items";
+import {
+  formatMonthName,
+  formatMonthTitle,
+  monthContainsDay,
+  monthWindow,
+  shiftMonth,
+} from "@/lib/calendar-time";
 import type { ProjectCategory } from "@/lib/types";
 
 interface AgendaFeedProps {
@@ -18,6 +24,8 @@ interface AgendaFeedProps {
   openItemId?: string | null;
   onToggleItem?: (item: CalendarItem) => void;
   heading?: string;
+  visibleMonth?: Date;
+  onAdvanceMonth?: () => void;
 }
 
 export default function AgendaFeed({
@@ -26,15 +34,25 @@ export default function AgendaFeed({
   openItemId,
   onToggleItem,
   heading,
+  visibleMonth,
+  onAdvanceMonth,
 }: AgendaFeedProps) {
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"upcoming" | "archive">("upcoming");
+  const [view, setView] = useState<"month" | "archive">("month");
+  const today = todayKeyPacific();
+  const month = useMemo(() => {
+    if (visibleMonth) return visibleMonth;
+    return new Date(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1, 1);
+  }, [visibleMonth, today]);
+
+  useEffect(() => {
+    setView("month");
+  }, [visibleMonth, filterDay]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const today = todayKeyPacific();
     const category =
       activeCategories.size > 0
         ? Array.from(activeCategories).join(",")
@@ -47,8 +65,9 @@ export default function AgendaFeed({
     if (filterDay) {
       since = filterDay;
       until = shiftDayKey(filterDay, 1);
-    } else if (view === "upcoming") {
-      const window = upcomingWindow(today);
+      upcoming = true;
+    } else if (view === "month") {
+      const window = monthWindow(month);
       since = window.since;
       until = window.until;
       upcoming = true;
@@ -76,14 +95,30 @@ export default function AgendaFeed({
     return () => {
       cancelled = true;
     };
-  }, [activeCategories, view, filterDay]);
+  }, [activeCategories, view, filterDay, month, today]);
 
   const groups = useMemo(() => groupByDay(items), [items]);
+  const showingMonth = !filterDay && view === "month";
   const title = filterDay
     ? (heading ?? "This day")
     : view === "archive"
       ? "Archive"
-      : "Upcoming";
+      : (heading ?? formatMonthTitle(month));
+  const nextMonthLabel = formatMonthName(shiftMonth(month, 1));
+  const scrollToToday = showingMonth && monthContainsDay(month, today);
+  const anchorDay = scrollToToday
+    ? (groups.find(([day]) => day >= today)?.[0] ?? null)
+    : null;
+
+  useLayoutEffect(() => {
+    if (!anchorDay || loading) return;
+    const section = document.getElementById(`rail-day-${anchorDay}`);
+    const scroller = section?.closest("[data-rail-scroll]");
+    if (!section || !(scroller instanceof HTMLElement)) return;
+    const sectionRect = section.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+    scroller.scrollTop += sectionRect.top - scrollerRect.top;
+  }, [anchorDay, loading, items]);
 
   if (loading) {
     return (
@@ -107,14 +142,14 @@ export default function AgendaFeed({
           <div className="flex items-center gap-2 ml-auto">
             <button
               type="button"
-              onClick={() => setView("upcoming")}
+              onClick={() => setView("month")}
               className={`px-3 py-1.5 text-xs font-body font-medium transition-colors ${
-                view === "upcoming"
+                view === "month"
                   ? "bg-forest text-surface"
                   : "bg-surface-muted text-ink-muted hover:bg-line"
               }`}
             >
-              Upcoming
+              Month
             </button>
             <button
               type="button"
@@ -135,13 +170,13 @@ export default function AgendaFeed({
         <div className="py-8 text-forest-400 font-body text-sm">
           {filterDay
             ? "No events on this day."
-            : view === "upcoming"
-              ? "No upcoming events in the next 7 days."
-              : "No past events match your filters."}
+            : view === "archive"
+              ? "No past events match your filters."
+              : `No events in ${formatMonthTitle(month)}.`}
         </div>
       ) : (
         groups.map(([day, dayItems]) => (
-          <section key={day} className="space-y-2">
+          <section key={day} id={`rail-day-${day}`} className="space-y-2">
             {!filterDay ? (
               <h3 className="text-[11px] font-body uppercase tracking-wide text-ink-muted">
                 {formatGroupDay(day)}
@@ -158,6 +193,16 @@ export default function AgendaFeed({
           </section>
         ))
       )}
+
+      {showingMonth && onAdvanceMonth ? (
+        <button
+          type="button"
+          onClick={onAdvanceMonth}
+          className="block w-full text-left text-[12px] font-body text-ink-muted pt-1 pb-2 hover:text-ink"
+        >
+          More in {nextMonthLabel}
+        </button>
+      ) : null}
     </div>
   );
 }
