@@ -9,7 +9,10 @@ import type {
   SharedBoardOverlap,
 } from "@/lib/civic-graph";
 import GraphLegend, { GraphLabelToggle } from "./graph/GraphLegend";
-import type { GraphLabelMode } from "@/lib/graph-labels";
+import {
+  labelModeForWidthStop,
+  type GraphLabelMode,
+} from "@/lib/graph-labels";
 import PersonAvatar from "./PersonAvatar";
 import OnTheRecord, { type OnTheRecordItem } from "./OnTheRecord";
 import FocusPanes, { type MobileStep } from "./FocusPanes";
@@ -562,8 +565,8 @@ export default function PeopleExplorer({
           drawnCount={rangedPeople.nodes.length}
         />
       )}
-      <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
-        {selectedId && (
+      {selectedId && (
+        <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
           <label
             className="inline-flex items-center gap-1.5"
             title="Add the other people who currently sit on this person's boards, clustered under the board they share."
@@ -575,17 +578,17 @@ export default function PeopleExplorer({
             />
             Show shared boards
           </label>
-        )}
-        <label className="inline-flex items-center gap-1.5">
-          <input
-            type="checkbox"
-            checked={currentOnly}
-            onChange={(e) => setCurrentOnly(e.target.checked)}
-          />
-          Current only
-        </label>
-        <GraphLabelToggle mode={labelMode} onChange={setLabelMode} />
-      </div>
+          <label className="inline-flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={currentOnly}
+              onChange={(e) => setCurrentOnly(e.target.checked)}
+            />
+            Current only
+          </label>
+          <GraphLabelToggle mode={labelMode} onChange={setLabelMode} />
+        </div>
+      )}
       {overviewError && !selectedId && (
         <p className="text-sm font-body text-ink-muted">{overviewError}</p>
       )}
@@ -598,7 +601,9 @@ export default function PeopleExplorer({
             edges={graphEdges}
             centerId={selectedId ? ego?.center.id : null}
             layout={selectedId ? "ego" : "force"}
-            labelMode={labelMode}
+            labelMode={
+              selectedId ? labelMode : labelModeForWidthStop(activePeopleStop)
+            }
             selectedEdge={selectedEdge}
             heightClassName="h-full min-h-[420px]"
             onNodeClick={(id, kind) => {

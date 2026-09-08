@@ -12,6 +12,15 @@ const ORG_TYPE_SET = new Set<string>(ORG_TYPE_ORDER);
 
 export type GraphLabelMode = "focus" | "all" | "hover";
 
+/** Overview labels follow the width stop. No Focus/All toggle on the opening graph. */
+export function labelModeForWidthStop(
+  stop: "most" | "wider" | "all"
+): GraphLabelMode {
+  if (stop === "most") return "all";
+  if (stop === "wider") return "focus";
+  return "hover";
+}
+
 export const FOCUS_LABEL_TOP_N = 6;
 /** Conflict ribbon: label every actor when the cast is this small. */
 export const FOCUS_LABEL_ALL_ACTORS_MAX = 12;

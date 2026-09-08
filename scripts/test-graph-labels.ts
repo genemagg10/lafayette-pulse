@@ -18,6 +18,7 @@ import {
   dropCollidingLabels,
   FOCUS_LABEL_ALL_ACTORS_MAX,
   FOCUS_LABEL_TOP_N,
+  labelModeForWidthStop,
   presentOrgTypesFromNodes,
   topFocusLabelIds,
   truncateGraphLabel,
@@ -202,6 +203,12 @@ test("graph labels truncate at 28 characters", () => {
   const cut = truncateGraphLabel(long);
   assert.ok(cut.endsWith("…"));
   assert.equal(cut.length <= 29, true);
+});
+
+test("width stop drives overview labels: all names, top 6, hover only", () => {
+  assert.equal(labelModeForWidthStop("most"), "all");
+  assert.equal(labelModeForWidthStop("wider"), "focus");
+  assert.equal(labelModeForWidthStop("all"), "hover");
 });
 
 test("hover label mode is hover and selected only", () => {
