@@ -4,11 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { ORG_TYPE_LABELS, type Organization, type OrgType } from "@/lib/types";
 import { type OrgAffinityResponse } from "@/lib/civic-graph";
-import type { GraphLabelMode } from "@/lib/graph-labels";
 import { type CoStanceResponse } from "@/lib/stances";
 import BoardTabs from "./BoardTabs";
 import CoStanceMatrix from "./CoStanceMatrix";
-import GraphLegend, { GraphLabelToggle } from "./graph/GraphLegend";
+import GraphLegend from "./graph/GraphLegend";
 import FocusPanes, { type MobileStep } from "./FocusPanes";
 import FootprintChip from "./FootprintChip";
 import WhyLinkedPanel from "./WhyLinkedPanel";
@@ -92,7 +91,6 @@ export default function OrganizationExplorer({
   const [coStanceError, setCoStanceError] = useState<string | null>(null);
   const [coStanceLoading, setCoStanceLoading] = useState(false);
   const [mobileStep, setMobileStep] = useState<MobileStep>("list");
-  const [labelMode, setLabelMode] = useState<GraphLabelMode>("focus");
   const [rangeStop, setRangeStop] = useState<GraphRangeStop>("most");
   const selectedOrgIdRef = useRef(selectedOrgId);
   selectedOrgIdRef.current = selectedOrgId;
@@ -603,11 +601,6 @@ export default function OrganizationExplorer({
           drawnCount={graphNodes.length}
         />
       )}
-      {selectedId && (
-        <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
-          <GraphLabelToggle mode={labelMode} onChange={setLabelMode} />
-        </div>
-      )}
       {affinityError && (
         <p className="text-sm font-body text-ink-muted">{affinityError}</p>
       )}
@@ -627,20 +620,16 @@ export default function OrganizationExplorer({
             }))}
             edges={graphEdges}
             centerId={selectedId}
-            labelMode={
-              selectedId
-                ? labelMode
-                : activeOrgStop === "most"
-                  ? "all"
-                  : activeOrgStop === "wider"
-                    ? "focus"
-                    : "hover"
-            }
+            nameEveryNode
             selectedEdge={selectedEdge}
-            onNodeClick={(id) => selectOrg(id)}
+            onNodeClick={(id) => {
+              setSelectedEdge(null);
+              selectOrg(id);
+            }}
             onEdgeClick={(edge) =>
               setSelectedEdge((current) => toggleWhyLinkedEdge(current, edge))
             }
+            onStageClick={() => setSelectedEdge(null)}
             heightClassName="h-full min-h-[420px]"
           />
         )}

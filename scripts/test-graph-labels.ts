@@ -19,10 +19,12 @@ import {
   FOCUS_LABEL_ALL_ACTORS_MAX,
   FOCUS_LABEL_TOP_N,
   labelModeForWidthStop,
+  offsetCollidingLabels,
   presentOrgTypesFromNodes,
   topFocusLabelIds,
   truncateGraphLabel,
   visibleFocusLabelIds,
+  visibleWhoLabelIds,
 } from "../lib/graph-labels.ts";
 
 test("calm edges use Facelift faint/line, seated stays forest, never #364f37", () => {
@@ -205,10 +207,22 @@ test("graph labels truncate at 28 characters", () => {
   assert.equal(cut.length <= 29, true);
 });
 
-test("width stop drives overview labels: all names, top 6, hover only", () => {
+test("width stop no longer hides names: every stop names everyone", () => {
   assert.equal(labelModeForWidthStop("most"), "all");
-  assert.equal(labelModeForWidthStop("wider"), "focus");
-  assert.equal(labelModeForWidthStop("all"), "hover");
+  assert.equal(labelModeForWidthStop("wider"), "all");
+  assert.equal(labelModeForWidthStop("all"), "all");
+});
+
+test("Who graphs name every drawn object until a line is clicked", () => {
+  const all = visibleWhoLabelIds({ nodeIds: ["a", "b", "c"] });
+  assert.deepEqual([...all].sort(), ["a", "b", "c"]);
+  const pair = visibleWhoLabelIds({
+    nodeIds: ["a", "b", "c", "d"],
+    selectedEdgeEndpoints: ["b", "d"],
+  });
+  assert.deepEqual([...pair].sort(), ["b", "d"]);
+  assert.equal(pair.has("a"), false);
+  assert.equal(pair.has("c"), false);
 });
 
 test("hover label mode is hover and selected only", () => {
@@ -234,6 +248,20 @@ test("colliding labels drop the lower footprint", () => {
     { id: "small", x: 10, y: 2, w: 80, h: 12, rank: 4 },
   ]);
   assert.deepEqual([...kept], ["big"]);
+});
+
+test("Who collision offsets a name instead of dropping it", () => {
+  const offsets = offsetCollidingLabels([
+    { id: "big", x: 0, y: 0, w: 80, h: 12, rank: 20 },
+    { id: "small", x: 10, y: 2, w: 80, h: 12, rank: 4 },
+  ]);
+  assert.equal(offsets.has("big"), true);
+  assert.equal(offsets.has("small"), true);
+  const big = offsets.get("big");
+  const small = offsets.get("small");
+  assert.equal(big?.dx, 0);
+  assert.equal(big?.dy, 0);
+  assert.ok((small?.dx ?? 0) !== 0 || (small?.dy ?? 0) !== 0);
 });
 
 test("focus labels prefer footprint over member count", () => {

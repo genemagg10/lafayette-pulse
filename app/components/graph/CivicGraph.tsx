@@ -22,9 +22,11 @@ import {
   degreesFromEdges,
   dropCollidingLabels,
   FOCUS_LABEL_ALL_ACTORS_MAX,
+  offsetCollidingLabels,
   topFocusLabelIds,
   truncateGraphLabel,
   visibleFocusLabelIds,
+  visibleWhoLabelIds,
   type GraphLabelMode,
 } from "@/lib/graph-labels";
 import { whyLinkedTooltipLines, type WhyLinkedEntity } from "@/lib/why-linked";
@@ -86,10 +88,13 @@ interface CivicGraphProps {
   centerId?: string | null;
   layout?: "force" | "ribbon" | "ego";
   labelMode?: GraphLabelMode;
+  /** Who people/orgs: name every drawn object. A clicked line keeps the pair only. */
+  nameEveryNode?: boolean;
   selectedEdge?: Pick<RenderableEdge, "source" | "target"> | null;
   heightClassName?: string;
   onNodeClick?: (id: string, kind: RenderableNode["kind"]) => void;
   onEdgeClick?: (edge: RenderableEdge) => void;
+  onStageClick?: () => void;
 }
 
 function radiusForKind(kind: string): number {
@@ -484,10 +489,12 @@ export default function CivicGraph({
   centerId,
   layout = "force",
   labelMode = "focus",
+  nameEveryNode = false,
   selectedEdge = null,
   heightClassName = "h-[320px] sm:h-[380px]",
   onNodeClick,
   onEdgeClick,
+  onStageClick,
 }: CivicGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -497,11 +504,16 @@ export default function CivicGraph({
   clickRef.current = onNodeClick;
   const edgeClickRef = useRef(onEdgeClick);
   edgeClickRef.current = onEdgeClick;
+  const stageClickRef = useRef(onStageClick);
+  stageClickRef.current = onStageClick;
   const labelModeRef = useRef(labelMode);
   labelModeRef.current = labelMode;
+  const nameEveryNodeRef = useRef(nameEveryNode);
+  nameEveryNodeRef.current = nameEveryNode;
   const selectedEdgeRef = useRef(selectedEdge);
   selectedEdgeRef.current = selectedEdge;
   const applyLabelsRef = useRef<() => void>(() => {});
+  const drawOverlayRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const container = containerRef.current;
@@ -674,6 +686,7 @@ export default function CivicGraph({
 
     const renderer = new Sigma(graph, container, {
       allowInvalidContainer: true,
+      renderLabels: !nameEveryNode,
       renderEdgeLabels: false,
       enableEdgeEvents: true,
       labelFont: "var(--font-dm-sans), DM Sans, sans-serif",
@@ -696,34 +709,9 @@ export default function CivicGraph({
     let hoveredEdge: string | null = null;
     let hoveredNode: string | null = null;
 
-    const applyLabels = () => {
-      const hoveredEndpoints =
-        hoveredEdge && graph.hasEdge(hoveredEdge)
-          ? [graph.source(hoveredEdge), graph.target(hoveredEdge)]
-          : null;
-      const selected = selectedEdgeRef.current;
-      const visible = visibleFocusLabelIds({
-        mode: labelModeRef.current,
-        nodeIds: graph.nodes(),
-        centerId,
-        hoveredNodeId: hoveredNode,
-        hoveredEdgeEndpoints: hoveredEndpoints,
-        selectedEdgeEndpoints: selected
-          ? [selected.source, selected.target]
-          : null,
-        topFocusIds,
-        actorIds,
-        labelAllActorsMax: ribbonCast ? FOCUS_LABEL_ALL_ACTORS_MAX : undefined,
-      });
-      const pinned = new Set<string>();
-      if (hoveredNode) pinned.add(hoveredNode);
-      for (const id of hoveredEndpoints ?? []) pinned.add(id);
-      if (selected) {
-        pinned.add(selected.source);
-        pinned.add(selected.target);
-      }
+    const labelBoxesFor = (ids: Iterable<string>) => {
       const boxes = [];
-      for (const id of Array.from(visible)) {
+      for (const id of Array.from(ids)) {
         const display = renderer.getNodeDisplayData(id);
         if (!display) continue;
         const full = String(
@@ -747,6 +735,47 @@ export default function CivicGraph({
           ),
         });
       }
+      return boxes;
+    };
+
+    const applyLabels = () => {
+      const hoveredEndpoints =
+        hoveredEdge && graph.hasEdge(hoveredEdge)
+          ? [graph.source(hoveredEdge), graph.target(hoveredEdge)]
+          : null;
+      const selected = selectedEdgeRef.current;
+      const selectedEnds = selected
+        ? [selected.source, selected.target]
+        : null;
+      if (nameEveryNodeRef.current) {
+        const visible = visibleWhoLabelIds({
+          nodeIds: graph.nodes(),
+          selectedEdgeEndpoints: selectedEnds,
+        });
+        graph.forEachNode((id) => {
+          graph.setNodeAttribute(id, "forceLabel", visible.has(id));
+        });
+        return;
+      }
+      const visible = visibleFocusLabelIds({
+        mode: labelModeRef.current,
+        nodeIds: graph.nodes(),
+        centerId,
+        hoveredNodeId: hoveredNode,
+        hoveredEdgeEndpoints: hoveredEndpoints,
+        selectedEdgeEndpoints: selectedEnds,
+        topFocusIds,
+        actorIds,
+        labelAllActorsMax: ribbonCast ? FOCUS_LABEL_ALL_ACTORS_MAX : undefined,
+      });
+      const pinned = new Set<string>();
+      if (hoveredNode) pinned.add(hoveredNode);
+      for (const id of hoveredEndpoints ?? []) pinned.add(id);
+      if (selected) {
+        pinned.add(selected.source);
+        pinned.add(selected.target);
+      }
+      const boxes = labelBoxesFor(visible);
       const shown =
         boxes.length > 0 ? dropCollidingLabels(boxes, pinned) : visible;
       graph.forEachNode((id) => {
@@ -787,7 +816,56 @@ export default function CivicGraph({
         ctx.stroke();
       });
       if (centerId) drawEgoHalo(ctx, renderer, graph, centerId);
+      if (nameEveryNodeRef.current) {
+        const selected = selectedEdgeRef.current;
+        const visible = visibleWhoLabelIds({
+          nodeIds: graph.nodes(),
+          selectedEdgeEndpoints: selected
+            ? [selected.source, selected.target]
+            : null,
+        });
+        const boxes = [];
+        for (const id of Array.from(visible)) {
+          if (!graph.hasNode(id)) continue;
+          const attrs = graph.getNodeAttributes(id);
+          const display = renderer.getNodeDisplayData(id);
+          if (!display) continue;
+          const pos = renderer.graphToViewport({
+            x: Number(attrs.x) || 0,
+            y: Number(attrs.y) || 0,
+          });
+          const text = truncateGraphLabel(
+            String(attrs.fullLabel ?? attrs.label ?? "")
+          );
+          const radius = Number(display.size ?? attrs.size ?? 8);
+          const height = 13;
+          boxes.push({
+            id,
+            text,
+            x: pos.x + radius + 4,
+            y: pos.y - height / 2,
+            w: Math.max(text.length, 1) * 6.8,
+            h: height,
+            rank: Number(attrs.footprint ?? attrs.member_count ?? 0),
+          });
+        }
+        const offsets = offsetCollidingLabels(boxes);
+        ctx.save();
+        ctx.font = "600 11px var(--font-dm-sans), DM Sans, sans-serif";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#243324";
+        for (const box of boxes) {
+          const offset = offsets.get(box.id) ?? { dx: 0, dy: 0 };
+          ctx.fillText(
+            box.text,
+            box.x + offset.dx,
+            box.y + box.h / 2 + offset.dy
+          );
+        }
+        ctx.restore();
+      }
     };
+    drawOverlayRef.current = drawOverlay;
 
     renderer.on("afterRender", drawOverlay);
     const emitEdgeClick = (edgeKey: string) => {
@@ -849,6 +927,7 @@ export default function CivicGraph({
         return;
       }
       hideTooltip();
+      stageClickRef.current?.();
     });
     renderer.on("enterNode", ({ node }) => {
       hoveredNode = node;
@@ -914,10 +993,11 @@ export default function CivicGraph({
       renderer.kill();
       graph.clear();
     };
-  }, [nodes, edges, centerId, layout]);
+  }, [nodes, edges, centerId, layout, nameEveryNode]);
 
   useEffect(() => {
     applyLabelsRef.current();
+    drawOverlayRef.current();
   }, [labelMode, selectedEdge]);
 
   if (nodes.length === 0) {

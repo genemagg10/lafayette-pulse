@@ -12,13 +12,25 @@ const ORG_TYPE_SET = new Set<string>(ORG_TYPE_ORDER);
 
 export type GraphLabelMode = "focus" | "all" | "hover";
 
-/** Overview labels follow the width stop. No Focus/All toggle on the opening graph. */
+/**
+ * Gene override: Who graphs name every drawn object on every width stop.
+ * Hover / top 6 / Focus no longer hide names. Line-click pair filtering
+ * is handled separately by visibleWhoLabelIds.
+ */
 export function labelModeForWidthStop(
-  stop: "most" | "wider" | "all"
+  _stop: "most" | "wider" | "all"
 ): GraphLabelMode {
-  if (stop === "most") return "all";
-  if (stop === "wider") return "focus";
-  return "hover";
+  return "all";
+}
+
+/** Default: every drawn object. Clicked connection: the two endpoints only. */
+export function visibleWhoLabelIds(options: {
+  nodeIds: readonly string[];
+  selectedEdgeEndpoints?: readonly string[] | null;
+}): Set<string> {
+  const pair = options.selectedEdgeEndpoints;
+  if (pair && pair.length > 0) return new Set(pair);
+  return new Set(options.nodeIds);
 }
 
 export const FOCUS_LABEL_TOP_N = 6;
@@ -68,6 +80,59 @@ export function labelBoxesOverlap(
     a.y + a.h + pad < b.y ||
     b.y + b.h + pad < a.y
   );
+}
+
+export interface LabelOffset {
+  dx: number;
+  dy: number;
+}
+
+const LABEL_OFFSET_STEPS: LabelOffset[] = [
+  { dx: 0, dy: 0 },
+  { dx: 0, dy: -14 },
+  { dx: 0, dy: 14 },
+  { dx: 0, dy: -28 },
+  { dx: 0, dy: 28 },
+  { dx: 12, dy: -14 },
+  { dx: 12, dy: 14 },
+  { dx: -10, dy: -14 },
+  { dx: -10, dy: 14 },
+  { dx: 0, dy: -42 },
+  { dx: 0, dy: 42 },
+];
+
+/**
+ * Keep every name. Higher-footprint labels stay put; others slide to a
+ * free slot. A name is never dropped to keep the graph quiet.
+ */
+export function offsetCollidingLabels(boxes: LabelBox[]): Map<string, LabelOffset> {
+  const byRank = boxes.slice().sort((a, b) => {
+    if (b.rank !== a.rank) return b.rank - a.rank;
+    return a.id.localeCompare(b.id);
+  });
+  const placed: LabelBox[] = [];
+  const offsets = new Map<string, LabelOffset>();
+  for (const box of byRank) {
+    let chosen = LABEL_OFFSET_STEPS[LABEL_OFFSET_STEPS.length - 1];
+    for (const candidate of LABEL_OFFSET_STEPS) {
+      const moved = {
+        ...box,
+        x: box.x + candidate.dx,
+        y: box.y + candidate.dy,
+      };
+      if (!placed.some((other) => labelBoxesOverlap(other, moved))) {
+        chosen = candidate;
+        break;
+      }
+    }
+    offsets.set(box.id, chosen);
+    placed.push({
+      ...box,
+      x: box.x + chosen.dx,
+      y: box.y + chosen.dy,
+    });
+  }
+  return offsets;
 }
 
 /** Keep higher-footprint labels; pinned ids (hover/selected) win ties. */
