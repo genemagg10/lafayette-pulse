@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { Person } from "@/lib/types";
-import type { EgoGraphResponse, SharedBoardOverlap } from "@/lib/civic-graph";
+import type {
+  EgoGraphResponse,
+  PeopleAffinityResponse,
+  SharedBoardOverlap,
+} from "@/lib/civic-graph";
 import GraphLegend, { GraphLabelToggle } from "./graph/GraphLegend";
 import type { GraphLabelMode } from "@/lib/graph-labels";
 import PersonAvatar from "./PersonAvatar";
@@ -50,7 +54,7 @@ interface PeopleExplorerProps {
   count: number | null;
   unavailable?: boolean;
   selectedPersonId?: string | null;
-  onSelectPerson?: (id: string) => void;
+  onSelectPerson?: (id: string | null) => void;
   onSelectOrg?: (id: string) => void;
 }
 
@@ -63,7 +67,7 @@ export default function PeopleExplorer({
 }: PeopleExplorerProps) {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [hasSeat, setHasSeat] = useState<"all" | "seated">("seated");
+  const [hasSeat, setHasSeat] = useState<"all" | "seated">("all");
   const [items, setItems] = useState<Person[]>([]);
   const [total, setTotal] = useState<number | null>(count);
   const [listLoading, setListLoading] = useState(true);
@@ -71,6 +75,8 @@ export default function PeopleExplorer({
   const [selectedId, setSelectedId] = useState<string | null>(selectedPersonId ?? null);
   const [detail, setDetail] = useState<PersonDetail | null>(null);
   const [ego, setEgo] = useState<EgoGraphResponse | null>(null);
+  const [overview, setOverview] = useState<PeopleAffinityResponse | null>(null);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [hops, setHops] = useState<1 | 2>(1);
   const [currentOnly, setCurrentOnly] = useState(true);
@@ -80,6 +86,8 @@ export default function PeopleExplorer({
   const [labelMode, setLabelMode] = useState<GraphLabelMode>("focus");
   const selectedPersonIdRef = useRef(selectedPersonId);
   selectedPersonIdRef.current = selectedPersonId;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query.trim()), 250);
@@ -90,15 +98,32 @@ export default function PeopleExplorer({
     if (selectedPersonId) setSelectedId(selectedPersonId);
   }, [selectedPersonId]);
 
-  const selectPerson = (id: string) => {
+  const clearPerson = () => {
+    setSelectedId(null);
+    setDetail(null);
+    setEgo(null);
+    setOnTheRecord([]);
+    setSelectedEdge(null);
+    onSelectPerson?.(null);
+  };
+
+  const focusPerson = (id: string) => {
     setSelectedId(id);
     onSelectPerson?.(id);
     setMobileStep("detail");
   };
 
+  const selectPerson = (id: string) => {
+    if (selectedId === id) {
+      clearPerson();
+      return;
+    }
+    focusPerson(id);
+  };
+
   const selectFromWhyLinked = (id: string, kind: "person" | "organization") => {
     if (kind === "person") {
-      selectPerson(id);
+      focusPerson(id);
       return;
     }
     onSelectOrg?.(id);
@@ -131,15 +156,16 @@ export default function PeopleExplorer({
         setItems(nextItems);
         setTotal(typeof data?.total === "number" ? data.total : nextItems.length);
         setListLoading(false);
-        setSelectedId((current) => {
-          if (selectedPersonIdRef.current) return selectedPersonIdRef.current;
-          if (current) return current;
-          const preferred =
-            nextItems.find((person) => /anduri/i.test(person.full_name)) ||
-            nextItems[0] ||
-            null;
-          return preferred?.id ?? null;
-        });
+        const fromParent = selectedPersonIdRef.current;
+        const current = selectedIdRef.current;
+        const keep =
+          fromParent && nextItems.some((person) => person.id === fromParent)
+            ? fromParent
+            : current && nextItems.some((person) => person.id === current)
+              ? current
+              : null;
+        setSelectedId(keep);
+        if (!keep && fromParent) onSelectPerson?.(null);
       })
       .catch((err) => {
         setListError(err.message);
@@ -194,6 +220,27 @@ export default function PeopleExplorer({
     setSelectedEdge(null);
   }, [selectedId, hops, currentOnly]);
 
+  useEffect(() => {
+    if (selectedId) return;
+    const params = new URLSearchParams({
+      current_only: String(currentOnly),
+      min_shared: "1",
+      limit_people: "40",
+    });
+    if (hasSeat === "seated") params.set("has_seat", "true");
+    fetch(`/api/graph/people-affinity?${params.toString()}`)
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+        return data as PeopleAffinityResponse;
+      })
+      .then((data) => {
+        setOverview(data);
+        setOverviewError(null);
+      })
+      .catch((err) => setOverviewError(err.message));
+  }, [selectedId, currentOnly, hasSeat]);
+
   const empty = !listLoading && !listError && items.length === 0;
   const trulyEmpty =
     !listLoading &&
@@ -209,8 +256,18 @@ export default function PeopleExplorer({
 
   const whyLinkedModel = useMemo(() => {
     if (!selectedEdge) return null;
-    return buildWhyLinkedModel(selectedEdge, ego?.nodes ?? []);
-  }, [selectedEdge, ego]);
+    const entities = selectedId
+      ? (ego?.nodes ?? [])
+      : (overview?.nodes ?? []).map((node) => ({
+          id: node.id,
+          label: node.label,
+          kind: "person" as const,
+        }));
+    return buildWhyLinkedModel(selectedEdge, [
+      ...entities,
+      ...(selectedEdge.shared_entities ?? []),
+    ]);
+  }, [selectedEdge, selectedId, ego, overview]);
 
   if (unavailable && (count == null || count === 0) && items.length === 0 && !listLoading) {
     return (
@@ -245,8 +302,11 @@ export default function PeopleExplorer({
             checked={hasSeat === "seated"}
             onChange={(e) => setHasSeat(e.target.checked ? "seated" : "all")}
           />
-          Has a formal seat
+          Current seat holder
         </label>
+        <p className="text-[11px] font-body text-ink-muted">
+          Recorded seats only — not commission memberships.
+        </p>
         <p className="text-[11px] font-body text-ink-muted">
           Ranked by board footprint
         </p>
@@ -427,20 +487,62 @@ export default function PeopleExplorer({
 
   const detailPane = <div className="space-y-3">{personDetail}</div>;
 
+  const overviewNodes = (overview?.nodes ?? []).map((node) => ({
+    id: node.id,
+    kind: "person" as const,
+    label: node.label,
+    size: node.size,
+    photo_url: node.photo_url,
+  }));
+  const overviewEdges = (overview?.edges ?? []).map((edge) => ({
+    source: edge.source,
+    target: edge.target,
+    kind: "shared_board" as const,
+    shared: edge.shared,
+    shared_names: edge.shared_names,
+    shared_entities: edge.shared_entities,
+  }));
+  const graphNodes = selectedId ? (ego?.nodes ?? []) : overviewNodes;
+  const graphEdges = selectedId ? (ego?.edges ?? []) : overviewEdges;
+  const graphLoading = selectedId
+    ? detailLoading && !ego
+    : !overview && !overviewError;
+
   const vizPane = (
     <div className="flex flex-col h-full min-h-[420px] gap-2">
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="font-heading font-semibold text-ink text-sm">
+          {selectedId ? "Network" : "Shared boards"}
+        </h3>
+        {selectedId && (
+          <button
+            type="button"
+            onClick={clearPerson}
+            className="text-[11px] font-body text-forest-700 underline hover:text-forest-900"
+          >
+            Clear focus
+          </button>
+        )}
+      </div>
+      <p className="text-xs font-body text-ink-muted">
+        {selectedId
+          ? `Focused on ${selected?.full_name ?? "this person"} and the boards they sit on.`
+          : "People who sit on the same boards. Circle size is how many other people they connect to. Select a person to focus. This is not a political grouping."}
+      </p>
       <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
-        <label
-          className="inline-flex items-center gap-1.5"
-          title="Add the other people who currently sit on this person's boards, clustered under the board they share."
-        >
-          <input
-            type="checkbox"
-            checked={hops === 2}
-            onChange={(e) => setHops(e.target.checked ? 2 : 1)}
-          />
-          Show shared boards
-        </label>
+        {selectedId && (
+          <label
+            className="inline-flex items-center gap-1.5"
+            title="Add the other people who currently sit on this person's boards, clustered under the board they share."
+          >
+            <input
+              type="checkbox"
+              checked={hops === 2}
+              onChange={(e) => setHops(e.target.checked ? 2 : 1)}
+            />
+            Show shared boards
+          </label>
+        )}
         <label className="inline-flex items-center gap-1.5">
           <input
             type="checkbox"
@@ -451,15 +553,18 @@ export default function PeopleExplorer({
         </label>
         <GraphLabelToggle mode={labelMode} onChange={setLabelMode} />
       </div>
+      {overviewError && !selectedId && (
+        <p className="text-sm font-body text-ink-muted">{overviewError}</p>
+      )}
       <div className="flex-1 min-h-[420px]">
-        {detailLoading && !ego ? (
+        {graphLoading ? (
           <div className="h-full min-h-[420px] bg-surface-muted rounded-md animate-pulse" />
         ) : (
           <CivicGraph
-            nodes={ego?.nodes ?? []}
-            edges={ego?.edges ?? []}
-            centerId={ego?.center.id}
-            layout="ego"
+            nodes={graphNodes}
+            edges={graphEdges}
+            centerId={selectedId ? ego?.center.id : null}
+            layout={selectedId ? "ego" : "force"}
             labelMode={labelMode}
             selectedEdge={selectedEdge}
             heightClassName="h-full min-h-[420px]"
@@ -473,13 +578,17 @@ export default function PeopleExplorer({
           />
         )}
       </div>
-      {hops === 2 && (
+      {selectedId && hops === 2 && (
         <p className="text-[11px] font-body text-ink-muted">
           Each spoke is a board this person sits on; the people fanned beside it
           also sit on that board. Full list under “Shared boards”.
         </p>
       )}
-      <GraphLegend nodes={ego?.nodes} />
+      <GraphLegend
+        peopleAffinity={!selectedId}
+        showSeats={Boolean(selectedId)}
+        nodes={graphNodes}
+      />
     </div>
   );
 

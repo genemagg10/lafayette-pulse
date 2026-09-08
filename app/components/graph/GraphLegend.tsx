@@ -114,34 +114,55 @@ function StanceShortLine() {
 export default function GraphLegend({
   showSeats = true,
   affinity = false,
+  peopleAffinity = false,
   stance = false,
   nodes,
   orgTypes,
 }: {
   showSeats?: boolean;
   affinity?: boolean;
+  peopleAffinity?: boolean;
   stance?: boolean;
-  nodes?: Array<{ org_type?: OrgType | null }>;
+  nodes?: Array<{ org_type?: OrgType | null; kind?: string | null }>;
   orgTypes?: OrgType[];
 }) {
   const present =
     orgTypes ?? (nodes ? presentOrgTypesFromNodes(nodes) : []);
-
+  const hasPeople =
+    peopleAffinity ||
+    Boolean(nodes?.some((node) => node.kind === "person")) ||
+    (!affinity && !nodes);
+  const hasOrgs =
+    affinity ||
+    Boolean(
+      nodes?.some((node) => node.kind === "organization" || node.org_type)
+    ) ||
+    (!peopleAffinity && !nodes);
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-body text-forest-600">
-      {!affinity && (
+      {hasPeople && (
         <ShapeSwatch shape="circle" color={PERSON_COLOR} label="Person" />
       )}
-      <ShapeSwatch
-        shape="square"
-        color={ORG_TYPE_COLORS.city_body}
-        label="Organization"
-      />
-      {showSeats && !affinity && (
+      {hasOrgs && (
+        <ShapeSwatch
+          shape="square"
+          color={ORG_TYPE_COLORS.city_body}
+          label="Organization"
+        />
+      )}
+      {showSeats && !affinity && !peopleAffinity && (
         <ShapeSwatch shape="diamond" color={SEAT_COLOR} label="Seat" />
       )}
       {affinity ? (
-        <span>Line weight = overlapping membership</span>
+        <>
+          <span>Size = current members</span>
+          <span>Line weight = overlapping membership</span>
+        </>
+      ) : peopleAffinity ? (
+        <>
+          <span>Size = connections to other people</span>
+          <span>Line weight = shared boards</span>
+        </>
       ) : !stance ? (
         <>
           <LineSwatch color={CURRENT_EDGE_COLOR} label="Current" />

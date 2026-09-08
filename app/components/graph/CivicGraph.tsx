@@ -12,6 +12,7 @@ import {
   EGO_HALO_COLOR,
   EGO_HALO_WIDTH_PX,
   isCurrentTenure,
+  mixedActorGraph,
   nodeColor,
   nodeType,
   PAST_EDGE_COLOR,
@@ -44,6 +45,7 @@ export interface RenderableNode {
   size?: number;
   color?: string;
   member_count?: number;
+  type?: "circle" | "square" | "diamond";
   column?: "support" | "oppose" | "endorse" | "measure";
   polarity?: string;
 }
@@ -504,6 +506,7 @@ export default function CivicGraph({
     if (!container) return;
 
     const graph = new Graph({ multi: true, type: "undirected" });
+    const mixedActors = mixedActorGraph(nodes);
     for (const node of nodes) {
       if (graph.hasNode(node.id)) continue;
       const kind = node.kind;
@@ -511,13 +514,19 @@ export default function CivicGraph({
       graph.addNode(node.id, {
         label: node.label,
         kind,
-        size: isCenter
-          ? clampEgoSize(node.size)
-          : node.size ?? (kind === "person" ? 9 : kind === "seat" ? 8 : 10),
+        size:
+          node.size ??
+          (isCenter
+            ? clampEgoSize(undefined)
+            : kind === "person"
+              ? 9
+              : kind === "seat"
+                ? 8
+                : 10),
         color:
           node.color ||
           nodeColor(kind, "org_type" in node ? node.org_type : undefined),
-        type: nodeType(kind),
+        type: node.type ?? nodeType(kind),
         column: node.column,
         polarity: node.polarity,
         member_count: node.member_count,
@@ -529,9 +538,9 @@ export default function CivicGraph({
 
     for (const edge of edges) {
       if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue;
-      // Shared-board ties are shown structurally (peers cluster under the board
-      // they share) rather than as person-to-person lines across the center.
-      if (edge.kind === "shared_board") continue;
+      // In mixed ego views, shared-board ties are shown structurally (peers
+      // cluster under the board they share). People-only overviews draw them.
+      if (edge.kind === "shared_board" && mixedActors) continue;
       const current = isCurrentTenure(edge.end_date);
       const seated = edge.kind === "seat_holder" || Boolean(edge.is_primary);
       const isAffinity = edge.shared != null || edge.jaccard != null;
