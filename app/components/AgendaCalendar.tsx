@@ -9,7 +9,6 @@ import {
   type RefObject,
 } from "react";
 import {
-  CELL_MIN_PX,
   EVENT_LINE_PX,
   cellVisibleCount,
   eventLineText,
@@ -237,8 +236,7 @@ export default function AgendaCalendar({
           {Array.from({ length: view === "week" ? 7 : fillRows * 7 }).map((_, i) => (
             <div
               key={i}
-              className={compact ? "h-8 bg-surface-muted" : "bg-surface-muted"}
-              style={compact ? undefined : { minHeight: CELL_MIN_PX }}
+              className={compact ? "h-8 bg-surface-muted" : "h-full min-h-0 bg-surface-muted"}
             />
           ))}
         </CalendarGridFrame>
@@ -401,25 +399,22 @@ function CalendarGridFrame({
   gridRef?: RefObject<HTMLDivElement>;
   children: ReactNode;
 }) {
-  const grid = (
+  return (
     <div
       ref={gridRef}
-      className={`grid grid-cols-7 gap-px bg-line ${compact ? "" : "min-h-full"}`}
+      className={`grid grid-cols-7 gap-px bg-line ${
+        compact ? "" : "flex-1 min-h-0"
+      }`}
       style={compact ? undefined : { gridTemplateRows: gridRowTemplate(rows) }}
     >
       {children}
     </div>
   );
-  if (compact) return grid;
-  return <div className="flex-1 min-h-0 overflow-y-auto">{grid}</div>;
 }
 
 function EmptyCell({ compact }: { compact: boolean }) {
   return (
-    <div
-      className={`bg-surface-muted ${compact ? "h-8" : ""}`}
-      style={compact ? undefined : { minHeight: CELL_MIN_PX }}
-    />
+    <div className={compact ? "h-8 bg-surface-muted" : "h-full min-h-0 bg-surface-muted"} />
   );
 }
 
@@ -453,9 +448,8 @@ function DayCell({
       aria-current={today ? "date" : undefined}
       aria-label={dayKey}
       className={`min-w-0 w-full text-left ${
-        compact ? "h-8 px-1 py-0.5" : "h-full p-1.5 flex flex-col"
+        compact ? "h-8 px-1 py-0.5" : "h-full min-h-0 p-1.5 flex flex-col"
       } ${selected ? "bg-accent-soft" : "bg-surface hover:bg-canvas"}`}
-      style={compact ? undefined : { minHeight: CELL_MIN_PX }}
     >
       <span
         className={`text-[12px] leading-4 font-body block ${

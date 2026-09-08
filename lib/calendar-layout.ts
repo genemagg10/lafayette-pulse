@@ -3,11 +3,10 @@ import type { CalendarItem } from "./calendar-items";
 export const CARD_RAIL_PX = 360;
 export const WEEK_COL_MIN_PX = 120;
 export const EVENT_LINE_PX = 16;
-/** Floor so two event lines stay readable. Do not drop this to avoid scroll. */
-export const CELL_MIN_PX = 112;
 
+/** Equal fractions of leftover viewport height. Not a fixed cell size. */
 export function gridRowTemplate(rowCount: number): string {
-  return `repeat(${Math.max(rowCount, 1)}, minmax(${CELL_MIN_PX}px, 1fr))`;
+  return `repeat(${Math.max(rowCount, 1)}, minmax(0, 1fr))`;
 }
 
 export function weekRailStacks(

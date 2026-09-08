@@ -10,7 +10,6 @@ import {
   upcomingWindow,
 } from "../lib/calendar-time.ts";
 import {
-  CELL_MIN_PX,
   cellVisibleCount,
   closedKindChip,
   eventLineText,
@@ -121,9 +120,10 @@ test("upcoming window is today plus the next 6 days (7 civil days)", () => {
   });
 });
 
-test("cell floor stays 112px so two lines remain readable", () => {
-  assert.equal(CELL_MIN_PX, 112);
-  assert.equal(gridRowTemplate(6), "repeat(6, minmax(112px, 1fr))");
+test("week rows are equal 1fr fractions, not a fixed 112px cell", () => {
+  assert.equal(gridRowTemplate(6), "repeat(6, minmax(0, 1fr))");
+  assert.equal(gridRowTemplate(1), "repeat(1, minmax(0, 1fr))");
+  assert.doesNotMatch(gridRowTemplate(6), /112px/);
 });
 
 test("week rail stacks when columns would drop under 120px", () => {
