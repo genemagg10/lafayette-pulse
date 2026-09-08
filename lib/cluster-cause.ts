@@ -8,6 +8,8 @@ export const CLUSTER_WASH_OPACITY = 0.12;
 export const CLUSTER_MIXED_STROKE = "#C9C5B8";
 export const MIN_CLUSTER_SIZE = 3;
 export const MIXED_ORG_LIST_MAX = 3;
+/** Wash is ground only. Never lifted over lines. Never used as an edge tint. */
+export const CLUSTER_WASH_IS_GROUND = true;
 
 /** Wide overview only. Most involved stays a named graph — no pill, no wash. */
 export function clusterCauseOnStop(stop: GraphRangeStop): boolean {
@@ -183,41 +185,253 @@ export function coveringOrgs(
   return orgStatsForMembers(memberIds, edges).filter((org) => org.people >= size);
 }
 
+/** Unique undirected edges among the given nodes. */
+function uniqueUndirectedEdges(
+  nodeIds: readonly string[],
+  edges: readonly ClusterEdge[]
+): Array<{ source: string; target: string; key: string }> {
+  const idSet = new Set(nodeIds);
+  const seen = new Set<string>();
+  const unique: Array<{ source: string; target: string; key: string }> = [];
+  for (const edge of edges) {
+    if (!idSet.has(edge.source) || !idSet.has(edge.target)) continue;
+    if (edge.source === edge.target) continue;
+    const key = edgeKey(edge.source, edge.target);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push({ source: edge.source, target: edge.target, key });
+  }
+  return unique;
+}
+
+function adjacencyList(
+  nodeIds: readonly string[],
+  pairs: readonly { source: string; target: string }[]
+): Map<string, string[]> {
+  const adj = new Map<string, string[]>();
+  for (const id of nodeIds) adj.set(id, []);
+  for (const pair of pairs) {
+    adj.get(pair.source)?.push(pair.target);
+    adj.get(pair.target)?.push(pair.source);
+  }
+  return adj;
+}
+
+/** Edges whose removal splits a sitting group. */
+export function findBridgeKeys(
+  nodeIds: readonly string[],
+  edges: readonly ClusterEdge[]
+): Set<string> {
+  const pairs = uniqueUndirectedEdges(nodeIds, edges);
+  const adj = adjacencyList(nodeIds, pairs);
+  const disc = new Map<string, number>();
+  const low = new Map<string, number>();
+  const parent = new Map<string, string | null>();
+  const bridges = new Set<string>();
+  let time = 0;
+
+  const visit = (u: string) => {
+    time += 1;
+    disc.set(u, time);
+    low.set(u, time);
+    for (const v of adj.get(u) ?? []) {
+      if (!disc.has(v)) {
+        parent.set(v, u);
+        visit(v);
+        low.set(u, Math.min(low.get(u) ?? time, low.get(v) ?? time));
+        if ((low.get(v) ?? 0) > (disc.get(u) ?? 0)) {
+          bridges.add(edgeKey(u, v));
+        }
+      } else if (v !== parent.get(u)) {
+        low.set(u, Math.min(low.get(u) ?? time, disc.get(v) ?? time));
+      }
+    }
+  };
+
+  for (const id of nodeIds) {
+    if (!disc.has(id)) {
+      parent.set(id, null);
+      visit(id);
+    }
+  }
+  return bridges;
+}
+
 /**
- * One cause per connected group already implied by shared-board edges.
- * If a single org covers every person in the group, that org is the cause.
- * Otherwise the cause is mixed. No layout or community detection.
+ * Groups that remain after thin bridges are removed.
+ * A bridge edge must not merge two sitting groups.
+ */
+export function twoEdgeConnectedComponents(
+  nodeIds: readonly string[],
+  edges: readonly ClusterEdge[]
+): string[][] {
+  const bridges = findBridgeKeys(nodeIds, edges);
+  const pairs = uniqueUndirectedEdges(nodeIds, edges).filter(
+    (pair) => !bridges.has(pair.key)
+  );
+  return connectedComponents(nodeIds, pairs);
+}
+
+/**
+ * Org that covers the most members, or the most internal edges on a tie.
+ * No unique plurality → not dominant.
+ */
+export function dominantOrg(stats: readonly ClusterOrg[]): ClusterOrg | null {
+  if (stats.length === 0) return null;
+  const [first, second] = stats;
+  if (!second) return first;
+  if (first.people > second.people) return first;
+  if (first.people === second.people && first.edges > second.edges) {
+    return first;
+  }
+  return null;
+}
+
+function memberSetKey(memberIds: readonly string[]): string {
+  return memberIds.slice().sort().join(",");
+}
+
+function isMemberSubset(
+  inner: readonly string[],
+  outer: readonly string[]
+): boolean {
+  if (inner.length > outer.length) return false;
+  const set = new Set(outer);
+  return inner.every((id) => set.has(id));
+}
+
+export interface SittingGroup {
+  memberIds: string[];
+}
+
+/**
+ * Drop a sitting group whose members are inside a larger one.
+ * Equal member sets keep a single group; naming uses dominance.
+ */
+export function pruneNestedSittingGroups<T extends SittingGroup>(
+  groups: readonly T[]
+): T[] {
+  const sorted = groups.slice().sort((a, b) => {
+    if (b.memberIds.length !== a.memberIds.length) {
+      return b.memberIds.length - a.memberIds.length;
+    }
+    return memberSetKey(a.memberIds).localeCompare(memberSetKey(b.memberIds));
+  });
+  const kept: T[] = [];
+  for (const group of sorted) {
+    if (kept.some((other) => isMemberSubset(group.memberIds, other.memberIds))) {
+      continue;
+    }
+    kept.push(group);
+  }
+  return kept;
+}
+
+function edgesForOrg(
+  edges: readonly ClusterEdge[],
+  orgId: string
+): ClusterEdge[] {
+  return edges.filter((edge) => orgsOnEdge(edge).some((org) => org.id === orgId));
+}
+
+function orgsOnDrawnEdges(
+  nodeIds: readonly string[],
+  edges: readonly ClusterEdge[]
+): Array<{ id: string; label: string }> {
+  const idSet = new Set(nodeIds);
+  const labels = new Map<string, string>();
+  for (const edge of edges) {
+    if (!idSet.has(edge.source) || !idSet.has(edge.target)) continue;
+    if (edge.source === edge.target) continue;
+    for (const org of orgsOnEdge(edge)) {
+      if (!org.id || labels.has(org.id)) continue;
+      labels.set(org.id, org.label);
+    }
+  }
+  return Array.from(labels.entries()).map(([id, label]) => ({ id, label }));
+}
+
+/**
+ * Groups that sit together on one org. A thin bridge of another org
+ * does not merge them. Nested subsets are dropped so one blob gets one pill.
+ */
+export function orgSittingGroups(
+  nodeIds: readonly string[],
+  edges: readonly ClusterEdge[]
+): SittingGroup[] {
+  const groups: SittingGroup[] = [];
+  for (const org of orgsOnDrawnEdges(nodeIds, edges)) {
+    const orgEdges = edgesForOrg(edges, org.id);
+    const members = new Set<string>();
+    const idSet = new Set(nodeIds);
+    for (const edge of orgEdges) {
+      if (!idSet.has(edge.source) || !idSet.has(edge.target)) continue;
+      if (edge.source === edge.target) continue;
+      members.add(edge.source);
+      members.add(edge.target);
+    }
+    for (const component of connectedComponents(Array.from(members), orgEdges)) {
+      if (component.length < MIN_CLUSTER_SIZE) continue;
+      groups.push({ memberIds: component });
+    }
+  }
+  return pruneNestedSittingGroups(groups);
+}
+
+function causeFromMembers(
+  memberIds: string[],
+  edges: readonly ClusterEdge[]
+): ClusterCause {
+  const stats = orgStatsForMembers(memberIds, edges);
+  const winner = dominantOrg(stats);
+  const topOrgs = stats.slice(0, MIXED_ORG_LIST_MAX);
+  if (winner) {
+    return {
+      id: `org:${winner.id}:${memberIds.join(",")}`,
+      kind: "org",
+      label: winner.label,
+      orgId: winner.id,
+      memberIds,
+      topOrgs: [winner],
+    };
+  }
+  return {
+    id: `mixed:${memberIds.join(",")}`,
+    kind: "mixed",
+    label: MIXED_BOARDS_LABEL,
+    orgId: null,
+    memberIds,
+    topOrgs,
+  };
+}
+
+/**
+ * Split the drawn graph into the groups that sit together, then name
+ * each group for the org that dominates it (most members, or most
+ * internal edges). Mixed boards only when that group has no dominant org.
+ * A thin bridge must not merge separable groups.
  */
 export function buildClusterCauses(
   nodeIds: readonly string[],
   edges: readonly ClusterEdge[]
 ): ClusterCause[] {
-  const causes: ClusterCause[] = [];
+  const sitting = orgSittingGroups(nodeIds, edges);
+  const causes: ClusterCause[] = sitting.map((group) =>
+    causeFromMembers(group.memberIds, edges)
+  );
 
-  for (const component of connectedComponents(nodeIds, edges)) {
-    if (component.length < MIN_CLUSTER_SIZE) continue;
-    const covering = coveringOrgs(component, edges);
-    const topOrgs = topSharedOrgs(component, edges);
-    if (covering.length > 0) {
-      const winner = covering[0];
-      causes.push({
-        id: `org:${winner.id}:${component.join(",")}`,
-        kind: "org",
-        label: winner.label,
-        orgId: winner.id,
-        memberIds: component,
-        topOrgs: [winner],
-      });
-      continue;
-    }
-    causes.push({
-      id: `mixed:${component.join(",")}`,
-      kind: "mixed",
-      label: MIXED_BOARDS_LABEL,
-      orgId: null,
-      memberIds: component,
-      topOrgs,
-    });
+  const assigned = new Set<string>();
+  for (const group of sitting) {
+    for (const id of group.memberIds) assigned.add(id);
+  }
+
+  const leftover = nodeIds.filter((id) => !assigned.has(id));
+  const leftoverEdges = edges.filter(
+    (edge) => !assigned.has(edge.source) && !assigned.has(edge.target)
+  );
+  for (const piece of twoEdgeConnectedComponents(leftover, leftoverEdges)) {
+    if (piece.length < MIN_CLUSTER_SIZE) continue;
+    causes.push(causeFromMembers(piece, leftoverEdges));
   }
 
   return causes.sort((a, b) => {
@@ -228,6 +442,7 @@ export function buildClusterCauses(
   });
 }
 
+/** Full org name for the pill. Do not pre-truncate. */
 export function clusterLabelText(cause: ClusterCause): string {
   return cause.kind === "org" ? cause.label : MIXED_BOARDS_LABEL;
 }
