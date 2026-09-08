@@ -825,7 +825,7 @@ export default function CivicGraph({
             : null,
         });
         const boxes = [];
-        for (const id of visible) {
+        for (const id of Array.from(visible)) {
           if (!graph.hasNode(id)) continue;
           const attrs = graph.getNodeAttributes(id);
           const display = renderer.getNodeDisplayData(id);
