@@ -101,13 +101,12 @@ test("an org that covers everyone still wins when they also share other boards",
   );
 });
 
-test("two named org groups stay separate and do not add Mixed boards", () => {
+test("two disconnected org groups each keep that org as the cause", () => {
   const nodes = ["ada", "bea", "cam", "dee", "eve", "fay"];
   const edges = [
     edge("ada", "bea", [org("council", "City Council")]),
     edge("ada", "cam", [org("council", "City Council")]),
     edge("bea", "cam", [org("council", "City Council")]),
-    edge("cam", "dee", [org("bridge", "Bridge")]),
     edge("dee", "eve", [org("rotary", "Rotary")]),
     edge("dee", "fay", [org("rotary", "Rotary")]),
     edge("eve", "fay", [org("rotary", "Rotary")]),
@@ -120,6 +119,26 @@ test("two named org groups stay separate and do not add Mixed boards", () => {
   assert.equal(
     causes.some((cause) => cause.kind === "mixed"),
     false
+  );
+});
+
+test("one connected group with no covering org is Mixed boards", () => {
+  const nodes = ["ada", "bea", "cam", "dee", "eve", "fay"];
+  const edges = [
+    edge("ada", "bea", [org("council", "City Council")]),
+    edge("ada", "cam", [org("council", "City Council")]),
+    edge("bea", "cam", [org("council", "City Council")]),
+    edge("cam", "dee", [org("bridge", "Bridge")]),
+    edge("dee", "eve", [org("rotary", "Rotary")]),
+    edge("dee", "fay", [org("rotary", "Rotary")]),
+    edge("eve", "fay", [org("rotary", "Rotary")]),
+  ];
+  const causes = buildClusterCauses(nodes, edges);
+  assert.equal(causes.length, 1);
+  assert.equal(causes[0].kind, "mixed");
+  assert.deepEqual(
+    causes[0].topOrgs.slice(0, 2).map((row) => row.label).sort(),
+    ["City Council", "Rotary"]
   );
 });
 

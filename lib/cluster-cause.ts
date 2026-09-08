@@ -178,58 +178,32 @@ export function coveringOrgs(
 }
 
 /**
- * Groups already implied by shared-board edges. Named cause is the org that
- * draws the group together. If no single org covers the group, cause is mixed.
- * No layout or community detection.
+ * One cause per connected group already implied by shared-board edges.
+ * If a single org covers every person in the group, that org is the cause.
+ * Otherwise the cause is mixed. No layout or community detection.
  */
 export function buildClusterCauses(
   nodeIds: readonly string[],
   edges: readonly ClusterEdge[]
 ): ClusterCause[] {
-  const stats = orgStatsForMembers(nodeIds, edges);
-  const peopleByOrg = new Map<string, Set<string>>();
-  const members = new Set(nodeIds);
-  const seenEdges = new Set<string>();
-
-  for (const edge of edges) {
-    if (!members.has(edge.source) || !members.has(edge.target)) continue;
-    if (edge.source === edge.target) continue;
-    const key = edgeKey(edge.source, edge.target);
-    if (seenEdges.has(key)) continue;
-    seenEdges.add(key);
-    for (const org of orgsOnEdge(edge)) {
-      if (!org.id) continue;
-      const set = peopleByOrg.get(org.id) ?? new Set<string>();
-      set.add(edge.source);
-      set.add(edge.target);
-      peopleByOrg.set(org.id, set);
-    }
-  }
-
   const causes: ClusterCause[] = [];
-
-  for (const org of stats) {
-    const orgMembers = Array.from(peopleByOrg.get(org.id) ?? []).sort();
-    if (orgMembers.length < MIN_CLUSTER_SIZE) continue;
-    causes.push({
-      id: `org:${org.id}`,
-      kind: "org",
-      label: org.label,
-      orgId: org.id,
-      memberIds: orgMembers,
-      topOrgs: [org],
-    });
-  }
 
   for (const component of connectedComponents(nodeIds, edges)) {
     if (component.length < MIN_CLUSTER_SIZE) continue;
     const covering = coveringOrgs(component, edges);
-    if (covering.length > 0) continue;
-    const inside = orgStatsForMembers(component, edges).filter(
-      (org) => org.people >= MIN_CLUSTER_SIZE
-    );
-    if (inside.length > 0) continue;
     const topOrgs = topSharedOrgs(component, edges);
+    if (covering.length > 0) {
+      const winner = covering[0];
+      causes.push({
+        id: `org:${winner.id}:${component.join(",")}`,
+        kind: "org",
+        label: winner.label,
+        orgId: winner.id,
+        memberIds: component,
+        topOrgs: [winner],
+      });
+      continue;
+    }
     causes.push({
       id: `mixed:${component.join(",")}`,
       kind: "mixed",
