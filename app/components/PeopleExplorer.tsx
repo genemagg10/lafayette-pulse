@@ -717,7 +717,7 @@ export default function PeopleExplorer({
                     {MIXED_BOARDS_LABEL}
                   </h4>
                   <p className="text-xs font-body text-ink-muted mt-0.5">
-                    Top shared organizations
+                    Shared organizations
                   </p>
                 </div>
                 <button

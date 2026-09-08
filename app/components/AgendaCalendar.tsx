@@ -3,13 +3,11 @@
 import {
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
-  type RefObject,
 } from "react";
 import {
-  EVENT_LINE_PX,
+  EVENT_CHIP_TEXT_CLASS,
   calendarCategoryToken,
   cellVisibleCount,
   eventChipText,
@@ -343,11 +341,8 @@ function MonthGrid({
   compact: boolean;
   onSelectDay: (day: string | null) => void;
 }) {
-  const gridRef = useRef<HTMLDivElement>(null);
-  const maxLines = useEventLineCapacity(gridRef, rowCount, compact);
-
   return (
-    <CalendarGridFrame compact={compact} rows={rowCount} gridRef={gridRef}>
+    <CalendarGridFrame compact={compact} rows={rowCount}>
       {Array.from({ length: startOffset }).map((_, i) => (
         <EmptyCell key={`lead-${i}`} compact={compact} />
       ))}
@@ -362,7 +357,6 @@ function MonthGrid({
             selected={selectedDay === key}
             today={key === todayKey}
             compact={compact}
-            maxLines={maxLines}
             onSelect={() => onSelectDay(selectedDay === key ? null : key)}
           />
         );
@@ -389,11 +383,8 @@ function WeekGrid({
   compact: boolean;
   onSelectDay: (day: string | null) => void;
 }) {
-  const gridRef = useRef<HTMLDivElement>(null);
-  const maxLines = useEventLineCapacity(gridRef, 1, compact);
-
   return (
-    <CalendarGridFrame compact={compact} rows={1} gridRef={gridRef}>
+    <CalendarGridFrame compact={compact} rows={1}>
       {Array.from({ length: 7 }, (_, i) => {
         const date = new Date(weekStart);
         date.setDate(weekStart.getDate() + i);
@@ -407,7 +398,6 @@ function WeekGrid({
             selected={selectedDay === key}
             today={key === todayKey}
             compact={compact}
-            maxLines={maxLines}
             onSelect={() => onSelectDay(selectedDay === key ? null : key)}
           />
         );
@@ -419,19 +409,16 @@ function WeekGrid({
 function CalendarGridFrame({
   compact,
   rows,
-  gridRef,
   children,
 }: {
   compact: boolean;
   rows: number;
-  gridRef?: RefObject<HTMLDivElement>;
   children: ReactNode;
 }) {
   return (
     <div
-      ref={gridRef}
       className={`grid grid-cols-7 gap-px bg-line ${
-        compact ? "" : "flex-1 min-h-0"
+        compact ? "" : "flex-1 min-h-0 overflow-y-auto"
       }`}
       style={compact ? undefined : { gridTemplateRows: gridRowTemplate(rows) }}
     >
@@ -453,7 +440,6 @@ function DayCell({
   selected,
   today,
   compact,
-  maxLines,
   onSelect,
 }: {
   dayKey: string;
@@ -462,10 +448,10 @@ function DayCell({
   selected: boolean;
   today: boolean;
   compact: boolean;
-  maxLines: number;
   onSelect: () => void;
 }) {
-  const { show, more } = cellVisibleCount(items.length, compact ? 0 : maxLines);
+  // Cell grows with wrapped titles, so every chip fits unless compact (dots only).
+  const { show, more } = cellVisibleCount(items.length, compact ? 0 : items.length);
   const visible = items.slice(0, show);
 
   return (
@@ -476,7 +462,7 @@ function DayCell({
       aria-current={today ? "date" : undefined}
       aria-label={dayKey}
       className={`min-w-0 w-full text-left ${
-        compact ? "h-8 px-1 py-0.5" : "h-full min-h-0 p-1.5 flex flex-col"
+        compact ? "h-8 px-1 py-0.5" : "min-h-full p-1.5 flex flex-col"
       } ${selected ? "bg-accent-soft" : "bg-surface hover:bg-canvas"}`}
     >
       <span
@@ -491,26 +477,25 @@ function DayCell({
           <span className="block w-1 h-1 mt-0.5 bg-forest" />
         ) : null
       ) : (
-        <div data-event-well className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-hidden mt-1">
+        <div data-event-well className="flex flex-col gap-0.5 mt-1">
           {visible.map((item) => {
             const token = calendarCategoryToken(item);
             return (
-              <div key={item.id} className="h-4 min-w-0 w-full overflow-hidden">
-                <span
-                  className="inline-block max-w-full truncate text-[12px] leading-[12px] text-ink"
-                  style={{
-                    backgroundColor: token.color,
-                    padding: "2px 6px",
-                    borderRadius: 4,
-                  }}
-                >
-                  {eventChipText(item)}
-                </span>
-              </div>
+              <span
+                key={item.id}
+                className={EVENT_CHIP_TEXT_CLASS}
+                style={{
+                  backgroundColor: token.color,
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                }}
+              >
+                {eventChipText(item)}
+              </span>
             );
           })}
           {more > 0 ? (
-            <div className="h-4 text-[12px] leading-4 text-ink-muted">
+            <div className="text-[12px] leading-4 text-ink-muted">
               {more} more
             </div>
           ) : null}
@@ -518,36 +503,4 @@ function DayCell({
       )}
     </button>
   );
-}
-
-function useEventLineCapacity(
-  gridRef: RefObject<HTMLDivElement>,
-  rowCount: number,
-  compact: boolean
-): number {
-  const [maxLines, setMaxLines] = useState(0);
-
-  useEffect(() => {
-    if (compact) return;
-    const root = gridRef.current;
-    if (!root) return;
-
-    const measure = () => {
-      const well = root.querySelector<HTMLElement>("[data-event-well]");
-      if (!well) {
-        setMaxLines(0);
-        return;
-      }
-      setMaxLines(Math.max(0, Math.floor(well.clientHeight / EVENT_LINE_PX)));
-    };
-
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(root);
-    const well = root.querySelector("[data-event-well]");
-    if (well) ro.observe(well);
-    return () => ro.disconnect();
-  }, [gridRef, rowCount, compact]);
-
-  return maxLines;
 }

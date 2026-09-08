@@ -16,6 +16,7 @@ import {
 } from "../lib/calendar-time.ts";
 import {
   CALENDAR_CATEGORY_TOKENS,
+  EVENT_CHIP_TEXT_CLASS,
   EVENT_LINE_PX,
   calendarCategoryKey,
   calendarCategoryToken,
@@ -130,10 +131,23 @@ test("upcoming window is today plus the next 6 days (7 civil days)", () => {
   });
 });
 
-test("week rows are equal 1fr fractions, not a fixed 112px cell", () => {
-  assert.equal(gridRowTemplate(6), "repeat(6, minmax(0, 1fr))");
-  assert.equal(gridRowTemplate(1), "repeat(1, minmax(0, 1fr))");
-  assert.doesNotMatch(gridRowTemplate(6), /112px/);
+test("week rows fill leftover height then grow; the month scrolls instead of 1fr clip", () => {
+  assert.equal(
+    gridRowTemplate(6),
+    "repeat(6, minmax(calc((100% - 5px) / 6), auto))"
+  );
+  assert.equal(
+    gridRowTemplate(1),
+    "repeat(1, minmax(calc((100% - 0px) / 1), auto))"
+  );
+  assert.doesNotMatch(gridRowTemplate(6), /1fr|112px/);
+  assert.match(gridRowTemplate(6), /auto/);
+});
+
+test("month chips wrap the full title; no ellipsis or nowrap", () => {
+  assert.doesNotMatch(EVENT_CHIP_TEXT_CLASS, /truncate|nowrap|ellipsis/);
+  assert.match(EVENT_CHIP_TEXT_CLASS, /whitespace-normal/);
+  assert.match(EVENT_CHIP_TEXT_CLASS, /break-words/);
 });
 
 test("week rail stacks when columns would drop under 120px", () => {
@@ -142,12 +156,14 @@ test("week rail stacks when columns would drop under 120px", () => {
   assert.equal(weekRailStacks(1440), false);
 });
 
-test("cell lines never reserve a half-cut slot; remainder is N more", () => {
+test("N more is leftover events after wrap, never a half-cut chip or cut title", () => {
   assert.deepEqual(cellVisibleCount(5, 3), { show: 2, more: 3 });
   assert.deepEqual(cellVisibleCount(2, 3), { show: 2, more: 0 });
   assert.deepEqual(cellVisibleCount(5, 1), { show: 0, more: 5 });
   assert.deepEqual(cellVisibleCount(5, 0), { show: 0, more: 5 });
   assert.deepEqual(cellVisibleCount(1, 1), { show: 1, more: 0 });
+  // Growing the cell fits every wrapped chip — wrapping is not a slot tax.
+  assert.deepEqual(cellVisibleCount(4, 4), { show: 4, more: 0 });
 });
 
 test("event line keeps recorded time; month chips use the event name only", () => {
