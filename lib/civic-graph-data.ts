@@ -5,9 +5,11 @@ import {
   involvementScore,
   isCurrentTenure,
   jaccardSets,
+  assemblePeopleAffinity,
+  orgAffinityNodeSize,
+  personDegreeNodeSize,
   selectOrgAffinityIds,
   sharedBoardPersonOverlaps,
-  scaleSize,
   type CivicGraphEdge,
   type CivicGraphNode,
   type EgoGraphResponse,
@@ -16,6 +18,7 @@ import {
   type InvolvementMetric,
   type InvolvementResponse,
   type OrgAffinityResponse,
+  type PeopleAffinityResponse,
   type SharedBoardOverlap,
 } from "./civic-graph";
 
@@ -139,6 +142,39 @@ function tenureOk(endDate: string | null, currentOnly: boolean): boolean {
   return !currentOnly || isCurrentTenure(endDate);
 }
 
+function collectBoardsByPerson(
+  snapshot: GraphSnapshot,
+  currentOnly: boolean
+): Map<string, Set<string>> {
+  const seatsById = indexById(snapshot.seats);
+  const boardsByPerson = new Map<string, Set<string>>();
+  const add = (id: string, orgId: string) => {
+    const set = boardsByPerson.get(id) ?? new Set<string>();
+    set.add(orgId);
+    boardsByPerson.set(id, set);
+  };
+  for (const membership of snapshot.memberships) {
+    if (!tenureOk(membership.end_date, currentOnly)) continue;
+    add(membership.person_id, membership.organization_id);
+  }
+  for (const holder of snapshot.seatHolders) {
+    if (!tenureOk(holder.end_date, currentOnly)) continue;
+    const orgId = seatsById.get(holder.seat_id)?.organization_id;
+    if (orgId) add(holder.person_id, orgId);
+  }
+  return boardsByPerson;
+}
+
+function personPersonDegrees(
+  boardsByPerson: Map<string, Set<string>>
+): Map<string, number> {
+  const degrees = new Map<string, number>();
+  Array.from(boardsByPerson.keys()).forEach((id) => {
+    degrees.set(id, sharedBoardPersonOverlaps(id, boardsByPerson).length);
+  });
+  return degrees;
+}
+
 export function buildEgoGraph(
   snapshot: GraphSnapshot,
   personId: string,
@@ -153,6 +189,17 @@ export function buildEgoGraph(
   const { hops, currentOnly, alterCap } = options;
   const nodes = new Map<string, CivicGraphNode>();
   const edges: CivicGraphEdge[] = [];
+  const boardsByPerson = collectBoardsByPerson(snapshot, currentOnly);
+  const personDegrees = personPersonDegrees(boardsByPerson);
+  const maxPersonDegree = Array.from(personDegrees.values()).reduce(
+    (max, value) => Math.max(max, value),
+    0
+  );
+  const memberCounts = currentMemberCounts(snapshot, currentOnly);
+  const maxMembers = Array.from(memberCounts.values()).reduce(
+    (max, value) => Math.max(max, value),
+    0
+  );
 
   const addNode = (node: CivicGraphNode) => {
     const existing = nodes.get(node.id);
@@ -165,13 +212,13 @@ export function buildEgoGraph(
     id: center.id,
     kind: "person",
     label: center.full_name,
-    size: 16,
+    size: personDegreeNodeSize(personDegrees.get(center.id) ?? 0, maxPersonDegree),
     photo_url: center.photo_url,
   });
 
   const hop1OrgIds = new Set<string>();
 
-  const addOrg = (orgId: string, size = 11) => {
+  const addOrg = (orgId: string) => {
     const org = orgsById.get(orgId);
     if (!org) return;
     hop1OrgIds.add(org.id);
@@ -180,7 +227,7 @@ export function buildEgoGraph(
       kind: "organization",
       label: org.name,
       org_type: org.org_type,
-      size,
+      size: orgAffinityNodeSize(memberCounts.get(org.id) ?? 0, maxMembers),
     });
   };
 
@@ -317,7 +364,10 @@ export function buildEgoGraph(
         id: person.id,
         kind: "person",
         label: person.full_name,
-        size: Math.max(1, orgIds.size),
+        size: personDegreeNodeSize(
+          personDegrees.get(person.id) ?? orgIds.size,
+          maxPersonDegree
+        ),
         photo_url: person.photo_url,
       });
       edges.push({
@@ -583,7 +633,7 @@ export function buildOrgAffinity(
     label: org.name,
     org_type: org.org_type,
     member_count: members.size,
-    size: scaleSize(members.size, 0, Math.max(maxMembers, 1), 7, 18),
+    size: orgAffinityNodeSize(members.size, maxMembers),
   }));
 
   // Ego mode shows every 1-hop shared-membership edge; overview still uses Jaccard.
@@ -629,6 +679,47 @@ export function buildOrgAffinity(
   };
 }
 
+export function buildPeopleAffinity(
+  snapshot: GraphSnapshot,
+  options: {
+    currentOnly: boolean;
+    minShared: number;
+    limitPeople: number;
+    hasSeat?: boolean | null;
+  }
+): PeopleAffinityResponse {
+  const { currentOnly, minShared, limitPeople } = options;
+  const hasSeat = options.hasSeat ?? null;
+  const boardsByPerson = collectBoardsByPerson(snapshot, currentOnly);
+  const orgLabels = new Map(
+    snapshot.organizations.map((row) => [row.id, row.name])
+  );
+  const seatedIds = new Set<string>();
+  if (hasSeat) {
+    const seatsById = indexById(snapshot.seats);
+    for (const holder of snapshot.seatHolders) {
+      if (!tenureOk(holder.end_date, currentOnly)) continue;
+      if (seatsById.has(holder.seat_id)) seatedIds.add(holder.person_id);
+    }
+  }
+  return assemblePeopleAffinity(
+    snapshot.people.map((row) => ({
+      id: row.id,
+      full_name: row.full_name,
+      photo_url: row.photo_url,
+    })),
+    boardsByPerson,
+    orgLabels,
+    {
+      currentOnly,
+      minShared,
+      limitPeople,
+      hasSeat,
+      seatedIds,
+    }
+  );
+}
+
 export function buildSharedBoardOverlaps(
   snapshot: GraphSnapshot,
   personId: string,
@@ -637,24 +728,7 @@ export function buildSharedBoardOverlaps(
   const { currentOnly, limit } = options;
   const orgsById = indexById(snapshot.organizations);
   const peopleById = indexById(snapshot.people);
-  const seatsById = indexById(snapshot.seats);
-  const boardsByPerson = new Map<string, Set<string>>();
-
-  const add = (id: string, orgId: string) => {
-    const set = boardsByPerson.get(id) ?? new Set<string>();
-    set.add(orgId);
-    boardsByPerson.set(id, set);
-  };
-
-  for (const membership of snapshot.memberships) {
-    if (!tenureOk(membership.end_date, currentOnly)) continue;
-    add(membership.person_id, membership.organization_id);
-  }
-  for (const holder of snapshot.seatHolders) {
-    if (!tenureOk(holder.end_date, currentOnly)) continue;
-    const orgId = seatsById.get(holder.seat_id)?.organization_id;
-    if (orgId) add(holder.person_id, orgId);
-  }
+  const boardsByPerson = collectBoardsByPerson(snapshot, currentOnly);
 
   const overlaps: SharedBoardOverlap[] = [];
   for (const row of sharedBoardPersonOverlaps(personId, boardsByPerson)) {

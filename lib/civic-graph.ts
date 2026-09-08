@@ -300,10 +300,183 @@ export function nodeType(kind: GraphNodeKind): "circle" | "square" | "diamond" {
   return "circle";
 }
 
+export function mixedActorGraph(
+  nodes: Array<{ kind?: GraphNodeKind | string | null }>
+): boolean {
+  let people = false;
+  let orgs = false;
+  for (const node of nodes) {
+    if (node.kind === "person") people = true;
+    if (node.kind === "organization") orgs = true;
+    if (people && orgs) return true;
+  }
+  return false;
+}
+
 export function scaleSize(value: number, min: number, max: number, lo = 6, hi = 18): number {
   if (max <= min) return (lo + hi) / 2;
   const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
   return lo + t * (hi - lo);
+}
+
+/** Affinity-graph circle diameter (px at camera 1). Area encodes current members. */
+export const ORG_AFFINITY_DIAMETER_FLOOR_PX = 18;
+export const ORG_AFFINITY_DIAMETER_CAP_PX = 56;
+
+/** Diameter from member count as AREA (sqrt), floor 18px, cap 56px. */
+export function orgAffinityNodeDiameter(
+  memberCount: number,
+  maxMembers: number,
+  cap = ORG_AFFINITY_DIAMETER_CAP_PX
+): number {
+  const n = Math.max(0, memberCount);
+  const max = Math.max(maxMembers, 1);
+  const t = Math.sqrt(n / max);
+  return (
+    ORG_AFFINITY_DIAMETER_FLOOR_PX +
+    t * (cap - ORG_AFFINITY_DIAMETER_FLOOR_PX)
+  );
+}
+
+/** Sigma node `size` is radius; keep diameter in the 18–56px band. */
+export function orgAffinityNodeSize(
+  memberCount: number,
+  maxMembers: number,
+  cap = ORG_AFFINITY_DIAMETER_CAP_PX
+): number {
+  return orgAffinityNodeDiameter(memberCount, maxMembers, cap) / 2;
+}
+
+/** People-overview circle size from person–person degree, not title. */
+export function personDegreeNodeSize(
+  degree: number,
+  maxDegree: number,
+  lo = 8,
+  hi = 22
+): number {
+  return scaleSize(Math.max(0, degree), 0, Math.max(maxDegree, 1), lo, hi);
+}
+
+export interface PeopleAffinityNode {
+  id: string;
+  label: string;
+  photo_url: string | null;
+  degree: number;
+  size: number;
+}
+
+export interface PeopleAffinityEdge {
+  source: string;
+  target: string;
+  shared: number;
+  shared_names: string[];
+  shared_entities: SharedEntity[];
+}
+
+export interface PeopleAffinityResponse {
+  label: "Shared boards";
+  current_only: boolean;
+  min_shared: number;
+  limit_people: number;
+  has_seat: boolean | null;
+  nodes: PeopleAffinityNode[];
+  edges: PeopleAffinityEdge[];
+}
+
+export function assemblePeopleAffinity(
+  people: { id: string; full_name: string; photo_url: string | null }[],
+  boardsByPerson: Map<string, Set<string>>,
+  orgLabels: Map<string, string>,
+  options: {
+    currentOnly: boolean;
+    minShared: number;
+    limitPeople: number;
+    hasSeat?: boolean | null;
+    seatedIds?: Set<string> | null;
+  }
+): PeopleAffinityResponse {
+  const hasSeat = options.hasSeat ?? null;
+  const peopleById = new Map(people.map((row) => [row.id, row]));
+  const candidateIds = Array.from(boardsByPerson.keys()).filter((id) => {
+    if (!peopleById.has(id)) return false;
+    if (hasSeat) return Boolean(options.seatedIds?.has(id));
+    return true;
+  });
+
+  const edges: PeopleAffinityEdge[] = [];
+  const degree = new Map<string, number>();
+  for (const id of candidateIds) degree.set(id, 0);
+
+  for (let i = 0; i < candidateIds.length; i += 1) {
+    for (let j = i + 1; j < candidateIds.length; j += 1) {
+      const leftId = candidateIds[i];
+      const rightId = candidateIds[j];
+      const left = boardsByPerson.get(leftId) ?? new Set<string>();
+      const right = boardsByPerson.get(rightId) ?? new Set<string>();
+      const sharedIds = Array.from(left).filter((id) => right.has(id));
+      if (sharedIds.length < options.minShared) continue;
+      const sharedEntities = sharedIds
+        .map((id) => {
+          const label = orgLabels.get(id);
+          return label
+            ? { id, label, kind: "organization" as const }
+            : null;
+        })
+        .filter(
+          (row): row is { id: string; label: string; kind: "organization" } =>
+            Boolean(row)
+        )
+        .sort((a, b) => a.label.localeCompare(b.label));
+      edges.push({
+        source: leftId,
+        target: rightId,
+        shared: sharedEntities.length,
+        shared_names: sharedEntities.map((row) => row.label),
+        shared_entities: sharedEntities,
+      });
+      degree.set(leftId, (degree.get(leftId) ?? 0) + 1);
+      degree.set(rightId, (degree.get(rightId) ?? 0) + 1);
+    }
+  }
+
+  const ranked = candidateIds
+    .filter((id) => (degree.get(id) ?? 0) > 0)
+    .sort((a, b) => {
+      const deg = (degree.get(b) ?? 0) - (degree.get(a) ?? 0);
+      if (deg) return deg;
+      return peopleById.get(a)!.full_name.localeCompare(
+        peopleById.get(b)!.full_name
+      );
+    })
+    .slice(0, options.limitPeople);
+
+  const kept = new Set(ranked);
+  const maxDegree = ranked.reduce(
+    (max, id) => Math.max(max, degree.get(id) ?? 0),
+    0
+  );
+
+  return {
+    label: "Shared boards",
+    current_only: options.currentOnly,
+    min_shared: options.minShared,
+    limit_people: options.limitPeople,
+    has_seat: hasSeat,
+    nodes: ranked.map((id) => {
+      const person = peopleById.get(id)!;
+      const personDegree = degree.get(id) ?? 0;
+      return {
+        id: person.id,
+        label: person.full_name,
+        photo_url: person.photo_url,
+        degree: personDegree,
+        size: personDegreeNodeSize(personDegree, maxDegree),
+      };
+    }),
+    edges: edges.filter(
+      (edge) => kept.has(edge.source) && kept.has(edge.target)
+    ),
+  };
 }
 
 /** Role tenure line for ego edge tooltips. Null end_date means present/current. */

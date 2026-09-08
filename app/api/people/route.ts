@@ -6,7 +6,7 @@ import {
   parseOptionalBool,
 } from "@/lib/safe-list";
 import { tryGetSupabase } from "@/lib/supabase";
-import { sanitizeIlike } from "@/lib/civic-graph";
+import { isCurrentTenure, sanitizeIlike } from "@/lib/civic-graph";
 import {
   loadGraphSnapshot,
   personRoleSummary,
@@ -36,9 +36,17 @@ export async function GET(request: NextRequest) {
 
     let seatedIds: string[] | null = null;
     if (hasSeat !== null) {
-      const { data, error } = await supabase.from("seat_holders").select("person_id");
+      const { data, error } = await supabase
+        .from("seat_holders")
+        .select("person_id, end_date");
       if (error) return jsonNoStore({ error: error.message }, 500);
-      seatedIds = Array.from(new Set((data ?? []).map((row) => row.person_id as string)));
+      seatedIds = Array.from(
+        new Set(
+          (data ?? [])
+            .filter((row) => isCurrentTenure(row.end_date as string | null))
+            .map((row) => row.person_id as string)
+        )
+      );
     }
 
     let query = supabase.from("people").select("*", { count: "exact" });

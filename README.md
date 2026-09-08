@@ -219,14 +219,15 @@ Phase 1 views (Who's Who, Most involved, Organizations) read the live civic grap
 | Route | Purpose |
 | --- | --- |
 | `GET /api/health` | Reachability + counts including `people`, `organizations`, `memberships`, `seat_holders`, `events` |
-| `GET /api/people?q=&has_seat=&sort=footprint\|name&limit=&offset=` | Who's Who directory (`{ items, total, limit, offset }`), default sort **board footprint** with `footprint_score` |
+| `GET /api/people?q=&has_seat=&sort=footprint\|name&limit=&offset=` | Who's Who directory (`{ items, total, limit, offset }`), default sort **board footprint** with `footprint_score`. `has_seat=true` is current `seat_holders` only (existing seat rows — not commission memberships) |
 | `GET /api/people/:id` | Person detail with memberships and formal seats |
 | `GET /api/people/:id/ego?hops=1\|2&current_only=true&alter_cap=25` | 1–2 hop ego graph (person / organization / seat nodes). Hop-2 includes person–person `shared_board` edges with `shared_names` |
 | `GET /api/organizations?q=&org_type=&sort=footprint\|name&limit=&offset=` | Org directory with `current_member_count` and `footprint_score` (default sort footprint) |
 | `GET /api/organizations/:id` | Org detail with members and seats |
 | `GET /api/graph/involvement?entity=person\|org&metric=degree\|formal&current_only=true&limit=50` | Ranked **Board footprint** (`degree`) or **Formal seats** (`formal`, seats weighted ×2) |
 | `GET /api/graph/org-affinity?current_only=true&min_jaccard=0.15&min_shared=1&limit_orgs=40` | **Shared membership** (Jaccard on current member sets) |
-| `GET /api/graph/org-plot?view=structure\|stance&measure=` | **Org plot** — Structure (default): footprint × shared-board reach with live medians. On the record: footprint × that org’s own quote-backed stance (oppose / support; endorse is a mark, not a lane). Person quotes are never rolled up. |
+| `GET /api/graph/people-affinity?current_only=true&min_shared=1&limit_people=40&has_seat=` | **People overview** — person–person shared-board graph; node size is degree to other people |
+| `GET /api/graph/org-plot?view=structure\|stance&measure=` | **Org plot** API (not the Who → Organizations viz). Structure: footprint × shared-board reach. On the record: that org’s own quote-backed stance. Person quotes are never rolled up. |
 
 Copy on these views is limited to overlapping membership / shared boards / board footprint / formal seats — not influence or factions.
 

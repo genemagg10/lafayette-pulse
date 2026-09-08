@@ -6,8 +6,11 @@ import {
   EGO_CENTER_SIZE,
   EGO_HALO_COLOR,
   EGO_HALO_WIDTH_PX,
+  mixedActorGraph,
+  nodeType,
   PAST_EDGE_COLOR,
   PRIMARY_EDGE_COLOR,
+  personDegreeNodeSize,
 } from "../lib/civic-graph.ts";
 import {
   degreesFromEdges,
@@ -156,4 +159,28 @@ test("legend org types are only those present on current nodes", () => {
     ["city_body", "civic"]
   );
   assert.deepEqual(presentOrgTypesFromNodes([{ org_type: null }]), []);
+});
+
+test("people are circles, orgs are squares, seats are diamonds in every view", () => {
+  assert.equal(nodeType("person"), "circle");
+  assert.equal(nodeType("organization"), "square");
+  assert.equal(nodeType("seat"), "diamond");
+  assert.equal(
+    mixedActorGraph([
+      { kind: "person" },
+      { kind: "organization" },
+    ]),
+    true
+  );
+  assert.equal(
+    mixedActorGraph([{ kind: "organization" }, { kind: "organization" }]),
+    false
+  );
+});
+
+test("person node size follows degree, not title", () => {
+  const small = personDegreeNodeSize(1, 8);
+  const large = personDegreeNodeSize(8, 8);
+  assert.ok(large > small);
+  assert.equal(personDegreeNodeSize(0, 8), 8);
 });

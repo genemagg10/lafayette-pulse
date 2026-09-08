@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   filterOrgsByType,
+  ORG_AFFINITY_DIAMETER_CAP_PX,
+  ORG_AFFINITY_DIAMETER_FLOOR_PX,
   orgAffinityEgoIds,
+  orgAffinityNodeDiameter,
+  orgAffinityNodeSize,
   selectOrgAffinityIds,
   sharedBoardPersonOverlaps,
 } from "../lib/civic-graph.ts";
@@ -123,4 +127,19 @@ test("shared board overlaps list people who sit on the same boards", () => {
   );
   const bea = overlaps.find((row) => row.personId === "bea");
   assert.deepEqual(bea?.orgIds.sort(), ["council"]);
+});
+
+test("org affinity node diameter is area (sqrt) with an 18px floor and 56px cap", () => {
+  assert.equal(orgAffinityNodeDiameter(0, 16), ORG_AFFINITY_DIAMETER_FLOOR_PX);
+  const small = orgAffinityNodeDiameter(1, 16);
+  const large = orgAffinityNodeDiameter(16, 16);
+  const mid = orgAffinityNodeDiameter(4, 16);
+  assert.ok(small > ORG_AFFINITY_DIAMETER_FLOOR_PX);
+  assert.equal(large, ORG_AFFINITY_DIAMETER_CAP_PX);
+  const expectedMid =
+    ORG_AFFINITY_DIAMETER_FLOOR_PX +
+    Math.sqrt(4 / 16) * (ORG_AFFINITY_DIAMETER_CAP_PX - ORG_AFFINITY_DIAMETER_FLOOR_PX);
+  assert.equal(mid, expectedMid);
+  assert.equal(orgAffinityNodeSize(16, 16), ORG_AFFINITY_DIAMETER_CAP_PX / 2);
+  assert.equal(orgAffinityNodeSize(0, 16), ORG_AFFINITY_DIAMETER_FLOOR_PX / 2);
 });

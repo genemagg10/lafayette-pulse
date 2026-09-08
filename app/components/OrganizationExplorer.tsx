@@ -8,7 +8,6 @@ import {
   type OrgAffinityResponse,
 } from "@/lib/civic-graph";
 import type { GraphLabelMode } from "@/lib/graph-labels";
-import type { OrgPlotResponse, OrgPlotView } from "@/lib/org-plot";
 import {
   STANCE_TEAL,
   STANCE_VERMILLION,
@@ -33,12 +32,10 @@ import {
 } from "@/lib/why-linked";
 
 const CivicGraph = dynamic(() => import("./graph/CivicGraph"), { ssr: false });
-const OrgPlot = dynamic(() => import("./OrgPlot"), { ssr: false });
 
 const ORG_TYPES = Object.keys(ORG_TYPE_LABELS) as OrgType[];
 const DEFAULT_JACCARD = DEFAULT_ORG_AFFINITY_JACCARD;
 type OrgTab = "directory" | "co-stance";
-type OrgViz = "affinity" | OrgPlotView;
 
 interface OrgMember {
   id: string;
@@ -101,11 +98,6 @@ export default function OrganizationExplorer({
   const [coStanceLoading, setCoStanceLoading] = useState(false);
   const [mobileStep, setMobileStep] = useState<MobileStep>("list");
   const [labelMode, setLabelMode] = useState<GraphLabelMode>("focus");
-  const [viz, setViz] = useState<OrgViz>("structure");
-  const [plot, setPlot] = useState<OrgPlotResponse | null>(null);
-  const [plotError, setPlotError] = useState<string | null>(null);
-  const [plotLoading, setPlotLoading] = useState(false);
-  const [measureId, setMeasureId] = useState<string | null>(null);
   const selectedOrgIdRef = useRef(selectedOrgId);
   selectedOrgIdRef.current = selectedOrgId;
   const selectedIdRef = useRef(selectedId);
@@ -194,30 +186,6 @@ export default function OrganizationExplorer({
       })
       .catch((err) => setAffinityError(err.message));
   }, [debouncedJaccard, orgType, selectedId]);
-
-  useEffect(() => {
-    if (viz === "affinity") return;
-    const params = new URLSearchParams({
-      view: viz === "stance" ? "stance" : "structure",
-    });
-    if (viz === "stance" && measureId) params.set("measure", measureId);
-    setPlotLoading(true);
-    fetch(`/api/graph/org-plot?${params.toString()}`)
-      .then(async (res) => {
-        const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-        return data as OrgPlotResponse;
-      })
-      .then((data) => {
-        setPlot(data);
-        setPlotError(null);
-        if (viz === "stance" && data.measure?.id) {
-          setMeasureId((current) => current ?? data.measure!.id);
-        }
-      })
-      .catch((err) => setPlotError(err.message))
-      .finally(() => setPlotLoading(false));
-  }, [viz, measureId]);
 
   useEffect(() => {
     if (tab !== "co-stance" && !stanceLayer) return;
@@ -523,13 +491,6 @@ export default function OrganizationExplorer({
           })}
         </ul>
       )}
-      <button
-        type="button"
-        onClick={() => setMobileStep("viz")}
-        className="lg:hidden w-full rounded-none bg-forest-800 text-cream-50 font-heading text-sm py-3 hover:bg-forest-700"
-      >
-        View plot
-      </button>
     </div>
   );
 
@@ -674,159 +635,96 @@ export default function OrganizationExplorer({
 
   const vizPane = (
     <div className="flex flex-col h-full min-h-[420px] gap-2">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        {viz === "affinity" ? (
-          <>
-            <h3 className="font-heading font-semibold text-ink text-sm">
-              Shared membership
-            </h3>
-            <button
-              type="button"
-              onClick={() => setViz("structure")}
-              className="text-[11px] font-body text-forest-700 underline hover:text-forest-900"
-            >
-              Plot
-            </button>
-          </>
-        ) : (
-          <>
-            <BoardTabs
-              value={viz === "stance" ? "stance" : "structure"}
-              onChange={setViz}
-              ariaLabel="Organization plot"
-              options={[
-                { id: "structure", label: "Structure" },
-                { id: "stance", label: "On the record" },
-              ]}
-            />
-            <button
-              type="button"
-              onClick={() => setViz("affinity")}
-              className="text-[11px] font-body text-forest-700 underline hover:text-forest-900"
-            >
-              Shared membership
-            </button>
-          </>
-        )}
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="font-heading font-semibold text-ink text-sm">
+          Shared membership
+        </h3>
         {selectedId && (
           <button
             type="button"
             onClick={clearOrg}
-            className="ml-auto text-[11px] font-body text-forest-700 underline hover:text-forest-900"
+            className="text-[11px] font-body text-forest-700 underline hover:text-forest-900"
           >
             Clear focus
           </button>
         )}
       </div>
-      {viz === "stance" && (
-        <label className="inline-flex items-center gap-2 text-xs font-body text-ink-muted">
-          <span className="sr-only">Measure</span>
-          <select
-            value={measureId ?? plot?.measure?.id ?? ""}
-            onChange={(e) => setMeasureId(e.target.value || null)}
-            className="bg-canvas border-0 border-b border-line text-xs font-body text-ink py-0.5 pr-6 max-w-full focus:outline-none focus:border-forest"
-          >
-            {(plot?.measures ?? []).map((row) => (
-              <option key={row.id} value={row.id}>
-                {row.short_code || row.title}
-              </option>
-            ))}
-          </select>
+      <p className="text-xs font-body text-ink-muted">
+        {selectedId
+          ? `Focused on ${detail?.name ?? "this organization"} and organizations that share current members.`
+          : "Overview of overlapping membership (Jaccard). Square size is current members. Select an organization to focus the graph. This is not a political grouping."}
+      </p>
+      <label className="flex items-center gap-3 text-xs font-body text-forest-600">
+        <span className="whitespace-nowrap">Min. overlap</span>
+        <input
+          type="range"
+          min={0.05}
+          max={0.5}
+          step={0.01}
+          value={minJaccard}
+          onChange={(e) => setMinJaccard(Number(e.target.value))}
+          className="flex-1 accent-forest-700"
+          aria-valuemin={0.05}
+          aria-valuemax={0.5}
+          aria-valuenow={minJaccard}
+          aria-label="Minimum Jaccard overlap"
+        />
+        <span className="tabular-nums w-10 text-right">{minJaccard.toFixed(2)}</span>
+      </label>
+      <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
+        <label className="inline-flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={stanceLayer}
+            onChange={(e) => setStanceLayer(e.target.checked)}
+          />
+          Show stance layer (co-stance / opposed on issues)
         </label>
+        <GraphLabelToggle mode={labelMode} onChange={setLabelMode} />
+      </div>
+      {stanceLayer && coStanceError && (
+        <p className="text-sm font-body text-ink-muted">{coStanceError}</p>
       )}
-      {viz === "affinity" ? (
-        <>
-          <p className="text-xs font-body text-ink-muted">
-            {selectedId
-              ? `Focused on ${detail?.name ?? "this organization"} and organizations that share current members.`
-              : "Overview of overlapping membership (Jaccard). Select an organization to focus the graph. This is not a political grouping."}
-          </p>
-          <label className="flex items-center gap-3 text-xs font-body text-forest-600">
-            <span className="whitespace-nowrap">Min. overlap</span>
-            <input
-              type="range"
-              min={0.05}
-              max={0.5}
-              step={0.01}
-              value={minJaccard}
-              onChange={(e) => setMinJaccard(Number(e.target.value))}
-              className="flex-1 accent-forest-700"
-              aria-valuemin={0.05}
-              aria-valuemax={0.5}
-              aria-valuenow={minJaccard}
-              aria-label="Minimum Jaccard overlap"
-            />
-            <span className="tabular-nums w-10 text-right">{minJaccard.toFixed(2)}</span>
-          </label>
-          <div className="flex flex-wrap items-center gap-3 text-xs font-body text-forest-600">
-            <label className="inline-flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={stanceLayer}
-                onChange={(e) => setStanceLayer(e.target.checked)}
-              />
-              Show stance layer (co-stance / opposed on issues)
-            </label>
-            <GraphLabelToggle mode={labelMode} onChange={setLabelMode} />
-          </div>
-          {stanceLayer && coStanceError && (
-            <p className="text-sm font-body text-ink-muted">{coStanceError}</p>
-          )}
-          {stanceLayer && (
-            <p className="text-xs font-body text-ink-muted">
-              Teal solid = co-stance. Dashed vermillion = opposed on issues.
-              Hidden unless both organizations already appear on shared membership.
-            </p>
-          )}
-          {affinityError && (
-            <p className="text-sm font-body text-ink-muted">{affinityError}</p>
-          )}
-          <div className="flex-1 min-h-[420px]">
-            {!affinity && !affinityError ? (
-              <div className="h-full min-h-[420px] bg-canvas animate-pulse" />
-            ) : (
-              <CivicGraph
-                nodes={graphNodes.map((node) => ({
-                  id: node.id,
-                  kind: "organization" as const,
-                  label: node.label,
-                  org_type: node.org_type,
-                  member_count: node.member_count,
-                  size:
-                    selectedId && node.id === selectedId
-                      ? Math.max(node.size, 16)
-                      : node.size,
-                }))}
-                edges={graphEdges}
-                centerId={selectedId}
-                labelMode={labelMode}
-                selectedEdge={selectedEdge}
-                onNodeClick={(id) => selectOrg(id)}
-                onEdgeClick={(edge) =>
-                  setSelectedEdge((current) => toggleWhyLinkedEdge(current, edge))
-                }
-                heightClassName="h-full min-h-[420px]"
-              />
-            )}
-          </div>
-          <GraphLegend
-            affinity
-            showSeats={false}
-            stance={stanceLayer}
-            nodes={graphNodes}
-          />
-        </>
-      ) : (
-        <div className="flex-1 min-h-0">
-          <OrgPlot
-            data={plot && plot.view === viz ? plot : null}
-            loading={plotLoading || !plot || plot.view !== viz}
-            error={plotError}
-            selectedId={selectedId}
-            onSelect={focusOrg}
-          />
-        </div>
+      {stanceLayer && (
+        <p className="text-xs font-body text-ink-muted">
+          Teal solid = co-stance. Dashed vermillion = opposed on issues.
+          Hidden unless both organizations already appear on shared membership.
+        </p>
       )}
+      {affinityError && (
+        <p className="text-sm font-body text-ink-muted">{affinityError}</p>
+      )}
+      <div className="flex-1 min-h-[420px]">
+        {!affinity && !affinityError ? (
+          <div className="h-full min-h-[420px] bg-canvas animate-pulse" />
+        ) : (
+          <CivicGraph
+            nodes={graphNodes.map((node) => ({
+              id: node.id,
+              kind: "organization" as const,
+              label: node.label,
+              org_type: node.org_type,
+              member_count: node.member_count,
+              size: node.size,
+            }))}
+            edges={graphEdges}
+            centerId={selectedId}
+            labelMode={labelMode}
+            selectedEdge={selectedEdge}
+            onNodeClick={(id) => selectOrg(id)}
+            onEdgeClick={(edge) =>
+              setSelectedEdge((current) => toggleWhyLinkedEdge(current, edge))
+            }
+            heightClassName="h-full min-h-[420px]"
+          />
+        )}
+      </div>
+      <GraphLegend
+        affinity
+        showSeats={false}
+        stance={stanceLayer}
+        nodes={graphNodes}
+      />
     </div>
   );
 
@@ -836,8 +734,7 @@ export default function OrganizationExplorer({
         master={master}
         viz={vizPane}
         detail={detailPane}
-        vizLabel={viz === "affinity" ? "Affinity" : "Plot"}
-        vizBackStep={selectedId ? "detail" : "list"}
+        vizLabel="Affinity"
         mobileStep={mobileStep}
         onMobileStep={setMobileStep}
       />
