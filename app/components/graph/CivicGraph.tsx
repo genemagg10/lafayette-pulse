@@ -39,6 +39,11 @@ import {
   type ViewportEdge,
   type ViewportNode,
 } from "@/lib/graph-edge-pick";
+import {
+  activeEmphasizedEdgeKey,
+  emphasizeEdgeSize,
+  emphasizedEdgeStroke,
+} from "@/lib/graph-edge-emphasis";
 import { NodeDiamondProgram } from "./NodeDiamondProgram";
 import type { OrgType, SeatType } from "@/lib/types";
 import {
@@ -667,6 +672,7 @@ export default function CivicGraph({
         btn.style.fontSize = `${CLUSTER_LABEL_SIZE_PX}px`;
         btn.style.fontWeight = "600";
         btn.style.color = CLUSTER_LABEL_INK;
+        // Cream pill stays so the cause does not sit on a thickened stroke.
         btn.style.background = "#F5F5F0";
         btn.style.border = "1px solid #E3E0D7";
         btn.style.borderRadius = "999px";
@@ -841,6 +847,7 @@ export default function CivicGraph({
         ? [selected.source, selected.target]
         : null;
       if (nameEveryNodeRef.current) {
+        // Pair labels follow selected-edge only. Hover does not paint a second name.
         const visible = visibleWhoLabelIds({
           nodeIds: graph.nodes(),
           selectedEdgeEndpoints: selectedEnds,
@@ -878,6 +885,39 @@ export default function CivicGraph({
     applyLabelsRef.current = applyLabels;
     applyLabels();
 
+    const keyedEdges = () => {
+      const rows: { key: string; source: string; target: string }[] = [];
+      graph.forEachEdge((key, _attrs, source, target) => {
+        rows.push({ key, source, target });
+      });
+      return rows;
+    };
+
+    const emphasizedEdgeKey = () => {
+      if (!nameEveryNodeRef.current) return null;
+      return activeEmphasizedEdgeKey({
+        hoveredKey:
+          hoveredEdge && graph.hasEdge(hoveredEdge) ? hoveredEdge : null,
+        selectedPair: selectedEdgeRef.current,
+        edges: keyedEdges(),
+      });
+    };
+
+    const strokeViewportEdge = (
+      ctx: CanvasRenderingContext2D,
+      from: { x: number; y: number },
+      to: { x: number; y: number },
+      options: { color: string; size: number; dashed: boolean }
+    ) => {
+      ctx.strokeStyle = options.color;
+      ctx.lineWidth = options.size;
+      ctx.setLineDash(options.dashed ? [6, 4] : []);
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    };
+
     const drawOverlay = () => {
       if (!overlay) return;
       const ctx = overlay.getContext("2d");
@@ -890,6 +930,8 @@ export default function CivicGraph({
       overlay.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
+      const inkKey = emphasizedEdgeKey();
+      // cluster-wash is ground (~12%). Ink is next. Cream pills sit on the stroke.
       if (showClusterCauseRef.current && clusterCauses.length > 0) {
         const nodeView = viewportNodes(renderer, graph);
         for (const cause of clusterCauses) {
@@ -975,8 +1017,8 @@ export default function CivicGraph({
           }
         }
       }
-      graph.forEachEdge((_edge, attrs, _source, _target, sourceAttr, targetAttr) => {
-        if (!attrs.dashed) return;
+      graph.forEachEdge((edge, attrs, _source, _target, sourceAttr, targetAttr) => {
+        if (!attrs.dashed || edge === inkKey) return;
         const from = renderer.graphToViewport({
           x: sourceAttr.x as number,
           y: sourceAttr.y as number,
@@ -985,14 +1027,28 @@ export default function CivicGraph({
           x: targetAttr.x as number,
           y: targetAttr.y as number,
         });
-        ctx.strokeStyle = String(attrs.color || PAST_EDGE_COLOR);
-        ctx.lineWidth = Number(attrs.size || 1);
-        ctx.setLineDash([6, 4]);
-        ctx.beginPath();
-        ctx.moveTo(from.x, from.y);
-        ctx.lineTo(to.x, to.y);
-        ctx.stroke();
+        strokeViewportEdge(ctx, from, to, {
+          color: String(attrs.color || PAST_EDGE_COLOR),
+          size: Number(attrs.size || 1),
+          dashed: true,
+        });
       });
+      if (inkKey && graph.hasEdge(inkKey)) {
+        const attrs = graph.getEdgeAttributes(inkKey);
+        const from = renderer.graphToViewport({
+          x: Number(graph.getNodeAttribute(graph.source(inkKey), "x")) || 0,
+          y: Number(graph.getNodeAttribute(graph.source(inkKey), "y")) || 0,
+        });
+        const to = renderer.graphToViewport({
+          x: Number(graph.getNodeAttribute(graph.target(inkKey), "x")) || 0,
+          y: Number(graph.getNodeAttribute(graph.target(inkKey), "y")) || 0,
+        });
+        strokeViewportEdge(ctx, from, to, {
+          color: emphasizedEdgeStroke(),
+          size: emphasizeEdgeSize(Number(attrs.size || 1.4)),
+          dashed: Boolean(attrs.dashed),
+        });
+      }
       if (centerId) drawEgoHalo(ctx, renderer, graph, centerId);
       if (nameEveryNodeRef.current) {
         const selected = selectedEdgeRef.current;
@@ -1059,7 +1115,11 @@ export default function CivicGraph({
         else hideTooltip();
         return;
       }
-      if (hoveredEdge && graph.hasEdge(hoveredEdge)) {
+      if (
+        !nameEveryNodeRef.current &&
+        hoveredEdge &&
+        graph.hasEdge(hoveredEdge)
+      ) {
         const hoverSize = graph.getEdgeAttribute(hoveredEdge, "hoverSize");
         if (typeof hoverSize === "number") {
           graph.setEdgeAttribute(hoveredEdge, "size", hoverSize);
@@ -1067,15 +1127,18 @@ export default function CivicGraph({
       }
       hoveredEdge = edgeKey;
       applyLabels();
+      if (nameEveryNodeRef.current) drawOverlay();
       if (!edgeKey) {
         hideTooltip();
         return;
       }
-      const original = Number(graph.getEdgeAttribute(edgeKey, "size") || 1.4);
-      if (typeof graph.getEdgeAttribute(edgeKey, "hoverSize") !== "number") {
-        graph.setEdgeAttribute(edgeKey, "hoverSize", original);
+      if (!nameEveryNodeRef.current) {
+        const original = Number(graph.getEdgeAttribute(edgeKey, "size") || 1.4);
+        if (typeof graph.getEdgeAttribute(edgeKey, "hoverSize") !== "number") {
+          graph.setEdgeAttribute(edgeKey, "hoverSize", original);
+        }
+        graph.setEdgeAttribute(edgeKey, "size", emphasizeEdgeSize(original));
       }
-      graph.setEdgeAttribute(edgeKey, "size", Math.max(original * 1.6, 2.4));
       showEdgeTooltip(edgeKey, clientX, clientY);
     };
 
@@ -1138,8 +1201,11 @@ export default function CivicGraph({
       }
       applyHover(preferred.edge, ev.clientX, ev.clientY);
     };
+    const onLeave = () => {
+      applyHover(null, 0, 0);
+    };
     container.addEventListener("pointermove", onMove);
-    container.addEventListener("pointerleave", hideTooltip);
+    container.addEventListener("pointerleave", onLeave);
 
     let fitted = false;
     const tryFit = () => {
@@ -1166,7 +1232,7 @@ export default function CivicGraph({
       observer?.disconnect();
       window.removeEventListener("resize", resize);
       container.removeEventListener("pointermove", onMove);
-      container.removeEventListener("pointerleave", hideTooltip);
+      container.removeEventListener("pointerleave", onLeave);
       hideTooltip();
       labelsRoot?.replaceChildren();
       renderer.kill();
