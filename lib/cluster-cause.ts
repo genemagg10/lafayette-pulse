@@ -1,4 +1,5 @@
 import type { SharedEntity } from "./civic-graph";
+import type { GraphRangeStop } from "./graph-range";
 
 export const MIXED_BOARDS_LABEL = "Mixed boards";
 export const CLUSTER_LABEL_INK = "#1A2420";
@@ -7,6 +8,11 @@ export const CLUSTER_WASH_OPACITY = 0.12;
 export const CLUSTER_MIXED_STROKE = "#C9C5B8";
 export const MIN_CLUSTER_SIZE = 3;
 export const MIXED_ORG_LIST_MAX = 3;
+
+/** Wide overview only. Most involved stays a named graph — no pill, no wash. */
+export function clusterCauseOnStop(stop: GraphRangeStop): boolean {
+  return stop === "wider" || stop === "all";
+}
 
 /** Short muted set. Stable per org. Not org_type fills. Not a neon per cluster. */
 export const CLUSTER_WASH_COLORS = [

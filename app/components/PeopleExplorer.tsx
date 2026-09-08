@@ -26,6 +26,7 @@ import { personNetworkPreviewLabel } from "@/lib/network-preview";
 import type { RenderableEdge } from "./graph/CivicGraph";
 import {
   MIXED_BOARDS_LABEL,
+  clusterCauseOnStop,
   type ClusterCause,
 } from "@/lib/cluster-cause";
 import {
@@ -296,11 +297,15 @@ export default function PeopleExplorer({
 
   useEffect(() => {
     if (!mixedCause || selectedId) return;
+    if (!clusterCauseOnStop(activePeopleStop)) {
+      setMixedCause(null);
+      return;
+    }
     const ids = new Set(rangedPeople.nodes.map((node) => node.id));
     if (mixedCause.memberIds.some((id) => !ids.has(id))) {
       setMixedCause(null);
     }
-  }, [rangedPeople, mixedCause, selectedId]);
+  }, [rangedPeople, mixedCause, selectedId, activePeopleStop]);
 
   const whyLinkedModel = useMemo(() => {
     if (!selectedEdge) return null;
@@ -619,7 +624,7 @@ export default function PeopleExplorer({
             layout={selectedId ? "ego" : "force"}
             nameEveryNode
             selectedEdge={selectedEdge}
-            showClusterCause={!selectedId}
+            showClusterCause={!selectedId && clusterCauseOnStop(activePeopleStop)}
             heightClassName="h-full min-h-[420px]"
             onClusterCauseClick={(cause) => {
               setSelectedEdge(null);
@@ -656,7 +661,7 @@ export default function PeopleExplorer({
             />
           </div>
         )}
-        {mixedCause && !selectedId && (
+        {mixedCause && !selectedId && clusterCauseOnStop(activePeopleStop) && (
           <div className="absolute inset-x-3 bottom-3 z-20 max-h-[55%] lg:inset-x-auto lg:right-3 lg:left-auto lg:top-3 lg:bottom-auto lg:w-[18rem] lg:max-h-[min(70%,20rem)]">
             <div className="rounded-md border border-line bg-surface p-3 shadow-[0_8px_24px_rgba(26,36,32,0.1)]">
               <div className="flex items-start justify-between gap-3">

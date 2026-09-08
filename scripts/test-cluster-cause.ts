@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   buildClusterCauses,
+  clusterCauseOnStop,
   clusterLabelAnchor,
   clusterLabelText,
   clusterWashColor,
@@ -204,4 +205,10 @@ test("label sits in the open middle, not on a node", () => {
 test("nudge keeps the pill off a node disc", () => {
   const moved = nudgePointOffNodes({ x: 0, y: 0 }, [{ x: 0, y: 0, size: 10 }], 14);
   assert.ok(Math.hypot(moved.x, moved.y) >= 24 - 0.01);
+});
+
+test("cluster cause is off on Most involved, on for Wider and All", () => {
+  assert.equal(clusterCauseOnStop("most"), false);
+  assert.equal(clusterCauseOnStop("wider"), true);
+  assert.equal(clusterCauseOnStop("all"), true);
 });
