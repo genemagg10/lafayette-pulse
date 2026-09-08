@@ -281,6 +281,29 @@ test("a named group of five keeps its pill while smaller groups share Mixed boar
   );
 });
 
+test("Mixed boards lists the smaller orgs, not an org that already has a named pill", () => {
+  const council = ["ada", "bea", "cam", "dee", "eve"];
+  const rotary = ["eve", "fay", "gus"];
+  const nodes = ["ada", "bea", "cam", "dee", "eve", "fay", "gus"];
+  const edges = [
+    ...clique(council, [org("council", "City Council")]),
+    ...clique(rotary, [org("rotary", "Rotary")]),
+  ];
+  const causes = buildClusterCauses(nodes, edges);
+  const named = causes.filter((cause) => cause.kind === "org");
+  const mixed = causes.filter((cause) => cause.kind === "mixed");
+  assert.equal(named.length, 1);
+  assert.equal(named[0].label, "City Council");
+  assert.equal(mixed.length, 1);
+  assert.deepEqual(
+    mixed[0].topOrgs.map((row) => row.label),
+    ["Rotary"]
+  );
+  assert.equal(mixed[0].memberIds.includes("ada"), false);
+  assert.equal(mixed[0].memberIds.includes("fay"), true);
+  assert.equal(mixed[0].memberIds.includes("gus"), true);
+});
+
 test("mixed lists every smaller org and does not cap at three", () => {
   const groups = [
     ["a1", "a2", "a3"],

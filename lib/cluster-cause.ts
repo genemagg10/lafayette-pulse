@@ -401,18 +401,74 @@ function uniqueMemberIds(groups: readonly (readonly string[])[]): string[] {
   return ids.sort();
 }
 
+function mergeOrgStats(orgs: readonly ClusterOrg[]): ClusterOrg[] {
+  const byId = new Map<string, ClusterOrg>();
+  for (const org of orgs) {
+    const prev = byId.get(org.id);
+    if (
+      !prev ||
+      org.people > prev.people ||
+      (org.people === prev.people && org.edges > prev.edges)
+    ) {
+      byId.set(org.id, org);
+    }
+  }
+  return Array.from(byId.values()).sort((a, b) => {
+    if (b.people !== a.people) return b.people - a.people;
+    if (b.edges !== a.edges) return b.edges - a.edges;
+    return a.label.localeCompare(b.label) || a.id.localeCompare(b.id);
+  });
+}
+
+/**
+ * Orgs that belong to the folded small groups. Skip an org that already
+ * has a named pill so the Mixed boards list is the hidden boards.
+ */
+function orgsForFoldedGroups(
+  groups: readonly (readonly string[])[],
+  edges: readonly ClusterEdge[],
+  excludeOrgIds: ReadonlySet<string>
+): ClusterOrg[] {
+  const picked: ClusterOrg[] = [];
+  for (const members of groups) {
+    const stats = orgStatsForMembers(members, edges).filter(
+      (org) => !excludeOrgIds.has(org.id)
+    );
+    if (stats.length === 0) continue;
+    const winner = dominantOrg(stats);
+    if (winner) picked.push(winner);
+    else picked.push(...stats);
+  }
+  return mergeOrgStats(picked);
+}
+
 function mixedCauseFromGroups(
   groups: readonly (readonly string[])[],
-  edges: readonly ClusterEdge[]
+  edges: readonly ClusterEdge[],
+  options: {
+    excludeOrgIds?: ReadonlySet<string>;
+    excludeMemberIds?: ReadonlySet<string>;
+  } = {}
 ): ClusterCause {
-  const memberIds = uniqueMemberIds(groups);
+  const excludeOrgIds = options.excludeOrgIds ?? new Set<string>();
+  const allMembers = uniqueMemberIds(groups);
+  const ownMembers = options.excludeMemberIds
+    ? allMembers.filter((id) => !options.excludeMemberIds!.has(id))
+    : allMembers;
+  const memberIds = ownMembers.length > 0 ? ownMembers : allMembers;
+  const topOrgs =
+    groups.length > 1 || excludeOrgIds.size > 0
+      ? orgsForFoldedGroups(groups, edges, excludeOrgIds)
+      : orgStatsForMembers(memberIds, edges).filter(
+          (org) => !excludeOrgIds.has(org.id)
+        );
   return {
     id: `mixed:${memberIds.join(",")}`,
     kind: "mixed",
     label: MIXED_BOARDS_LABEL,
     orgId: null,
     memberIds,
-    topOrgs: orgStatsForMembers(memberIds, edges),
+    topOrgs,
     folded: groups.length > 1,
   };
 }
@@ -494,7 +550,15 @@ export function buildClusterCauses(
 
   const causes = named.slice();
   if (fold.length > 0) {
-    causes.push(mixedCauseFromGroups(fold, edges));
+    const excludeOrgIds = new Set(
+      named
+        .map((cause) => cause.orgId)
+        .filter((id): id is string => Boolean(id))
+    );
+    const excludeMemberIds = new Set(named.flatMap((cause) => cause.memberIds));
+    causes.push(
+      mixedCauseFromGroups(fold, edges, { excludeOrgIds, excludeMemberIds })
+    );
   }
 
   return causes.sort((a, b) => {
