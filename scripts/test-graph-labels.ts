@@ -19,6 +19,7 @@ import {
   FOCUS_LABEL_ALL_ACTORS_MAX,
   FOCUS_LABEL_TOP_N,
   labelModeForWidthStop,
+  drawWhoHoverRing,
   offsetCollidingLabels,
   presentOrgTypesFromNodes,
   topFocusLabelIds,
@@ -211,6 +212,52 @@ test("width stop no longer hides names: every stop names everyone", () => {
   assert.equal(labelModeForWidthStop("most"), "all");
   assert.equal(labelModeForWidthStop("wider"), "all");
   assert.equal(labelModeForWidthStop("all"), "all");
+});
+
+test("Who hover ring never paints a second name", () => {
+  const calls: string[] = [];
+  const ctx = {
+    save() {
+      calls.push("save");
+    },
+    restore() {
+      calls.push("restore");
+    },
+    beginPath() {},
+    rect() {
+      calls.push("rect");
+    },
+    arc() {
+      calls.push("arc");
+    },
+    stroke() {
+      calls.push("stroke");
+    },
+    fill() {
+      calls.push("fill");
+    },
+    fillRect() {
+      calls.push("fillRect");
+    },
+    fillText() {
+      calls.push("fillText");
+    },
+    translate() {},
+    rotate() {},
+    strokeStyle: "",
+    lineWidth: 0,
+    shadowColor: "",
+    shadowBlur: 0,
+  } as unknown as CanvasRenderingContext2D;
+  drawWhoHoverRing(ctx, { x: 10, y: 12, size: 8 }, "square");
+  drawWhoHoverRing(ctx, { x: 4, y: 6, size: 9 }, "circle");
+  drawWhoHoverRing(ctx, { x: 0, y: 0, size: 7 }, "diamond");
+  assert.equal(calls.includes("fillText"), false);
+  assert.equal(calls.includes("fill"), false);
+  assert.equal(calls.includes("fillRect"), false);
+  assert.equal(calls.includes("stroke"), true);
+  assert.equal(calls.includes("rect"), true);
+  assert.equal(calls.includes("arc"), true);
 });
 
 test("Who graphs name every drawn object until a line is clicked", () => {

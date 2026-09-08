@@ -11,6 +11,33 @@ const ORG_TYPE_ORDER: OrgType[] = [
 const ORG_TYPE_SET = new Set<string>(ORG_TYPE_ORDER);
 
 export type GraphLabelMode = "focus" | "all" | "hover";
+export type WhoHoverShape = "circle" | "square" | "diamond";
+
+/** Stroke the node shape only. No chip, no second copy of the name. */
+export function drawWhoHoverRing(
+  ctx: CanvasRenderingContext2D,
+  node: { x: number; y: number; size: number },
+  shape: WhoHoverShape
+): void {
+  const radius = node.size + 2;
+  ctx.save();
+  ctx.strokeStyle = "#243324";
+  ctx.lineWidth = 2;
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  if (shape === "square") {
+    ctx.rect(node.x - radius, node.y - radius, radius * 2, radius * 2);
+  } else if (shape === "diamond") {
+    ctx.translate(node.x, node.y);
+    ctx.rotate(Math.PI / 4);
+    ctx.rect(-radius, -radius, radius * 2, radius * 2);
+  } else {
+    ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
 
 /**
  * Gene override: Who graphs name every drawn object on every width stop.
