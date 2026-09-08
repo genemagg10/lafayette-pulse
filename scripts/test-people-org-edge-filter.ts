@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   MIXED_BOARDS_LABEL,
   MIN_CLUSTER_SIZE,
+  MIN_NAMED_CLUSTER_SIZE,
   type ClusterEdge,
 } from "../lib/cluster-cause.ts";
 import {
@@ -35,6 +36,19 @@ function edge(
   };
 }
 
+function clique(
+  ids: readonly string[],
+  orgs: Array<{ id: string; label: string }>
+): ClusterEdge[] {
+  const edges: ClusterEdge[] = [];
+  for (let i = 0; i < ids.length; i += 1) {
+    for (let j = i + 1; j < ids.length; j += 1) {
+      edges.push(edge(ids[i], ids[j], orgs));
+    }
+  }
+  return edges;
+}
+
 test("filter is on Wider and All only — same gate as cluster pills", () => {
   assert.equal(peopleOrgEdgeFilterOnStop("most"), false);
   assert.equal(peopleOrgEdgeFilterOnStop("wider"), true);
@@ -45,17 +59,16 @@ test("this PR does not change width stops or cluster min-size", () => {
   assert.equal(GRAPH_RANGE_MOST, 12);
   assert.equal(GRAPH_RANGE_WIDER, 24);
   assert.equal(MIN_CLUSTER_SIZE, 3);
+  assert.equal(MIN_NAMED_CLUSTER_SIZE, 5);
 });
 
 test("named cluster orgs become chips first; mixed holds the smaller list", () => {
-  const nodes = ["ada", "bea", "cam", "dee", "eve", "fay"];
+  const council = ["ada", "bea", "cam", "dee", "eve"];
+  const rotary = ["fay", "gus", "hal"];
+  const nodes = [...council, ...rotary];
   const edges = [
-    edge("ada", "bea", [org("council", "City Council")]),
-    edge("ada", "cam", [org("council", "City Council")]),
-    edge("bea", "cam", [org("council", "City Council")]),
-    edge("dee", "eve", [org("rotary", "Rotary")]),
-    edge("eve", "fay", [org("planning", "Planning Commission")]),
-    edge("dee", "fay", [org("chamber", "Chamber")]),
+    ...clique(council, [org("council", "City Council")]),
+    ...clique(rotary, [org("rotary", "Rotary")]),
   ];
   const chips = orgEdgeFilterChips(nodes, edges);
   assert.equal(chips[0]?.kind, "org");
@@ -66,7 +79,7 @@ test("named cluster orgs become chips first; mixed holds the smaller list", () =
   assert.equal(mixed.label, MIXED_BOARDS_LABEL);
   assert.deepEqual(
     mixed.orgs.map((row) => row.label).sort(),
-    ["Chamber", "Planning Commission", "Rotary"]
+    ["Rotary"]
   );
   assert.equal(
     chips.some((chip) => chip.kind === "org" && chip.id === "rotary"),
@@ -75,14 +88,12 @@ test("named cluster orgs become chips first; mixed holds the smaller list", () =
 });
 
 test("smaller groups do not get their own chips unless listed under Mixed boards", () => {
-  const nodes = ["ada", "bea", "cam", "dee", "eve", "fay"];
+  const council = ["ada", "bea", "cam", "dee", "eve"];
+  const rotary = ["fay", "gus", "hal"];
+  const nodes = [...council, ...rotary];
   const edges = [
-    edge("ada", "bea", [org("council", "City Council")]),
-    edge("ada", "cam", [org("council", "City Council")]),
-    edge("bea", "cam", [org("council", "City Council")]),
-    edge("dee", "eve", [org("rotary", "Rotary")]),
-    edge("eve", "fay", [org("planning", "Planning Commission")]),
-    edge("dee", "fay", [org("chamber", "Chamber")]),
+    ...clique(council, [org("council", "City Council")]),
+    ...clique(rotary, [org("rotary", "Rotary")]),
   ];
   const chips = orgEdgeFilterChips(nodes, edges);
   const namedIds = chips
@@ -92,20 +103,18 @@ test("smaller groups do not get their own chips unless listed under Mixed boards
   const mixed = chips.find((chip) => chip.kind === "mixed");
   assert.ok(mixed && mixed.kind === "mixed");
   assert.equal(
-    mixed.orgs.some((org) => org.id === "rotary"),
+    mixed.orgs.some((row) => row.id === "rotary"),
     true
   );
 });
 
 test("two named sitting groups each get a chip, in cluster order", () => {
-  const nodes = ["ada", "bea", "cam", "dee", "eve", "fay"];
+  const council = ["ada", "bea", "cam", "dee", "eve"];
+  const rotary = ["fay", "gus", "hal", "ida", "jen"];
+  const nodes = [...council, ...rotary];
   const edges = [
-    edge("ada", "bea", [org("council", "City Council")]),
-    edge("ada", "cam", [org("council", "City Council")]),
-    edge("bea", "cam", [org("council", "City Council")]),
-    edge("dee", "eve", [org("rotary", "Rotary")]),
-    edge("dee", "fay", [org("rotary", "Rotary")]),
-    edge("eve", "fay", [org("rotary", "Rotary")]),
+    ...clique(council, [org("council", "City Council")]),
+    ...clique(rotary, [org("rotary", "Rotary")]),
   ];
   const chips = orgEdgeFilterChips(nodes, edges);
   assert.deepEqual(
@@ -119,20 +128,18 @@ test("two named sitting groups each get a chip, in cluster order", () => {
 });
 
 test("a named org is not repeated under Mixed boards", () => {
-  const nodes = ["ada", "bea", "cam", "dee", "eve", "fay"];
+  const council = ["ada", "bea", "cam", "dee", "eve"];
+  const rotary = ["fay", "gus", "hal"];
+  const nodes = [...council, ...rotary];
   const edges = [
-    edge("ada", "bea", [org("council", "City Council")]),
-    edge("ada", "cam", [org("council", "City Council")]),
-    edge("bea", "cam", [org("council", "City Council")]),
-    edge("dee", "eve", [org("rotary", "Rotary")]),
-    edge("eve", "fay", [org("planning", "Planning Commission")]),
-    edge("dee", "fay", [org("chamber", "Chamber")]),
+    ...clique(council, [org("council", "City Council")]),
+    ...clique(rotary, [org("rotary", "Rotary")]),
   ];
   const chips = orgEdgeFilterChips(nodes, edges);
   const mixed = chips.find((chip) => chip.kind === "mixed");
   assert.ok(mixed && mixed.kind === "mixed");
   assert.equal(
-    mixed.orgs.some((org) => org.id === "council"),
+    mixed.orgs.some((row) => row.id === "council"),
     false
   );
 });
@@ -192,15 +199,13 @@ test("a mixed-list org uses the same hide rule", () => {
 });
 
 test("chip lookup sees named chips and mixed-list orgs", () => {
+  const council = ["ada", "bea", "cam", "dee", "eve"];
+  const rotary = ["fay", "gus", "hal"];
   const chips = orgEdgeFilterChips(
-    ["ada", "bea", "cam", "dee", "eve", "fay"],
+    [...council, ...rotary],
     [
-      edge("ada", "bea", [org("council", "City Council")]),
-      edge("ada", "cam", [org("council", "City Council")]),
-      edge("bea", "cam", [org("council", "City Council")]),
-      edge("dee", "eve", [org("rotary", "Rotary")]),
-      edge("eve", "fay", [org("planning", "Planning Commission")]),
-      edge("dee", "fay", [org("chamber", "Chamber")]),
+      ...clique(council, [org("council", "City Council")]),
+      ...clique(rotary, [org("rotary", "Rotary")]),
     ]
   );
   assert.equal(chipContainsOrg(chips, "council"), true);
