@@ -23,6 +23,8 @@ import {
   IdentityHeader,
   StickyDetailChrome,
 } from "./WhoDetailChrome";
+import NetworkPreviewCard from "./NetworkPreviewCard";
+import { orgNetworkPreviewLabel } from "@/lib/network-preview";
 import type { RenderableEdge } from "./graph/CivicGraph";
 import {
   buildWhyLinkedModel,
@@ -479,26 +481,32 @@ export default function OrganizationExplorer({
   const detailPane = (
     <div className="space-y-3">
       {detail ? (
-        <StickyDetailChrome>
-          <IdentityHeader
-            name={detail.name}
-            subtitle={
-              [
-                ORG_TYPE_LABELS[detail.org_type as OrgType] || detail.org_type,
-                `${detail.current_member_count ?? currentMembers.length} current members`,
-              ].join(" · ")
-            }
-            footprint={
-              (listedOrg?.footprint_score ??
-                detail.footprint_score ??
-                detail.current_member_count ??
-                detail.member_count ??
-                currentMembers.length) || null
-            }
-            website={detail.website}
-            showAvatar={false}
+        <>
+          <StickyDetailChrome>
+            <IdentityHeader
+              name={detail.name}
+              subtitle={
+                [
+                  ORG_TYPE_LABELS[detail.org_type as OrgType] || detail.org_type,
+                  `${detail.current_member_count ?? currentMembers.length} current members`,
+                ].join(" · ")
+              }
+              footprint={
+                (listedOrg?.footprint_score ??
+                  detail.footprint_score ??
+                  detail.current_member_count ??
+                  detail.member_count ??
+                  currentMembers.length) || null
+              }
+              website={detail.website}
+              showAvatar={false}
+            />
+          </StickyDetailChrome>
+          <NetworkPreviewCard
+            label={orgNetworkPreviewLabel(detail.name)}
+            onOpen={() => setMobileStep("viz")}
           />
-        </StickyDetailChrome>
+        </>
       ) : (
         <p className="text-sm font-body text-ink-muted">
           Select an organization to focus the graph on it and its shared-membership
@@ -660,6 +668,7 @@ export default function OrganizationExplorer({
       vizLabel="Affinity"
       mobileStep={mobileStep}
       onMobileStep={setMobileStep}
+      showOpenControl={false}
     />
   );
 }

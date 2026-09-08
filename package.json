@@ -14,7 +14,8 @@
     "test:people-affinity": "node --experimental-strip-types --test scripts/test-people-affinity.ts",
     "test:graph-range": "node --experimental-strip-types --test scripts/test-graph-range.ts",
     "test:graph-labels": "node --experimental-strip-types --test scripts/test-graph-labels.ts",
-    "test:org-plot": "node --experimental-strip-types --test scripts/test-org-plot.ts"
+    "test:org-plot": "node --experimental-strip-types --test scripts/test-org-plot.ts",
+    "test:network-preview": "node --experimental-strip-types --test scripts/test-network-preview.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.64",

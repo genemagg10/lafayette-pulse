@@ -21,6 +21,8 @@ import {
   IdentityHeader,
   StickyDetailChrome,
 } from "./WhoDetailChrome";
+import NetworkPreviewCard from "./NetworkPreviewCard";
+import { personNetworkPreviewLabel } from "@/lib/network-preview";
 import type { RenderableEdge } from "./graph/CivicGraph";
 import {
   buildWhyLinkedModel,
@@ -432,6 +434,10 @@ export default function PeopleExplorer({
             photoUrl={selected.photo_url}
           />
         </StickyDetailChrome>
+        <NetworkPreviewCard
+          label={personNetworkPreviewLabel(selected.full_name)}
+          onOpen={() => setMobileStep("viz")}
+        />
         <div className="space-y-3">
           {detail?.bio && (
             <p className="text-[13px] font-body text-forest-600 leading-snug">
@@ -642,6 +648,7 @@ export default function PeopleExplorer({
       vizLabel="Network"
       mobileStep={mobileStep}
       onMobileStep={setMobileStep}
+      showOpenControl={false}
     />
   );
 }
