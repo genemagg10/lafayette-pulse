@@ -25,6 +25,11 @@ import NetworkPreviewCard from "./NetworkPreviewCard";
 import { personNetworkPreviewLabel } from "@/lib/network-preview";
 import type { RenderableEdge } from "./graph/CivicGraph";
 import {
+  MIXED_BOARDS_LABEL,
+  clusterCauseOnStop,
+  type ClusterCause,
+} from "@/lib/cluster-cause";
+import {
   buildWhyLinkedModel,
   toggleWhyLinkedEdge,
 } from "@/lib/why-linked";
@@ -90,6 +95,7 @@ export default function PeopleExplorer({
   const [onTheRecord, setOnTheRecord] = useState<OnTheRecordItem[]>([]);
   const [mobileStep, setMobileStep] = useState<MobileStep>("list");
   const [selectedEdge, setSelectedEdge] = useState<RenderableEdge | null>(null);
+  const [mixedCause, setMixedCause] = useState<ClusterCause | null>(null);
   const [rangeStop, setRangeStop] = useState<GraphRangeStop>("most");
   const selectedPersonIdRef = useRef(selectedPersonId);
   selectedPersonIdRef.current = selectedPersonId;
@@ -111,6 +117,7 @@ export default function PeopleExplorer({
     setEgo(null);
     setOnTheRecord([]);
     setSelectedEdge(null);
+    setMixedCause(null);
     onSelectPerson?.(null);
   };
 
@@ -121,6 +128,7 @@ export default function PeopleExplorer({
   };
 
   const selectPerson = (id: string) => {
+    setMixedCause(null);
     if (selectedId === id) {
       clearPerson();
       return;
@@ -225,6 +233,7 @@ export default function PeopleExplorer({
       })
       .finally(() => setDetailLoading(false));
     setSelectedEdge(null);
+    setMixedCause(null);
   }, [selectedId, hops, currentOnly]);
 
   useEffect(() => {
@@ -285,6 +294,18 @@ export default function PeopleExplorer({
       setSelectedEdge(null);
     }
   }, [rangedPeople, selectedEdge, selectedId]);
+
+  useEffect(() => {
+    if (!mixedCause || selectedId) return;
+    if (!clusterCauseOnStop(activePeopleStop)) {
+      setMixedCause(null);
+      return;
+    }
+    const ids = new Set(rangedPeople.nodes.map((node) => node.id));
+    if (mixedCause.memberIds.some((id) => !ids.has(id))) {
+      setMixedCause(null);
+    }
+  }, [rangedPeople, mixedCause, selectedId, activePeopleStop]);
 
   const whyLinkedModel = useMemo(() => {
     if (!selectedEdge) return null;
@@ -603,16 +624,31 @@ export default function PeopleExplorer({
             layout={selectedId ? "ego" : "force"}
             nameEveryNode
             selectedEdge={selectedEdge}
+            showClusterCause={!selectedId && clusterCauseOnStop(activePeopleStop)}
             heightClassName="h-full min-h-[420px]"
+            onClusterCauseClick={(cause) => {
+              setSelectedEdge(null);
+              if (cause.kind === "org") {
+                setMixedCause(null);
+                onSelectOrg?.(cause.orgId);
+                return;
+              }
+              setMixedCause(cause);
+            }}
             onNodeClick={(id, kind) => {
               setSelectedEdge(null);
+              setMixedCause(null);
               if (kind === "person") selectPerson(id);
               if (kind === "organization") onSelectOrg?.(id);
             }}
-            onEdgeClick={(edge) =>
-              setSelectedEdge((current) => toggleWhyLinkedEdge(current, edge))
-            }
-            onStageClick={() => setSelectedEdge(null)}
+            onEdgeClick={(edge) => {
+              setMixedCause(null);
+              setSelectedEdge((current) => toggleWhyLinkedEdge(current, edge));
+            }}
+            onStageClick={() => {
+              setSelectedEdge(null);
+              setMixedCause(null);
+            }}
           />
         )}
         {whyLinkedModel && (
@@ -623,6 +659,61 @@ export default function PeopleExplorer({
               onClose={() => setSelectedEdge(null)}
               onSelectEntity={selectFromWhyLinked}
             />
+          </div>
+        )}
+        {mixedCause && !selectedId && clusterCauseOnStop(activePeopleStop) && (
+          <div className="absolute inset-x-3 bottom-3 z-20 max-h-[55%] lg:inset-x-auto lg:right-3 lg:left-auto lg:top-3 lg:bottom-auto lg:w-[18rem] lg:max-h-[min(70%,20rem)]">
+            <div className="rounded-md border border-line bg-surface p-3 shadow-[0_8px_24px_rgba(26,36,32,0.1)]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h4 className="font-heading font-semibold text-sm text-ink">
+                    {MIXED_BOARDS_LABEL}
+                  </h4>
+                  <p className="text-xs font-body text-ink-muted mt-0.5">
+                    Top shared organizations
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMixedCause(null)}
+                  className="text-sm font-body text-ink-muted hover:text-ink leading-none px-1"
+                  aria-label="Close mixed boards"
+                >
+                  Close
+                </button>
+              </div>
+              {mixedCause.topOrgs.length === 0 ? (
+                <p className="text-sm font-body text-ink-muted mt-2">
+                  No shared organization stands out.
+                </p>
+              ) : (
+                <ul className="mt-2 space-y-1.5">
+                  {mixedCause.topOrgs.map((org) => {
+                    const selectable = Boolean(org.id) && !org.id.startsWith("name:");
+                    return (
+                      <li key={org.id}>
+                        {selectable ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMixedCause(null);
+                              onSelectOrg?.(org.id);
+                            }}
+                            className="font-heading font-semibold text-sm text-forest-700 underline hover:text-forest-900 text-left"
+                          >
+                            {org.label}
+                          </button>
+                        ) : (
+                          <span className="font-heading font-semibold text-sm text-ink">
+                            {org.label}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           </div>
         )}
       </div>
