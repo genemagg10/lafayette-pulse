@@ -6,8 +6,10 @@ export const CLUSTER_LABEL_INK = "#1A2420";
 export const CLUSTER_LABEL_SIZE_PX = 11;
 export const CLUSTER_WASH_OPACITY = 0.12;
 export const CLUSTER_MIXED_STROKE = "#C9C5B8";
+/** Detect a sitting group at 3. Pairs are not groups. */
 export const MIN_CLUSTER_SIZE = 3;
-export const MIXED_ORG_LIST_MAX = 3;
+/** Named org pill only when this many people sit in the group. */
+export const MIN_NAMED_CLUSTER_SIZE = 5;
 /** Wash is ground only. Never lifted over lines. Never used as an edge tint. */
 export const CLUSTER_WASH_IS_GROUND = true;
 
@@ -60,6 +62,8 @@ export type ClusterCause =
       orgId: null;
       memberIds: string[];
       topOrgs: ClusterOrg[];
+      /** Several small sitting groups folded into one heading. */
+      folded: boolean;
     };
 
 export function clusterWashColor(orgId: string): string {
@@ -172,9 +176,15 @@ export function orgStatsForMembers(
 export function topSharedOrgs(
   memberIds: readonly string[],
   edges: readonly ClusterEdge[],
-  n = MIXED_ORG_LIST_MAX
+  n?: number
 ): ClusterOrg[] {
-  return orgStatsForMembers(memberIds, edges).slice(0, n);
+  const stats = orgStatsForMembers(memberIds, edges);
+  return n == null ? stats : stats.slice(0, n);
+}
+
+/** Cream wash only on a named org group. Mixed boards has none. */
+export function clusterCauseHasWash(cause: ClusterCause): boolean {
+  return cause.kind === "org";
 }
 
 export function coveringOrgs(
@@ -378,14 +388,98 @@ export function orgSittingGroups(
   return pruneNestedSittingGroups(groups);
 }
 
+function uniqueMemberIds(groups: readonly (readonly string[])[]): string[] {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const group of groups) {
+    for (const id of group) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      ids.push(id);
+    }
+  }
+  return ids.sort();
+}
+
+function mergeOrgStats(orgs: readonly ClusterOrg[]): ClusterOrg[] {
+  const byId = new Map<string, ClusterOrg>();
+  for (const org of orgs) {
+    const prev = byId.get(org.id);
+    if (
+      !prev ||
+      org.people > prev.people ||
+      (org.people === prev.people && org.edges > prev.edges)
+    ) {
+      byId.set(org.id, org);
+    }
+  }
+  return Array.from(byId.values()).sort((a, b) => {
+    if (b.people !== a.people) return b.people - a.people;
+    if (b.edges !== a.edges) return b.edges - a.edges;
+    return a.label.localeCompare(b.label) || a.id.localeCompare(b.id);
+  });
+}
+
+/**
+ * Orgs that belong to the folded small groups. Skip an org that already
+ * has a named pill so the Mixed boards list is the hidden boards.
+ */
+function orgsForFoldedGroups(
+  groups: readonly (readonly string[])[],
+  edges: readonly ClusterEdge[],
+  excludeOrgIds: ReadonlySet<string>
+): ClusterOrg[] {
+  const picked: ClusterOrg[] = [];
+  for (const members of groups) {
+    const stats = orgStatsForMembers(members, edges).filter(
+      (org) => !excludeOrgIds.has(org.id)
+    );
+    if (stats.length === 0) continue;
+    const winner = dominantOrg(stats);
+    if (winner) picked.push(winner);
+    else picked.push(...stats);
+  }
+  return mergeOrgStats(picked);
+}
+
+function mixedCauseFromGroups(
+  groups: readonly (readonly string[])[],
+  edges: readonly ClusterEdge[],
+  options: {
+    excludeOrgIds?: ReadonlySet<string>;
+    excludeMemberIds?: ReadonlySet<string>;
+  } = {}
+): ClusterCause {
+  const excludeOrgIds = options.excludeOrgIds ?? new Set<string>();
+  const allMembers = uniqueMemberIds(groups);
+  const ownMembers = options.excludeMemberIds
+    ? allMembers.filter((id) => !options.excludeMemberIds!.has(id))
+    : allMembers;
+  const memberIds = ownMembers.length > 0 ? ownMembers : allMembers;
+  const topOrgs =
+    groups.length > 1 || excludeOrgIds.size > 0
+      ? orgsForFoldedGroups(groups, edges, excludeOrgIds)
+      : orgStatsForMembers(memberIds, edges).filter(
+          (org) => !excludeOrgIds.has(org.id)
+        );
+  return {
+    id: `mixed:${memberIds.join(",")}`,
+    kind: "mixed",
+    label: MIXED_BOARDS_LABEL,
+    orgId: null,
+    memberIds,
+    topOrgs,
+    folded: groups.length > 1,
+  };
+}
+
 function causeFromMembers(
   memberIds: string[],
   edges: readonly ClusterEdge[]
 ): ClusterCause {
   const stats = orgStatsForMembers(memberIds, edges);
   const winner = dominantOrg(stats);
-  const topOrgs = stats.slice(0, MIXED_ORG_LIST_MAX);
-  if (winner) {
+  if (winner && memberIds.length >= MIN_NAMED_CLUSTER_SIZE) {
     return {
       id: `org:${winner.id}:${memberIds.join(",")}`,
       kind: "org",
@@ -401,24 +495,45 @@ function causeFromMembers(
     label: MIXED_BOARDS_LABEL,
     orgId: null,
     memberIds,
-    topOrgs,
+    topOrgs: stats,
+    folded: false,
   };
 }
 
 /**
  * Split the drawn graph into the groups that sit together, then name
  * each group for the org that dominates it (most members, or most
- * internal edges). Mixed boards only when that group has no dominant org.
- * A thin bridge must not merge separable groups.
+ * internal edges). A named org pill requires 5 or more people. Smaller
+ * groups fold into one Mixed boards heading. A group of 5 or more with
+ * no dominant org can still be Mixed boards. A thin bridge must not
+ * merge separable groups.
  */
 export function buildClusterCauses(
   nodeIds: readonly string[],
   edges: readonly ClusterEdge[]
 ): ClusterCause[] {
   const sitting = orgSittingGroups(nodeIds, edges);
-  const causes: ClusterCause[] = sitting.map((group) =>
-    causeFromMembers(group.memberIds, edges)
-  );
+  const named: ClusterCause[] = [];
+  const fold: string[][] = [];
+
+  const consider = (
+    memberIds: string[],
+    groupEdges: readonly ClusterEdge[]
+  ) => {
+    if (memberIds.length < MIN_CLUSTER_SIZE) return;
+    if (memberIds.length >= MIN_NAMED_CLUSTER_SIZE) {
+      const cause = causeFromMembers(memberIds, groupEdges);
+      if (cause.kind === "org") {
+        named.push(cause);
+        return;
+      }
+    }
+    fold.push(memberIds);
+  };
+
+  for (const group of sitting) {
+    consider(group.memberIds, edges);
+  }
 
   const assigned = new Set<string>();
   for (const group of sitting) {
@@ -430,8 +545,20 @@ export function buildClusterCauses(
     (edge) => !assigned.has(edge.source) && !assigned.has(edge.target)
   );
   for (const piece of twoEdgeConnectedComponents(leftover, leftoverEdges)) {
-    if (piece.length < MIN_CLUSTER_SIZE) continue;
-    causes.push(causeFromMembers(piece, leftoverEdges));
+    consider(piece, leftoverEdges);
+  }
+
+  const causes = named.slice();
+  if (fold.length > 0) {
+    const excludeOrgIds = new Set(
+      named
+        .map((cause) => cause.orgId)
+        .filter((id): id is string => Boolean(id))
+    );
+    const excludeMemberIds = new Set(named.flatMap((cause) => cause.memberIds));
+    causes.push(
+      mixedCauseFromGroups(fold, edges, { excludeOrgIds, excludeMemberIds })
+    );
   }
 
   return causes.sort((a, b) => {

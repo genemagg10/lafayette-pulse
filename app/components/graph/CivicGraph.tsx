@@ -985,7 +985,8 @@ export default function CivicGraph({
             ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
-          } else {
+          } else if (!cause.folded) {
+            // Mixed boards has no wash. Outline only on one sitting blob.
             ctx.save();
             ctx.globalAlpha = 0.45;
             ctx.strokeStyle = CLUSTER_MIXED_STROKE;
