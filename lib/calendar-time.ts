@@ -42,6 +42,14 @@ export function ptBoundIso(dayKey: string): string {
   return `${dayKey}T08:00:00.000Z`;
 }
 
+/** Today through the following 6 civil days. `until` is exclusive. */
+export function upcomingWindow(todayKey: string): { since: string; until: string } {
+  return {
+    since: todayKey,
+    until: shiftDayKey(todayKey, 7),
+  };
+}
+
 export function shiftDayKey(dayKey: string, days: number): string {
   if (!isDayKey(dayKey)) return dayKey;
   const [year, month, day] = dayKey.split("-").map(Number);
@@ -68,12 +76,17 @@ export function isProjectedEvent(event: {
   return /RECURRING_PROJECTION/i.test(text) || /confidence\s*=\s*medium/i.test(text);
 }
 
+const SCRAPE_BRACKET_RE =
+  /\[[^\]]*(?:RECURRING_PROJECTION|[A-Z_]*FROM_CITY_CALENDAR|confidence\s*[=-]\s*[\w-]+)[^\]]*\]/gi;
+const SCRAPE_TOKEN_RE =
+  /(?:RECURRING_PROJECTION|[A-Z_]*FROM_CITY_CALENDAR|confidence\s*[=-]\s*[\w-]+)/gi;
+
+/** Strip scrape metadata. Never invent a time, place, or name. */
 export function displayEventDescription(description: string | null): string | null {
   if (!description) return null;
   const cleaned = description
-    .replace(/\[[^\]]*(?:RECURRING_PROJECTION|confidence\s*=\s*medium)[^\]]*\]/gi, "")
-    .replace(/RECURRING_PROJECTION/gi, "")
-    .replace(/confidence\s*=\s*medium/gi, "")
+    .replace(SCRAPE_BRACKET_RE, "")
+    .replace(SCRAPE_TOKEN_RE, "")
     .replace(/\s{2,}/g, " ")
     .replace(/\s+([.,;:])/g, "$1")
     .trim();

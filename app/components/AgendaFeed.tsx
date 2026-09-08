@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CalendarItemCard from "./CalendarItemCard";
+import { formatGroupDay } from "@/lib/calendar-layout";
 import {
   fetchCalendarItems,
+  shiftDayKey,
   todayKeyPacific,
+  upcomingWindow,
   type CalendarItem,
 } from "@/lib/calendar-items";
 import type { ProjectCategory } from "@/lib/types";
@@ -12,15 +15,17 @@ import type { ProjectCategory } from "@/lib/types";
 interface AgendaFeedProps {
   activeCategories: Set<ProjectCategory>;
   filterDay?: string | null;
-  onSelectItem?: (item: CalendarItem) => void;
-  selectedItemId?: string | null;
+  openItemId?: string | null;
+  onToggleItem?: (item: CalendarItem) => void;
+  heading?: string;
 }
 
 export default function AgendaFeed({
   activeCategories,
   filterDay,
-  onSelectItem,
-  selectedItemId,
+  openItemId,
+  onToggleItem,
+  heading,
 }: AgendaFeedProps) {
   const [items, setItems] = useState<CalendarItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,11 +46,11 @@ export default function AgendaFeed({
 
     if (filterDay) {
       since = filterDay;
-      const next = new Date(`${filterDay}T12:00:00`);
-      next.setDate(next.getDate() + 1);
-      until = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+      until = shiftDayKey(filterDay, 1);
     } else if (view === "upcoming") {
-      since = today;
+      const window = upcomingWindow(today);
+      since = window.since;
+      until = window.until;
       upcoming = true;
     } else {
       until = today;
@@ -73,14 +78,21 @@ export default function AgendaFeed({
     };
   }, [activeCategories, view, filterDay]);
 
+  const groups = useMemo(() => groupByDay(items), [items]);
+  const title = filterDay
+    ? (heading ?? "This day")
+    : view === "archive"
+      ? "Archive"
+      : "Upcoming";
+
   if (loading) {
     return (
       <div className="space-y-3 animate-pulse">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-surface rounded-lg p-4">
-            <div className="h-4 bg-line rounded w-1/3 mb-2" />
-            <div className="h-3 bg-line rounded w-full mb-1" />
-            <div className="h-3 bg-line rounded w-2/3" />
+          <div key={i} className="bg-surface border border-line p-4">
+            <div className="h-4 bg-line w-1/3 mb-2" />
+            <div className="h-3 bg-line w-full mb-1" />
+            <div className="h-3 bg-line w-2/3" />
           </div>
         ))}
       </div>
@@ -89,51 +101,73 @@ export default function AgendaFeed({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        {!filterDay && (
-          <>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-heading font-semibold text-ink text-sm">{title}</h2>
+        {!filterDay ? (
+          <div className="flex items-center gap-2 ml-auto">
             <button
+              type="button"
               onClick={() => setView("upcoming")}
-              className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
+              className={`px-3 py-1.5 text-xs font-body font-medium transition-colors ${
                 view === "upcoming"
-                  ? "bg-forest-700 text-white"
+                  ? "bg-forest text-surface"
                   : "bg-surface-muted text-ink-muted hover:bg-line"
               }`}
             >
               Upcoming
             </button>
             <button
+              type="button"
               onClick={() => setView("archive")}
-              className={`px-3 py-1.5 rounded-full text-xs font-body font-medium transition-colors ${
+              className={`px-3 py-1.5 text-xs font-body font-medium transition-colors ${
                 view === "archive"
-                  ? "bg-forest-700 text-white"
+                  ? "bg-forest text-surface"
                   : "bg-surface-muted text-ink-muted hover:bg-line"
               }`}
             >
               Archive
             </button>
-          </>
-        )}
+          </div>
+        ) : null}
       </div>
 
-      {items.length === 0 && !loading ? (
-        <div className="text-center py-8 text-forest-400 font-body">
+      {items.length === 0 ? (
+        <div className="py-8 text-forest-400 font-body text-sm">
           {filterDay
             ? "No events on this day."
             : view === "upcoming"
-            ? "No upcoming events match your filters."
-            : "No past events match your filters."}
+              ? "No upcoming events in the next 7 days."
+              : "No past events match your filters."}
         </div>
       ) : (
-        items.map((item) => (
-          <CalendarItemCard
-            key={item.id}
-            item={item}
-            selected={selectedItemId === item.id}
-            onSelect={onSelectItem}
-          />
+        groups.map(([day, dayItems]) => (
+          <section key={day} className="space-y-2">
+            {!filterDay ? (
+              <h3 className="text-[11px] font-body uppercase tracking-wide text-ink-muted">
+                {formatGroupDay(day)}
+              </h3>
+            ) : null}
+            {dayItems.map((item) => (
+              <CalendarItemCard
+                key={item.id}
+                item={item}
+                open={openItemId === item.id}
+                onToggle={onToggleItem}
+              />
+            ))}
+          </section>
         ))
       )}
     </div>
   );
+}
+
+function groupByDay(items: CalendarItem[]): [string, CalendarItem[]][] {
+  const map = new Map<string, CalendarItem[]>();
+  for (const item of items) {
+    const list = map.get(item.dayKey);
+    if (list) list.push(item);
+    else map.set(item.dayKey, [item]);
+  }
+  return Array.from(map.entries());
 }
