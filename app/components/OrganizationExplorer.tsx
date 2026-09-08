@@ -523,6 +523,13 @@ export default function OrganizationExplorer({
           })}
         </ul>
       )}
+      <button
+        type="button"
+        onClick={() => setMobileStep("viz")}
+        className="lg:hidden w-full rounded-none bg-forest-800 text-cream-50 font-heading text-sm py-3 hover:bg-forest-700"
+      >
+        View plot
+      </button>
     </div>
   );
 
@@ -830,6 +837,7 @@ export default function OrganizationExplorer({
         viz={vizPane}
         detail={detailPane}
         vizLabel={viz === "affinity" ? "Affinity" : "Plot"}
+        vizBackStep={selectedId ? "detail" : "list"}
         mobileStep={mobileStep}
         onMobileStep={setMobileStep}
       />

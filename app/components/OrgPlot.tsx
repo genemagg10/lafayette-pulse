@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ORG_TYPE_COLORS } from "@/lib/civic-graph";
-import { presentOrgTypesFromNodes } from "@/lib/graph-labels";
+import { presentOrgTypesFromNodes, FOCUS_LABEL_ALL_ACTORS_MAX } from "@/lib/graph-labels";
 import {
   BUBBLE_CAP_DESKTOP_PX,
   BUBBLE_CAP_MOBILE_PX,
@@ -22,6 +22,7 @@ import {
   notOnRecordNodes,
   nudgePixelPoints,
   plottedNodes,
+  scaleLinear,
   type OrgPlotNode,
   type OrgPlotResponse,
   type PixelPoint,
@@ -34,17 +35,6 @@ interface OrgPlotProps {
   error?: string | null;
   selectedId?: string | null;
   onSelect: (id: string) => void;
-}
-
-function scale(
-  value: number,
-  d0: number,
-  d1: number,
-  r0: number,
-  r1: number
-): number {
-  if (d1 === d0) return (r0 + r1) / 2;
-  return r0 + ((value - d0) / (d1 - d0)) * (r1 - r0);
 }
 
 function usePlotBox() {
@@ -143,8 +133,8 @@ export default function OrgPlot({
     const midX =
       view === "stance"
         ? (inner.minX + inner.maxX) / 2
-        : scale(data.median_x, minReach, maxReach, inner.minX, inner.maxX);
-    const midY = scale(data.median_y, minFoot, maxFoot, inner.maxY, inner.minY);
+        : scaleLinear(data.median_x, minReach, maxReach, inner.minX, inner.maxX);
+    const midY = scaleLinear(data.median_y, minFoot, maxFoot, inner.maxY, inner.minY);
 
     const opposeX = inner.minX + (inner.maxX - inner.minX) * 0.22;
     const supportX = inner.minX + (inner.maxX - inner.minX) * 0.78;
@@ -154,7 +144,7 @@ export default function OrgPlot({
       const r = d / 2;
       if (view === "stance") {
         const x = node.stance === "oppose" ? opposeX : supportX;
-        const y = scale(node.footprint, minFoot, maxFoot, inner.maxY, inner.minY);
+        const y = scaleLinear(node.footprint, minFoot, maxFoot, inner.maxY, inner.minY);
         return {
           id: node.id,
           x,
@@ -166,8 +156,8 @@ export default function OrgPlot({
       }
       return {
         id: node.id,
-        x: scale(node.reach, minReach, maxReach, inner.minX, inner.maxX),
-        y: scale(node.footprint, minFoot, maxFoot, inner.maxY, inner.minY),
+        x: scaleLinear(node.reach, minReach, maxReach, inner.minX, inner.maxX),
+        y: scaleLinear(node.footprint, minFoot, maxFoot, inner.maxY, inner.minY),
         r,
         sideX: compareSide(node.reach, data.median_x),
         sideY: compareSide(node.footprint, data.median_y),
@@ -320,6 +310,11 @@ export default function OrgPlot({
               layout.points.map((point) => {
                 const selected = point.id === selectedId;
                 const color = ORG_TYPE_COLORS[point.node.org_type] || ORG_TYPE_COLORS.other;
+                const showName =
+                  selected ||
+                  hoveredId === point.id ||
+                  layout.points.length <= FOCUS_LABEL_ALL_ACTORS_MAX;
+                const nameBelow = point.y + point.r + 14 < layout.plot.maxY;
                 return (
                   <g
                     key={point.id}
@@ -375,10 +370,10 @@ export default function OrgPlot({
                         E
                       </text>
                     )}
-                    {(selected || hoveredId === point.id) && (
+                    {showName && (
                       <text
                         x={point.x}
-                        y={point.y + point.r + 12}
+                        y={nameBelow ? point.y + point.r + 12 : point.y - point.r - 6}
                         textAnchor="middle"
                         fontSize={compact ? 10 : 11}
                         fontFamily="var(--font-dm-sans), DM Sans, sans-serif"

@@ -9,6 +9,7 @@ interface FocusPanesProps {
   viz: ReactNode;
   detail: ReactNode;
   vizLabel: string;
+  vizBackStep?: MobileStep;
   mobileStep: MobileStep;
   onMobileStep: (step: MobileStep) => void;
 }
@@ -18,6 +19,7 @@ export default function FocusPanes({
   viz,
   detail,
   vizLabel,
+  vizBackStep = "detail",
   mobileStep,
   onMobileStep,
 }: FocusPanesProps) {
@@ -74,10 +76,10 @@ export default function FocusPanes({
           <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 border-b border-line bg-surface">
             <button
               type="button"
-              onClick={() => onMobileStep("detail")}
+              onClick={() => onMobileStep(vizBackStep)}
               className="text-sm font-body text-forest-700 hover:text-forest-900"
             >
-              ← Detail
+              ← {vizBackStep === "list" ? "List" : "Detail"}
             </button>
             <span className="font-heading text-sm text-ink">{vizLabel}</span>
           </div>

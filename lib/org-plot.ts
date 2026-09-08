@@ -404,6 +404,17 @@ export function nudgePixelPoints(
   return next;
 }
 
+export function scaleLinear(
+  value: number,
+  d0: number,
+  d1: number,
+  r0: number,
+  r1: number
+): number {
+  if (d1 === d0) return r0;
+  return r0 + ((value - d0) / (d1 - d0)) * (r1 - r0);
+}
+
 export function compareSide(value: number, medianValue: number): -1 | 0 | 1 {
   if (value > medianValue) return 1;
   if (value < medianValue) return -1;

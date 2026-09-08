@@ -17,6 +17,7 @@ import {
   orgReachCounts,
   orgStanceByActor,
   plottedNodes,
+  scaleLinear,
   type OrgPlotMeasureInput,
   type OrgPlotSnapshot,
   type OrgPlotStanceRow,
@@ -306,6 +307,12 @@ test("bubble size is area (sqrt) with an 18px floor", () => {
   const expectedMid =
     BUBBLE_FLOOR_PX + Math.sqrt(4 / 16) * (56 - BUBBLE_FLOOR_PX);
   assert.equal(mid, expectedMid);
+});
+
+test("collapsed domain pins to the low end, never the visual center", () => {
+  assert.equal(scaleLinear(0, 0, 0, 180, 20), 180);
+  assert.equal(scaleLinear(4, 0, 0, 40, 360), 40);
+  assert.ok(scaleLinear(2, 0, 4, 0, 100) === 50);
 });
 
 test("collision nudge may not cross a median", () => {
