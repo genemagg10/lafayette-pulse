@@ -8,11 +8,7 @@ import type {
   PeopleAffinityResponse,
   SharedBoardOverlap,
 } from "@/lib/civic-graph";
-import GraphLegend, { GraphLabelToggle } from "./graph/GraphLegend";
-import {
-  labelModeForWidthStop,
-  type GraphLabelMode,
-} from "@/lib/graph-labels";
+import GraphLegend from "./graph/GraphLegend";
 import PersonAvatar from "./PersonAvatar";
 import OnTheRecord, { type OnTheRecordItem } from "./OnTheRecord";
 import FocusPanes, { type MobileStep } from "./FocusPanes";
@@ -92,7 +88,6 @@ export default function PeopleExplorer({
   const [onTheRecord, setOnTheRecord] = useState<OnTheRecordItem[]>([]);
   const [mobileStep, setMobileStep] = useState<MobileStep>("list");
   const [selectedEdge, setSelectedEdge] = useState<RenderableEdge | null>(null);
-  const [labelMode, setLabelMode] = useState<GraphLabelMode>("focus");
   const [rangeStop, setRangeStop] = useState<GraphRangeStop>("most");
   const selectedPersonIdRef = useRef(selectedPersonId);
   selectedPersonIdRef.current = selectedPersonId;
@@ -586,7 +581,6 @@ export default function PeopleExplorer({
             />
             Current only
           </label>
-          <GraphLabelToggle mode={labelMode} onChange={setLabelMode} />
         </div>
       )}
       {overviewError && !selectedId && (
@@ -601,18 +595,18 @@ export default function PeopleExplorer({
             edges={graphEdges}
             centerId={selectedId ? ego?.center.id : null}
             layout={selectedId ? "ego" : "force"}
-            labelMode={
-              selectedId ? labelMode : labelModeForWidthStop(activePeopleStop)
-            }
+            nameEveryNode
             selectedEdge={selectedEdge}
             heightClassName="h-full min-h-[420px]"
             onNodeClick={(id, kind) => {
+              setSelectedEdge(null);
               if (kind === "person") selectPerson(id);
               if (kind === "organization") onSelectOrg?.(id);
             }}
             onEdgeClick={(edge) =>
               setSelectedEdge((current) => toggleWhyLinkedEdge(current, edge))
             }
+            onStageClick={() => setSelectedEdge(null)}
           />
         )}
         {whyLinkedModel && (
