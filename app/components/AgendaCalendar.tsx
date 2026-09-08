@@ -10,10 +10,10 @@ import {
 } from "react";
 import {
   EVENT_LINE_PX,
+  calendarCategoryToken,
   cellVisibleCount,
-  eventLineText,
+  eventChipText,
   gridRowTemplate,
-  meetingKindRule,
   monthGridRows,
   monthTrailingEmpties,
 } from "@/lib/calendar-layout";
@@ -32,6 +32,8 @@ interface AgendaCalendarProps {
   selectedDay?: string | null;
   onSelectDay?: (day: string | null) => void;
   density?: "fill" | "compact";
+  visibleMonth?: Date;
+  onVisibleMonthChange?: (month: Date) => void;
 }
 
 function formatDateKey(date: Date): string {
@@ -41,6 +43,17 @@ function formatDateKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+function startOfMonth(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function sundayOnOrBefore(date: Date): Date {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  next.setDate(next.getDate() - next.getDay());
+  return next;
+}
+
 export default function AgendaCalendar({
   activeCategories,
   view = "month",
@@ -48,11 +61,20 @@ export default function AgendaCalendar({
   selectedDay: selectedDayProp,
   onSelectDay,
   density = "fill",
+  visibleMonth,
+  onVisibleMonthChange,
 }: AgendaCalendarProps) {
-  const [currentMonth, setCurrentMonth] = useState(() => {
+  const [internalMonth, setInternalMonth] = useState(() => {
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
+    return startOfMonth(now);
   });
+  const currentMonth = visibleMonth ?? internalMonth;
+  const setCurrentMonth = (month: Date) => {
+    const next = startOfMonth(month);
+    if (startOfMonth(currentMonth).getTime() === next.getTime()) return;
+    onVisibleMonthChange?.(next);
+    if (visibleMonth === undefined) setInternalMonth(next);
+  };
   const [weekStart, setWeekStart] = useState(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -140,28 +162,34 @@ export default function AgendaCalendar({
     return `${y}-${m}-${d}`;
   };
 
+  useEffect(() => {
+    const target = startOfMonth(currentMonth).getTime();
+    setWeekStart((prev) => {
+      if (startOfMonth(prev).getTime() === target) return prev;
+      return sundayOnOrBefore(currentMonth);
+    });
+  }, [currentMonth]);
+
   const prevPeriod = () => {
     if (view === "week") {
-      setWeekStart((d) => {
-        const next = new Date(d);
-        next.setDate(next.getDate() - 7);
-        return next;
-      });
+      const next = new Date(weekStart);
+      next.setDate(next.getDate() - 7);
+      setWeekStart(next);
+      setCurrentMonth(startOfMonth(next));
     } else {
-      setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+      setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
     }
     setSelectedDay(null);
   };
 
   const nextPeriod = () => {
     if (view === "week") {
-      setWeekStart((d) => {
-        const next = new Date(d);
-        next.setDate(next.getDate() + 7);
-        return next;
-      });
+      const next = new Date(weekStart);
+      next.setDate(next.getDate() + 7);
+      setWeekStart(next);
+      setCurrentMonth(startOfMonth(next));
     } else {
-      setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+      setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
     }
     setSelectedDay(null);
   };
@@ -463,20 +491,26 @@ function DayCell({
           <span className="block w-1 h-1 mt-0.5 bg-forest" />
         ) : null
       ) : (
-        <div data-event-well className="flex-1 min-h-0 overflow-hidden mt-1">
-          {visible.map((item) => (
-            <div key={item.id} className="h-4 flex items-stretch min-w-0">
-              <span
-                className="w-[3px] shrink-0"
-                style={{ backgroundColor: meetingKindRule(item) }}
-              />
-              <span className="min-w-0 truncate pl-1 text-[12px] leading-4 text-ink">
-                {eventLineText(item)}
-              </span>
-            </div>
-          ))}
+        <div data-event-well className="flex flex-col gap-0.5 flex-1 min-h-0 overflow-hidden mt-1">
+          {visible.map((item) => {
+            const token = calendarCategoryToken(item);
+            return (
+              <div key={item.id} className="h-4 min-w-0 w-full overflow-hidden">
+                <span
+                  className="inline-block max-w-full truncate text-[12px] leading-[12px] text-ink"
+                  style={{
+                    backgroundColor: token.color,
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                  }}
+                >
+                  {eventChipText(item)}
+                </span>
+              </div>
+            );
+          })}
           {more > 0 ? (
-            <div className="h-4 text-[12px] leading-4 text-ink-muted pl-1">
+            <div className="h-4 text-[12px] leading-4 text-ink-muted">
               {more} more
             </div>
           ) : null}

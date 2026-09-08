@@ -1,8 +1,12 @@
 import type { CalendarItem } from "./calendar-items";
+import type { EventType } from "./types";
 
 export const CARD_RAIL_PX = 360;
 export const WEEK_COL_MIN_PX = 120;
-export const EVENT_LINE_PX = 16;
+/** Chip is 12px type + 2px 6px padding (16px). 2px gap so a chip is never cut in half. */
+export const EVENT_CHIP_PX = 16;
+export const EVENT_CHIP_GAP_PX = 2;
+export const EVENT_LINE_PX = EVENT_CHIP_PX + EVENT_CHIP_GAP_PX;
 
 /** Equal fractions of leftover viewport height. Not a fixed cell size. */
 export function gridRowTemplate(rowCount: number): string {
@@ -35,6 +39,67 @@ export function eventLineText(item: Pick<CalendarItem, "timeLabel" | "title">): 
   return item.title;
 }
 
+export function eventChipText(item: { title: string }): string {
+  return item.title;
+}
+
+export type CalendarCategoryKey = "meeting" | "commission" | "civic" | "other";
+
+export interface CalendarCategoryToken {
+  key: CalendarCategoryKey;
+  label: string;
+  color: string;
+}
+
+/** Locked washes. Same category, same color. Never hash a title into a hue. */
+export const CALENDAR_CATEGORY_TOKENS: Record<
+  CalendarCategoryKey,
+  CalendarCategoryToken
+> = {
+  meeting: { key: "meeting", label: "Meeting", color: "#E4EDE8" },
+  commission: { key: "commission", label: "Commission", color: "#E7EEF4" },
+  civic: { key: "civic", label: "Civic event", color: "#F6E6D4" },
+  other: { key: "other", label: "Other", color: "#F0EEE8" },
+};
+
+const CITY_COUNCIL_RE = /\bcity council\b/i;
+const COMMISSION_RE = /\bcommissions?\b/i;
+
+type CategorySource = {
+  kind?: "agenda" | "event";
+  event_type?: EventType | null;
+  title?: string | null;
+  body?: string | null;
+};
+
+function namesCommission(...parts: Array<string | null | undefined>): boolean {
+  return COMMISSION_RE.test(parts.filter(Boolean).join(" "));
+}
+
+function namesCityCouncil(...parts: Array<string | null | undefined>): boolean {
+  return CITY_COUNCIL_RE.test(parts.filter(Boolean).join(" "));
+}
+
+/**
+ * Map an existing event kind onto the four locked tokens.
+ * Sitting meetings (City Council and commission meetings) are Meeting.
+ * Named commissions that are not the sitting meeting are Commission.
+ */
+export function calendarCategoryKey(item: CategorySource): CalendarCategoryKey {
+  if (item.event_type === "meeting") return "meeting";
+  if (item.event_type === "community") return "civic";
+  if (item.event_type === "election") return "civic";
+  if (item.event_type === "deadline") return "other";
+
+  if (namesCommission(item.title, item.body)) return "commission";
+  if (namesCityCouncil(item.title, item.body)) return "meeting";
+  return "other";
+}
+
+export function calendarCategoryToken(item: CategorySource): CalendarCategoryToken {
+  return CALENDAR_CATEGORY_TOKENS[calendarCategoryKey(item)];
+}
+
 export function isMeetingItem(
   item: Pick<CalendarItem, "kind" | "event_type">
 ): boolean {
@@ -42,9 +107,9 @@ export function isMeetingItem(
 }
 
 export function closedKindChip(
-  item: Pick<CalendarItem, "kind" | "event_type">
-): "Meeting" | null {
-  return isMeetingItem(item) ? "Meeting" : null;
+  item: Pick<CalendarItem, "kind" | "event_type" | "title" | "body">
+): string {
+  return calendarCategoryToken(item).label;
 }
 
 export function meetingKindRule(item: Pick<CalendarItem, "kind" | "event_type">): string {

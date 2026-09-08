@@ -50,6 +50,36 @@ export function upcomingWindow(todayKey: string): { since: string; until: string
   };
 }
 
+export function monthStartKey(month: Date): string {
+  const y = month.getFullYear();
+  const m = String(month.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}-01`;
+}
+
+/** Civil month window. `until` is exclusive (first of the next month). */
+export function monthWindow(month: Date): { since: string; until: string } {
+  const since = monthStartKey(month);
+  const next = new Date(month.getFullYear(), month.getMonth() + 1, 1);
+  return { since, until: monthStartKey(next) };
+}
+
+export function shiftMonth(month: Date, delta: number): Date {
+  return new Date(month.getFullYear(), month.getMonth() + delta, 1);
+}
+
+export function monthContainsDay(month: Date, dayKey: string): boolean {
+  const { since, until } = monthWindow(month);
+  return dayKey >= since && dayKey < until;
+}
+
+export function formatMonthTitle(month: Date): string {
+  return month.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+export function formatMonthName(month: Date): string {
+  return month.toLocaleDateString("en-US", { month: "long" });
+}
+
 export function shiftDayKey(dayKey: string, days: number): string {
   if (!isDayKey(dayKey)) return dayKey;
   const [year, month, day] = dayKey.split("-").map(Number);
