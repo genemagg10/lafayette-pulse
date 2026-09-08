@@ -1,10 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import {
+  CELL_MIN_PX,
   EVENT_LINE_PX,
   cellVisibleCount,
   eventLineText,
+  gridRowTemplate,
   meetingKindRule,
   monthGridRows,
   monthTrailingEmpties,
@@ -224,18 +233,15 @@ export default function AgendaCalendar({
       </div>
 
       {loading ? (
-        <div
-          className={`grid grid-cols-7 gap-px bg-line ${compact ? "" : "flex-1 min-h-0"}`}
-          style={
-            compact
-              ? undefined
-              : { gridTemplateRows: `repeat(${fillRows}, minmax(0, 1fr))` }
-          }
-        >
+        <CalendarGridFrame compact={compact} rows={fillRows}>
           {Array.from({ length: view === "week" ? 7 : fillRows * 7 }).map((_, i) => (
-            <div key={i} className={compact ? "h-8 bg-surface-muted" : "bg-surface-muted"} />
+            <div
+              key={i}
+              className={compact ? "h-8 bg-surface-muted" : "bg-surface-muted"}
+              style={compact ? undefined : { minHeight: CELL_MIN_PX }}
+            />
           ))}
-        </div>
+        </CalendarGridFrame>
       ) : view === "week" ? (
         <WeekGrid
           weekStart={weekStart}
@@ -315,15 +321,7 @@ function MonthGrid({
   const maxLines = useEventLineCapacity(gridRef, rowCount, compact);
 
   return (
-    <div
-      ref={gridRef}
-      className={`grid grid-cols-7 gap-px bg-line ${compact ? "" : "flex-1 min-h-0"}`}
-      style={
-        compact
-          ? undefined
-          : { gridTemplateRows: `repeat(${rowCount}, minmax(0, 1fr))` }
-      }
-    >
+    <CalendarGridFrame compact={compact} rows={rowCount} gridRef={gridRef}>
       {Array.from({ length: startOffset }).map((_, i) => (
         <EmptyCell key={`lead-${i}`} compact={compact} />
       ))}
@@ -346,7 +344,7 @@ function MonthGrid({
       {Array.from({ length: trailing }).map((_, i) => (
         <EmptyCell key={`trail-${i}`} compact={compact} />
       ))}
-    </div>
+    </CalendarGridFrame>
   );
 }
 
@@ -369,11 +367,7 @@ function WeekGrid({
   const maxLines = useEventLineCapacity(gridRef, 1, compact);
 
   return (
-    <div
-      ref={gridRef}
-      className={`grid grid-cols-7 gap-px bg-line ${compact ? "" : "flex-1 min-h-0"}`}
-      style={compact ? undefined : { gridTemplateRows: "minmax(0, 1fr)" }}
-    >
+    <CalendarGridFrame compact={compact} rows={1} gridRef={gridRef}>
       {Array.from({ length: 7 }, (_, i) => {
         const date = new Date(weekStart);
         date.setDate(weekStart.getDate() + i);
@@ -392,13 +386,40 @@ function WeekGrid({
           />
         );
       })}
+    </CalendarGridFrame>
+  );
+}
+
+function CalendarGridFrame({
+  compact,
+  rows,
+  gridRef,
+  children,
+}: {
+  compact: boolean;
+  rows: number;
+  gridRef?: RefObject<HTMLDivElement>;
+  children: ReactNode;
+}) {
+  const grid = (
+    <div
+      ref={gridRef}
+      className={`grid grid-cols-7 gap-px bg-line ${compact ? "" : "min-h-full"}`}
+      style={compact ? undefined : { gridTemplateRows: gridRowTemplate(rows) }}
+    >
+      {children}
     </div>
   );
+  if (compact) return grid;
+  return <div className="flex-1 min-h-0 overflow-y-auto">{grid}</div>;
 }
 
 function EmptyCell({ compact }: { compact: boolean }) {
   return (
-    <div className={`bg-surface-muted ${compact ? "h-8" : "min-h-0"}`} />
+    <div
+      className={`bg-surface-muted ${compact ? "h-8" : ""}`}
+      style={compact ? undefined : { minHeight: CELL_MIN_PX }}
+    />
   );
 }
 
@@ -431,9 +452,10 @@ function DayCell({
       aria-pressed={selected}
       aria-current={today ? "date" : undefined}
       aria-label={dayKey}
-      className={`min-h-0 min-w-0 w-full text-left ${
+      className={`min-w-0 w-full text-left ${
         compact ? "h-8 px-1 py-0.5" : "h-full p-1.5 flex flex-col"
       } ${selected ? "bg-accent-soft" : "bg-surface hover:bg-canvas"}`}
+      style={compact ? undefined : { minHeight: CELL_MIN_PX }}
     >
       <span
         className={`text-[12px] leading-4 font-body block ${

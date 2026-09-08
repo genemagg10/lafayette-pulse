@@ -10,9 +10,11 @@ import {
   upcomingWindow,
 } from "../lib/calendar-time.ts";
 import {
+  CELL_MIN_PX,
   cellVisibleCount,
   closedKindChip,
   eventLineText,
+  gridRowTemplate,
   weekRailStacks,
 } from "../lib/calendar-layout.ts";
 
@@ -104,6 +106,12 @@ test("projection markers are stripped from displayed description", () => {
     "Regular session."
   );
   assert.equal(displayEventDescription("NEW_FROM_CITY_CALENDAR"), null);
+  assert.equal(
+    displayEventDescription(
+      "Confirmed official listing. [confidence=high; CONFIRMED_FROM_CITY_CALENDAR]"
+    ),
+    "Confirmed official listing."
+  );
 });
 
 test("upcoming window is today plus the next 6 days (7 civil days)", () => {
@@ -111,6 +119,11 @@ test("upcoming window is today plus the next 6 days (7 civil days)", () => {
     since: "2026-09-08",
     until: "2026-09-15",
   });
+});
+
+test("cell floor stays 112px so two lines remain readable", () => {
+  assert.equal(CELL_MIN_PX, 112);
+  assert.equal(gridRowTemplate(6), "repeat(6, minmax(112px, 1fr))");
 });
 
 test("week rail stacks when columns would drop under 120px", () => {
