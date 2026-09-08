@@ -43,6 +43,8 @@ import {
   activeEmphasizedEdgeKey,
   emphasizeEdgeSize,
   emphasizedEdgeStroke,
+  shortenEmphasizedStroke,
+  whoNodeShape,
 } from "@/lib/graph-edge-emphasis";
 import { NodeDiamondProgram } from "./NodeDiamondProgram";
 import type { OrgType, SeatType } from "@/lib/types";
@@ -421,10 +423,19 @@ function edgeFromAttrs(
 
 function viewportNodes(renderer: Sigma, graph: Graph): ViewportNode[] {
   const nodes: ViewportNode[] = [];
-  graph.forEachNode((key) => {
+  graph.forEachNode((key, attrs) => {
     const data = renderer.getNodeDisplayData(key);
     if (!data) return;
-    nodes.push({ key, x: data.x, y: data.y, size: data.size });
+    const pos = renderer.graphToViewport({
+      x: Number(attrs.x) || 0,
+      y: Number(attrs.y) || 0,
+    });
+    nodes.push({
+      key,
+      x: pos.x,
+      y: pos.y,
+      size: renderer.scaleSize(data.size),
+    });
   });
   return nodes;
 }
@@ -432,9 +443,15 @@ function viewportNodes(renderer: Sigma, graph: Graph): ViewportNode[] {
 function viewportEdges(renderer: Sigma, graph: Graph): ViewportEdge[] {
   const edges: ViewportEdge[] = [];
   graph.forEachEdge((key, _attrs, source, target) => {
-    const from = renderer.getNodeDisplayData(source);
-    const to = renderer.getNodeDisplayData(target);
-    if (!from || !to) return;
+    if (!graph.hasNode(source) || !graph.hasNode(target)) return;
+    const from = renderer.graphToViewport({
+      x: Number(graph.getNodeAttribute(source, "x")) || 0,
+      y: Number(graph.getNodeAttribute(source, "y")) || 0,
+    });
+    const to = renderer.graphToViewport({
+      x: Number(graph.getNodeAttribute(target, "x")) || 0,
+      y: Number(graph.getNodeAttribute(target, "y")) || 0,
+    });
     edges.push({ key, x1: from.x, y1: from.y, x2: to.x, y2: to.y });
   });
   return edges;
@@ -539,6 +556,7 @@ export default function CivicGraph({
   onEdgeClick,
   onStageClick,
 }: CivicGraphProps) {
+  const stageRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const clusterLabelsRef = useRef<HTMLDivElement>(null);
@@ -911,11 +929,21 @@ export default function CivicGraph({
     ) => {
       ctx.strokeStyle = options.color;
       ctx.lineWidth = options.size;
+      ctx.lineCap = "butt";
       ctx.setLineDash(options.dashed ? [6, 4] : []);
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
       ctx.lineTo(to.x, to.y);
       ctx.stroke();
+    };
+
+    const nodeCap = (id: string) => {
+      const display = renderer.getNodeDisplayData(id);
+      const raw = Number(display?.size ?? graph.getNodeAttribute(id, "size") ?? 8);
+      return {
+        size: renderer.scaleSize(raw),
+        shape: whoNodeShape(String(graph.getNodeAttribute(id, "type") || "circle")),
+      };
     };
 
     const drawOverlay = () => {
@@ -1035,19 +1063,29 @@ export default function CivicGraph({
       });
       if (inkKey && graph.hasEdge(inkKey)) {
         const attrs = graph.getEdgeAttributes(inkKey);
+        const sourceId = graph.source(inkKey);
+        const targetId = graph.target(inkKey);
         const from = renderer.graphToViewport({
-          x: Number(graph.getNodeAttribute(graph.source(inkKey), "x")) || 0,
-          y: Number(graph.getNodeAttribute(graph.source(inkKey), "y")) || 0,
+          x: Number(graph.getNodeAttribute(sourceId, "x")) || 0,
+          y: Number(graph.getNodeAttribute(sourceId, "y")) || 0,
         });
         const to = renderer.graphToViewport({
-          x: Number(graph.getNodeAttribute(graph.target(inkKey), "x")) || 0,
-          y: Number(graph.getNodeAttribute(graph.target(inkKey), "y")) || 0,
+          x: Number(graph.getNodeAttribute(targetId, "x")) || 0,
+          y: Number(graph.getNodeAttribute(targetId, "y")) || 0,
         });
-        strokeViewportEdge(ctx, from, to, {
-          color: emphasizedEdgeStroke(),
-          size: emphasizeEdgeSize(Number(attrs.size || 1.4)),
-          dashed: Boolean(attrs.dashed),
-        });
+        const shortened = shortenEmphasizedStroke(
+          from,
+          to,
+          nodeCap(sourceId),
+          nodeCap(targetId)
+        );
+        if (shortened) {
+          strokeViewportEdge(ctx, shortened.from, shortened.to, {
+            color: emphasizedEdgeStroke(),
+            size: emphasizeEdgeSize(Number(attrs.size || 1.4)),
+            dashed: Boolean(attrs.dashed),
+          });
+        }
       }
       if (centerId) drawEgoHalo(ctx, renderer, graph, centerId);
       if (nameEveryNodeRef.current) {
@@ -1110,12 +1148,9 @@ export default function CivicGraph({
     };
 
     const applyHover = (edgeKey: string | null, clientX: number, clientY: number) => {
-      if (hoveredEdge === edgeKey) {
-        if (edgeKey) showEdgeTooltip(edgeKey, clientX, clientY);
-        else hideTooltip();
-        return;
-      }
+      const changed = hoveredEdge !== edgeKey;
       if (
+        changed &&
         !nameEveryNodeRef.current &&
         hoveredEdge &&
         graph.hasEdge(hoveredEdge)
@@ -1125,19 +1160,21 @@ export default function CivicGraph({
           graph.setEdgeAttribute(hoveredEdge, "size", hoverSize);
         }
       }
-      hoveredEdge = edgeKey;
-      applyLabels();
+      if (changed) {
+        hoveredEdge = edgeKey;
+        applyLabels();
+        if (!nameEveryNodeRef.current && edgeKey) {
+          const original = Number(graph.getEdgeAttribute(edgeKey, "size") || 1.4);
+          if (typeof graph.getEdgeAttribute(edgeKey, "hoverSize") !== "number") {
+            graph.setEdgeAttribute(edgeKey, "hoverSize", original);
+          }
+          graph.setEdgeAttribute(edgeKey, "size", emphasizeEdgeSize(original));
+        }
+      }
       if (nameEveryNodeRef.current) drawOverlay();
       if (!edgeKey) {
         hideTooltip();
         return;
-      }
-      if (!nameEveryNodeRef.current) {
-        const original = Number(graph.getEdgeAttribute(edgeKey, "size") || 1.4);
-        if (typeof graph.getEdgeAttribute(edgeKey, "hoverSize") !== "number") {
-          graph.setEdgeAttribute(edgeKey, "hoverSize", original);
-        }
-        graph.setEdgeAttribute(edgeKey, "size", emphasizeEdgeSize(original));
       }
       showEdgeTooltip(edgeKey, clientX, clientY);
     };
@@ -1179,11 +1216,13 @@ export default function CivicGraph({
       applyLabels();
     });
 
-    const onMove = (ev: PointerEvent) => {
-      lastMouseRef.current = { x: ev.clientX, y: ev.clientY };
-      const rect = container.getBoundingClientRect();
-      const x = ev.clientX - rect.left;
-      const y = ev.clientY - rect.top;
+    const hoverAtViewport = (
+      x: number,
+      y: number,
+      clientX: number,
+      clientY: number
+    ) => {
+      lastMouseRef.current = { x: clientX, y: clientY };
       const preferred = pickPreferredTarget(
         viewportNodes(renderer, graph),
         viewportEdges(renderer, graph),
@@ -1195,17 +1234,37 @@ export default function CivicGraph({
         applyLabels();
       }
       if (preferred.node) {
-        applyHover(null, ev.clientX, ev.clientY);
-        showNodeTooltip(preferred.node, ev.clientX, ev.clientY);
+        applyHover(null, clientX, clientY);
+        showNodeTooltip(preferred.node, clientX, clientY);
         return;
       }
-      applyHover(preferred.edge, ev.clientX, ev.clientY);
+      applyHover(preferred.edge, clientX, clientY);
+    };
+    const onMove = (ev: PointerEvent) => {
+      const rect = container.getBoundingClientRect();
+      hoverAtViewport(
+        ev.clientX - rect.left,
+        ev.clientY - rect.top,
+        ev.clientX,
+        ev.clientY
+      );
     };
     const onLeave = () => {
       applyHover(null, 0, 0);
     };
-    container.addEventListener("pointermove", onMove);
-    container.addEventListener("pointerleave", onLeave);
+    const onSigmaMove = ({ event }: { event: { x: number; y: number; original: MouseEvent | TouchEvent } }) => {
+      const original = event.original;
+      const clientX =
+        "clientX" in original ? original.clientX : lastMouseRef.current.x;
+      const clientY =
+        "clientY" in original ? original.clientY : lastMouseRef.current.y;
+      hoverAtViewport(event.x, event.y, clientX, clientY);
+    };
+    const stage = stageRef.current ?? container;
+    // Capture plus Sigma moveBody (same coords as click) so hover paints before click.
+    stage.addEventListener("pointermove", onMove, true);
+    stage.addEventListener("pointerleave", onLeave);
+    renderer.on("moveBody", onSigmaMove);
 
     let fitted = false;
     const tryFit = () => {
@@ -1231,8 +1290,9 @@ export default function CivicGraph({
     return () => {
       observer?.disconnect();
       window.removeEventListener("resize", resize);
-      container.removeEventListener("pointermove", onMove);
-      container.removeEventListener("pointerleave", onLeave);
+      stage.removeEventListener("pointermove", onMove, true);
+      stage.removeEventListener("pointerleave", onLeave);
+      renderer.removeListener("moveBody", onSigmaMove);
       hideTooltip();
       labelsRoot?.replaceChildren();
       renderer.kill();
@@ -1256,7 +1316,10 @@ export default function CivicGraph({
   }
 
   return (
-    <div className={`relative ${heightClassName} border border-line bg-canvas overflow-hidden`}>
+    <div
+      ref={stageRef}
+      className={`relative ${heightClassName} border border-line bg-canvas overflow-hidden`}
+    >
       <div ref={containerRef} className="absolute inset-0 cursor-pointer" />
       <canvas ref={overlayRef} className="absolute inset-0 pointer-events-none" />
       <div
