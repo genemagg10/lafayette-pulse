@@ -40,14 +40,14 @@ export default function CalendarWorkspace() {
   const railHeading = selectedDay ? formatRailDay(selectedDay) : "Upcoming";
 
   return (
-    <FocusFrame>
+    <FocusFrame className="flex flex-col">
       <div
         ref={shellRef}
-        className={`h-full min-h-0 hidden md:flex ${
+        className={`flex-1 min-h-0 hidden md:flex ${
           stackRail ? "flex-col" : "flex-row"
         }`}
       >
-        <section className="flex-1 min-h-0 min-w-0 bg-surface">
+        <section className="flex-1 min-h-0 min-w-0 flex flex-col bg-surface">
           <AgendaCalendar
             activeCategories={activeCategories}
             view={view}
@@ -79,7 +79,7 @@ export default function CalendarWorkspace() {
         </aside>
       </div>
 
-      <div className="md:hidden relative h-full min-h-0 flex flex-col">
+      <div className="md:hidden relative flex-1 min-h-0 flex flex-col">
         <div className="flex-shrink-0 flex items-center justify-between px-3 h-12 border-b border-line bg-surface">
           <h1 className="font-heading font-semibold text-ink">Calendar</h1>
           <button

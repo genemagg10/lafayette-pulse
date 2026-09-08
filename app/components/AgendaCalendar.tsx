@@ -187,7 +187,7 @@ export default function AgendaCalendar({
   const compact = density === "compact";
 
   return (
-    <div className={`min-h-0 flex flex-col ${compact ? "" : "h-full"}`}>
+    <div className={`min-h-0 flex flex-col ${compact ? "" : "flex-1 h-full"}`}>
       <div className="flex-shrink-0 flex items-center gap-3 px-4 h-12 border-b border-line bg-surface">
         <div className="flex items-center gap-1 min-w-0 flex-1">
           <button
