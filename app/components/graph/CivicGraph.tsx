@@ -60,7 +60,6 @@ import {
   CLUSTER_MIXED_STROKE,
   CLUSTER_WASH_OPACITY,
   type ClusterCause,
-  type ClusterEdge,
 } from "@/lib/cluster-cause";
 import { edgeHiddenByOrgFilter } from "@/lib/people-org-edge-filter";
 
@@ -687,8 +686,8 @@ export default function CivicGraph({
       graph.forEachEdge((key, attrs) => {
         const filteredOut = edgeHiddenByOrgFilter(
           {
-            shared_entities: attrs.shared_entities as ClusterEdge["shared_entities"],
-            shared_names: attrs.shared_names as ClusterEdge["shared_names"],
+            shared_entities: attrs.shared_entities,
+            shared_names: attrs.shared_names,
           },
           orgId
         );

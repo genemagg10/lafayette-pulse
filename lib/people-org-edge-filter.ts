@@ -22,7 +22,7 @@ export type OrgEdgeFilterChip =
     };
 
 function orgsOnEdge(
-  edge: ClusterEdge
+  edge: Pick<ClusterEdge, "shared_entities" | "shared_names">
 ): Array<{ id: string; label: string }> {
   if (edge.shared_entities && edge.shared_entities.length > 0) {
     return edge.shared_entities
@@ -41,8 +41,10 @@ export function isSelectableOrgId(id: string): boolean {
   return Boolean(id) && !id.startsWith("name:");
 }
 
+export type OrgFilterEdge = Pick<ClusterEdge, "shared_entities" | "shared_names">;
+
 export function edgeSharesOrg(
-  edge: ClusterEdge,
+  edge: OrgFilterEdge,
   orgId: string | null | undefined
 ): boolean {
   if (!orgId) return false;
@@ -51,7 +53,7 @@ export function edgeSharesOrg(
 
 /** Hide the line. Do not drop the people. */
 export function edgeHiddenByOrgFilter(
-  edge: ClusterEdge,
+  edge: OrgFilterEdge,
   orgId: string | null | undefined
 ): boolean {
   if (!orgId) return false;
