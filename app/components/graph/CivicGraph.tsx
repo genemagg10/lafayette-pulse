@@ -60,7 +60,9 @@ import {
   CLUSTER_MIXED_STROKE,
   CLUSTER_WASH_OPACITY,
   type ClusterCause,
+  type ClusterEdge,
 } from "@/lib/cluster-cause";
+import { edgeHiddenByOrgFilter } from "@/lib/people-org-edge-filter";
 
 /** Who graphs: ring only. Sigma's default hover chip would redraw the name. */
 class WhoSquareProgram extends NodeSquareProgram {
@@ -134,6 +136,8 @@ interface CivicGraphProps {
   heightClassName?: string;
   /** People overview only — org/mixed cause in the open middle of a group. */
   showClusterCause?: boolean;
+  /** People Wider/All only. Hide lines that do not share this org. Same graph. */
+  visibleSharedOrgId?: string | null;
   onClusterCauseClick?: (cause: ClusterCause) => void;
   onNodeClick?: (id: string, kind: RenderableNode["kind"]) => void;
   onEdgeClick?: (edge: RenderableEdge) => void;
@@ -442,7 +446,8 @@ function viewportNodes(renderer: Sigma, graph: Graph): ViewportNode[] {
 
 function viewportEdges(renderer: Sigma, graph: Graph): ViewportEdge[] {
   const edges: ViewportEdge[] = [];
-  graph.forEachEdge((key, _attrs, source, target) => {
+  graph.forEachEdge((key, attrs, source, target) => {
+    if (attrs.orgFilteredOut) return;
     if (!graph.hasNode(source) || !graph.hasNode(target)) return;
     const from = renderer.graphToViewport({
       x: Number(graph.getNodeAttribute(source, "x")) || 0,
@@ -551,6 +556,7 @@ export default function CivicGraph({
   selectedEdge = null,
   heightClassName = "h-[320px] sm:h-[380px]",
   showClusterCause = false,
+  visibleSharedOrgId = null,
   onClusterCauseClick,
   onNodeClick,
   onEdgeClick,
@@ -576,10 +582,14 @@ export default function CivicGraph({
   selectedEdgeRef.current = selectedEdge;
   const showClusterCauseRef = useRef(showClusterCause);
   showClusterCauseRef.current = showClusterCause;
+  const visibleSharedOrgIdRef = useRef(visibleSharedOrgId);
+  visibleSharedOrgIdRef.current = visibleSharedOrgId;
   const clusterClickRef = useRef(onClusterCauseClick);
   clusterClickRef.current = onClusterCauseClick;
   const applyLabelsRef = useRef<() => void>(() => {});
   const drawOverlayRef = useRef<() => void>(() => {});
+  const applyOrgEdgeFilterRef = useRef<() => void>(() => {});
+  const rendererRef = useRef<Sigma | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -667,9 +677,27 @@ export default function CivicGraph({
             : 1.4,
         color: structuralEdgeColor(edge, current, seated),
         hidden: dashed,
+        orgFilteredOut: false,
         forceLabel: false,
       });
     }
+
+    const applyOrgEdgeFilter = () => {
+      const orgId = visibleSharedOrgIdRef.current ?? null;
+      graph.forEachEdge((key, attrs) => {
+        const filteredOut = edgeHiddenByOrgFilter(
+          {
+            shared_entities: attrs.shared_entities as ClusterEdge["shared_entities"],
+            shared_names: attrs.shared_names as ClusterEdge["shared_names"],
+          },
+          orgId
+        );
+        graph.setEdgeAttribute(key, "orgFilteredOut", filteredOut);
+        graph.setEdgeAttribute(key, "hidden", Boolean(attrs.dashed) || filteredOut);
+      });
+    };
+    applyOrgEdgeFilter();
+    applyOrgEdgeFilterRef.current = applyOrgEdgeFilter;
 
     layoutGraph(graph, centerId, layout);
 
@@ -822,6 +850,7 @@ export default function CivicGraph({
         diamond: nameEveryNode ? WhoDiamondProgram : NodeDiamondProgram,
       },
     });
+    rendererRef.current = renderer;
 
     let hoveredEdge: string | null = null;
     let hoveredNode: string | null = null;
@@ -905,7 +934,8 @@ export default function CivicGraph({
 
     const keyedEdges = () => {
       const rows: { key: string; source: string; target: string }[] = [];
-      graph.forEachEdge((key, _attrs, source, target) => {
+      graph.forEachEdge((key, attrs, source, target) => {
+        if (attrs.orgFilteredOut) return;
         rows.push({ key, source, target });
       });
       return rows;
@@ -999,6 +1029,7 @@ export default function CivicGraph({
         ctx.save();
         ctx.globalCompositeOperation = "destination-out";
         graph.forEachEdge((edgeId, attrs, _source, _target, sourceAttr, targetAttr) => {
+          if (attrs.orgFilteredOut) return;
           const from = renderer.graphToViewport({
             x: Number(sourceAttr.x) || 0,
             y: Number(sourceAttr.y) || 0,
@@ -1064,6 +1095,7 @@ export default function CivicGraph({
         }
       }
       graph.forEachEdge((edge, attrs, _source, _target, sourceAttr, targetAttr) => {
+        if (attrs.orgFilteredOut) return;
         if (!attrs.dashed || edge === inkKey) return;
         const from = renderer.graphToViewport({
           x: sourceAttr.x as number,
@@ -1079,7 +1111,7 @@ export default function CivicGraph({
           dashed: true,
         });
       });
-      if (inkKey && graph.hasEdge(inkKey)) {
+      if (inkKey && graph.hasEdge(inkKey) && !graph.getEdgeAttribute(inkKey, "orgFilteredOut")) {
         const attrs = graph.getEdgeAttributes(inkKey);
         const sourceId = graph.source(inkKey);
         const targetId = graph.target(inkKey);
@@ -1313,10 +1345,18 @@ export default function CivicGraph({
       renderer.removeListener("moveBody", onSigmaMove);
       hideTooltip();
       labelsRoot?.replaceChildren();
+      rendererRef.current = null;
+      applyOrgEdgeFilterRef.current = () => {};
       renderer.kill();
       graph.clear();
     };
   }, [nodes, edges, centerId, layout, nameEveryNode, showClusterCause]);
+
+  useEffect(() => {
+    applyOrgEdgeFilterRef.current();
+    rendererRef.current?.refresh();
+    drawOverlayRef.current();
+  }, [visibleSharedOrgId]);
 
   useEffect(() => {
     applyLabelsRef.current();

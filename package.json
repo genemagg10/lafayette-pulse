@@ -17,6 +17,7 @@
     "test:org-plot": "node --experimental-strip-types --test scripts/test-org-plot.ts",
     "test:network-preview": "node --experimental-strip-types --test scripts/test-network-preview.ts",
     "test:cluster-cause": "node --experimental-strip-types --test scripts/test-cluster-cause.ts",
+    "test:people-org-edge-filter": "node --experimental-strip-types --test scripts/test-people-org-edge-filter.ts",
     "test:graph-edge-emphasis": "node --experimental-strip-types --test scripts/test-graph-edge-emphasis.ts"
   },
   "dependencies": {
