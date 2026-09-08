@@ -19,6 +19,7 @@ export {
   ptBoundIso,
   shiftDayKey,
   todayKeyPacific,
+  upcomingWindow,
 } from "./calendar-time";
 
 export type CalendarItemKind = "agenda" | "event";
@@ -40,6 +41,7 @@ export interface CalendarItem {
   tags: string[];
   event_type: EventType | null;
   projected: boolean;
+  organization_id: string | null;
 }
 
 export const EVENT_TYPE_STYLES: Record<
@@ -78,6 +80,7 @@ export function agendaToCalendarItem(item: AgendaItem): CalendarItem {
     tags: Array.isArray(item.tags) ? item.tags : [],
     event_type: null,
     projected: false,
+    organization_id: null,
   };
 }
 
@@ -97,6 +100,7 @@ export function eventToCalendarItem(event: CivicEvent): CalendarItem {
     tags: [],
     event_type: event.event_type ?? "other",
     projected: isProjectedEvent(event),
+    organization_id: event.organization_id ?? null,
   };
 }
 

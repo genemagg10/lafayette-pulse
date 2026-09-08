@@ -7,7 +7,14 @@ import {
   isProjectedEvent,
   ptBoundIso,
   todayKeyPacific,
+  upcomingWindow,
 } from "../lib/calendar-time.ts";
+import {
+  cellVisibleCount,
+  closedKindChip,
+  eventLineText,
+  weekRailStacks,
+} from "../lib/calendar-layout.ts";
 
 test("late-evening UTC stays on the Pacific civil day", () => {
   // 2026-09-09 02:00 UTC = 2026-09-08 19:00 PDT
@@ -90,6 +97,57 @@ test("projection markers are stripped from displayed description", () => {
     "City Council. from schedule."
   );
   assert.equal(displayEventDescription("RECURRING_PROJECTION"), null);
+  assert.equal(
+    displayEventDescription(
+      "Regular session. [confidence-high; NEW_FROM_CITY_CALENDAR]"
+    ),
+    "Regular session."
+  );
+  assert.equal(displayEventDescription("NEW_FROM_CITY_CALENDAR"), null);
+});
+
+test("upcoming window is today plus the next 6 days (7 civil days)", () => {
+  assert.deepEqual(upcomingWindow("2026-09-08"), {
+    since: "2026-09-08",
+    until: "2026-09-15",
+  });
+});
+
+test("week rail stacks when columns would drop under 120px", () => {
+  assert.equal(weekRailStacks(1200), false);
+  assert.equal(weekRailStacks(1199), true);
+  assert.equal(weekRailStacks(1440), false);
+});
+
+test("cell lines never reserve a half-cut slot; remainder is N more", () => {
+  assert.deepEqual(cellVisibleCount(5, 3), { show: 2, more: 3 });
+  assert.deepEqual(cellVisibleCount(2, 3), { show: 2, more: 0 });
+  assert.deepEqual(cellVisibleCount(5, 1), { show: 0, more: 5 });
+  assert.deepEqual(cellVisibleCount(5, 0), { show: 0, more: 5 });
+  assert.deepEqual(cellVisibleCount(1, 1), { show: 1, more: 0 });
+});
+
+test("event line uses the recorded time only; kind chip is Meeting or nothing", () => {
+  assert.equal(
+    eventLineText({ timeLabel: "7:00 PM", title: "City Council" }),
+    "7:00 PM City Council"
+  );
+  assert.equal(
+    eventLineText({ timeLabel: null, title: "Capital projects" }),
+    "Capital projects"
+  );
+  assert.equal(
+    closedKindChip({ kind: "agenda", event_type: null }),
+    "Meeting"
+  );
+  assert.equal(
+    closedKindChip({ kind: "event", event_type: "meeting" }),
+    "Meeting"
+  );
+  assert.equal(
+    closedKindChip({ kind: "event", event_type: "community" }),
+    null
+  );
 });
 
 test("evening UTC timestamps keep Pacific clock time", () => {

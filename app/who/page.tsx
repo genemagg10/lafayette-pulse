@@ -23,14 +23,19 @@ function WhoWorkspace() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tab = parseWhoTab(searchParams.get("tab"));
+  const orgFromUrl = searchParams.get("org");
   const { health, freshness } = useHealth();
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(orgFromUrl);
 
   useEffect(() => {
     if (!isRetiredFootprintTab(searchParams.get("tab"))) return;
     router.replace(WHO_FOOTPRINT_REDIRECT, { scroll: false });
   }, [router, searchParams]);
+
+  useEffect(() => {
+    if (orgFromUrl) setSelectedOrgId(orgFromUrl);
+  }, [orgFromUrl]);
 
   const setTab = useCallback(
     (next: WhoTab) => {
