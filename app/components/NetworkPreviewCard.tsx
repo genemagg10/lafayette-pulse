@@ -124,7 +124,13 @@ export default function NetworkPreviewCard({
           >
             {label}
           </span>
-          <span className="block font-heading text-sm text-ink leading-snug">
+          <span
+            className={
+              shown === label
+                ? "block font-heading text-sm text-ink leading-snug"
+                : "block font-heading text-sm text-ink leading-snug whitespace-nowrap"
+            }
+          >
             {shown}
           </span>
         </span>
