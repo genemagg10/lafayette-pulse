@@ -422,7 +422,10 @@ export function assemblePeopleAffinity(
             ? { id, label, kind: "organization" as const }
             : null;
         })
-        .filter((row): row is SharedEntity => Boolean(row))
+        .filter(
+          (row): row is { id: string; label: string; kind: "organization" } =>
+            Boolean(row)
+        )
         .sort((a, b) => a.label.localeCompare(b.label));
       edges.push({
         source: leftId,

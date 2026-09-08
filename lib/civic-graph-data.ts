@@ -18,6 +18,7 @@ import {
   type InvolvementMetric,
   type InvolvementResponse,
   type OrgAffinityResponse,
+  type PeopleAffinityResponse,
   type SharedBoardOverlap,
 } from "./civic-graph";
 
