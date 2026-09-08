@@ -226,6 +226,7 @@ Phase 1 views (Who's Who, Most involved, Organizations) read the live civic grap
 | `GET /api/organizations/:id` | Org detail with members and seats |
 | `GET /api/graph/involvement?entity=person\|org&metric=degree\|formal&current_only=true&limit=50` | Ranked **Board footprint** (`degree`) or **Formal seats** (`formal`, seats weighted ×2) |
 | `GET /api/graph/org-affinity?current_only=true&min_jaccard=0.15&min_shared=1&limit_orgs=40` | **Shared membership** (Jaccard on current member sets) |
+| `GET /api/graph/org-plot?view=structure\|stance&measure=` | **Org plot** — Structure (default): footprint × shared-board reach with live medians. On the record: footprint × that org’s own quote-backed stance (oppose / support; endorse is a mark, not a lane). Person quotes are never rolled up. |
 
 Copy on these views is limited to overlapping membership / shared boards / board footprint / formal seats — not influence or factions.
 
