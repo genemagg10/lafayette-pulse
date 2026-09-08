@@ -1,5 +1,11 @@
 "use client";
 
+import { useLayoutEffect, useRef, useState } from "react";
+import {
+  networkPreviewFits,
+  resolveNetworkPreviewLabel,
+} from "@/lib/network-preview";
+
 /**
  * Quiet static schematic of a person ego: one person circle, a few org
  * squares, a few smaller people, thin faint lines. Not a live Sigma graph.
@@ -65,6 +71,40 @@ export default function NetworkPreviewCard({
   label: string;
   onOpen: () => void;
 }) {
+  const slotRef = useRef<HTMLSpanElement>(null);
+  const probeRef = useRef<HTMLSpanElement>(null);
+  const [shown, setShown] = useState(label);
+
+  useLayoutEffect(() => {
+    const slot = slotRef.current;
+    const probe = probeRef.current;
+    if (!slot || !probe) return;
+
+    const update = () => {
+      const availableWidth = slot.clientWidth;
+      // Same height as the static schematic (96×52). Do not grow the card.
+      const availableHeight = 52;
+      if (availableWidth <= 0) {
+        setShown(label);
+        return;
+      }
+      probe.style.width = `${availableWidth}px`;
+      const fits = networkPreviewFits({
+        availableWidth,
+        availableHeight,
+        contentWidth: probe.scrollWidth,
+        contentHeight: probe.scrollHeight,
+      });
+      setShown(resolveNetworkPreviewLabel(label, fits));
+    };
+
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(slot);
+    return () => ro.disconnect();
+  }, [label]);
+
   return (
     <button
       type="button"
@@ -73,8 +113,20 @@ export default function NetworkPreviewCard({
     >
       <span className="flex items-center gap-3">
         <NetworkSchematic />
-        <span className="min-w-0 flex-1 font-heading text-sm text-ink leading-snug">
-          {label}
+        <span
+          ref={slotRef}
+          className="relative min-w-0 flex-1 overflow-hidden"
+        >
+          <span
+            ref={probeRef}
+            className="invisible absolute left-0 top-0 font-heading text-sm leading-snug"
+            aria-hidden="true"
+          >
+            {label}
+          </span>
+          <span className="block font-heading text-sm text-ink leading-snug">
+            {shown}
+          </span>
         </span>
       </span>
     </button>
