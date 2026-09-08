@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   buildClusterCauses,
+  clusterCauseHasWash,
   clusterCauseOnStop,
   clusterLabelAnchor,
   clusterLabelText,
@@ -18,8 +19,8 @@ import {
   CLUSTER_WASH_IS_GROUND,
   CLUSTER_WASH_OPACITY,
   MIXED_BOARDS_LABEL,
-  MIXED_ORG_LIST_MAX,
   MIN_CLUSTER_SIZE,
+  MIN_NAMED_CLUSTER_SIZE,
   topSharedOrgs,
   type ClusterEdge,
 } from "../lib/cluster-cause.ts";
@@ -45,51 +46,60 @@ function edge(
   };
 }
 
-test("cluster of people who share one org is named for that org", () => {
-  const nodes = ["ada", "bea", "cam"];
-  const edges = [
-    edge("ada", "bea", [org("council", "City Council")]),
-    edge("ada", "cam", [org("council", "City Council")]),
-    edge("bea", "cam", [org("council", "City Council")]),
-  ];
+function clique(
+  ids: readonly string[],
+  orgs: Array<{ id: string; label: string }>
+): ClusterEdge[] {
+  const edges: ClusterEdge[] = [];
+  for (let i = 0; i < ids.length; i += 1) {
+    for (let j = i + 1; j < ids.length; j += 1) {
+      edges.push(edge(ids[i], ids[j], orgs));
+    }
+  }
+  return edges;
+}
+
+test("cluster of five or more who share one org is named for that org", () => {
+  const nodes = ["ada", "bea", "cam", "dee", "eve"];
+  const edges = clique(nodes, [org("council", "City Council")]);
   const causes = buildClusterCauses(nodes, edges);
   assert.equal(causes.length, 1);
   assert.equal(causes[0].kind, "org");
   assert.equal(causes[0].label, "City Council");
   assert.equal(causes[0].orgId, "council");
-  assert.deepEqual(causes[0].memberIds, ["ada", "bea", "cam"]);
+  assert.deepEqual(causes[0].memberIds, nodes.slice().sort());
   assert.equal(clusterLabelText(causes[0]), "City Council");
+  assert.equal(clusterCauseHasWash(causes[0]), true);
 });
 
-test("no single org explaining the group is Mixed boards", () => {
-  const nodes = ["ada", "bea", "cam"];
+test("a group of five or more with no dominant org is Mixed boards", () => {
+  const nodes = ["ada", "bea", "cam", "dee", "eve"];
   const edges = [
     edge("ada", "bea", [org("rotary", "Rotary")]),
     edge("bea", "cam", [org("planning", "Planning Commission")]),
-    edge("ada", "cam", [org("chamber", "Chamber")]),
+    edge("cam", "dee", [org("chamber", "Chamber")]),
+    edge("dee", "eve", [org("lwv", "League")]),
+    edge("eve", "ada", [org("village", "Village")]),
+    edge("ada", "cam", [org("parks", "Parks")]),
   ];
   const causes = buildClusterCauses(nodes, edges);
   assert.equal(causes.length, 1);
   assert.equal(causes[0].kind, "mixed");
   assert.equal(causes[0].label, MIXED_BOARDS_LABEL);
   assert.equal(causes[0].orgId, null);
-  assert.equal(causes[0].topOrgs.length <= MIXED_ORG_LIST_MAX, true);
-  assert.deepEqual(
-    causes[0].topOrgs.map((row) => row.label).sort(),
-    ["Chamber", "Planning Commission", "Rotary"]
-  );
+  assert.equal(causes[0].folded, false);
+  assert.equal(clusterCauseHasWash(causes[0]), false);
   assert.equal(clusterLabelText(causes[0]), "Mixed boards");
 });
 
 test("an org that covers everyone still wins when they also share other boards", () => {
-  const nodes = ["ada", "bea", "cam"];
+  const nodes = ["ada", "bea", "cam", "dee", "eve"];
   const edges = [
+    ...clique(nodes, [org("council", "City Council")]),
     edge("ada", "bea", [
       org("council", "City Council"),
       org("planning", "Planning Commission"),
     ]),
-    edge("ada", "cam", [org("council", "City Council")]),
-    edge("bea", "cam", [org("council", "City Council")]),
   ];
   const causes = buildClusterCauses(nodes, edges);
   const named = causes.filter((cause) => cause.kind === "org");
@@ -107,15 +117,13 @@ test("an org that covers everyone still wins when they also share other boards",
   );
 });
 
-test("two disconnected org groups each keep that org as the cause", () => {
-  const nodes = ["ada", "bea", "cam", "dee", "eve", "fay"];
+test("two disconnected groups of five each keep that org as the cause", () => {
+  const council = ["ada", "bea", "cam", "dee", "eve"];
+  const rotary = ["fay", "gus", "hal", "ida", "jen"];
+  const nodes = [...council, ...rotary];
   const edges = [
-    edge("ada", "bea", [org("council", "City Council")]),
-    edge("ada", "cam", [org("council", "City Council")]),
-    edge("bea", "cam", [org("council", "City Council")]),
-    edge("dee", "eve", [org("rotary", "Rotary")]),
-    edge("dee", "fay", [org("rotary", "Rotary")]),
-    edge("eve", "fay", [org("rotary", "Rotary")]),
+    ...clique(council, [org("council", "City Council")]),
+    ...clique(rotary, [org("rotary", "Rotary")]),
   ];
   const causes = buildClusterCauses(nodes, edges);
   assert.deepEqual(
@@ -129,15 +137,13 @@ test("two disconnected org groups each keep that org as the cause", () => {
 });
 
 test("a thin bridge does not merge two sitting org groups into Mixed boards", () => {
-  const nodes = ["ada", "bea", "cam", "dee", "eve", "fay"];
+  const council = ["ada", "bea", "cam", "dee", "eve"];
+  const rotary = ["fay", "gus", "hal", "ida", "jen"];
+  const nodes = [...council, ...rotary];
   const edges = [
-    edge("ada", "bea", [org("council", "City Council")]),
-    edge("ada", "cam", [org("council", "City Council")]),
-    edge("bea", "cam", [org("council", "City Council")]),
-    edge("cam", "dee", [org("bridge", "Bridge")]),
-    edge("dee", "eve", [org("rotary", "Rotary")]),
-    edge("dee", "fay", [org("rotary", "Rotary")]),
-    edge("eve", "fay", [org("rotary", "Rotary")]),
+    ...clique(council, [org("council", "City Council")]),
+    edge("eve", "fay", [org("bridge", "Bridge")]),
+    ...clique(rotary, [org("rotary", "Rotary")]),
   ];
   const causes = buildClusterCauses(nodes, edges);
   assert.deepEqual(
@@ -151,15 +157,13 @@ test("a thin bridge does not merge two sitting org groups into Mixed boards", ()
   assert.equal(findBridgeKeys(nodes, edges).size >= 1, true);
 });
 
-test("a shared person does not collapse two board groups into Mixed boards", () => {
-  const nodes = ["ada", "bea", "cam", "dee", "eve"];
+test("a shared person does not collapse two board groups of five into Mixed boards", () => {
+  const council = ["ada", "bea", "cam", "dee", "eve"];
+  const rotary = ["eve", "fay", "gus", "hal", "ida"];
+  const nodes = ["ada", "bea", "cam", "dee", "eve", "fay", "gus", "hal", "ida"];
   const edges = [
-    edge("ada", "bea", [org("council", "City Council")]),
-    edge("ada", "cam", [org("council", "City Council")]),
-    edge("bea", "cam", [org("council", "City Council")]),
-    edge("cam", "dee", [org("rotary", "Rotary")]),
-    edge("cam", "eve", [org("rotary", "Rotary")]),
-    edge("dee", "eve", [org("rotary", "Rotary")]),
+    ...clique(council, [org("council", "City Council")]),
+    ...clique(rotary, [org("rotary", "Rotary")]),
   ];
   const causes = buildClusterCauses(nodes, edges);
   assert.deepEqual(
@@ -168,54 +172,141 @@ test("a shared person does not collapse two board groups into Mixed boards", () 
   );
 });
 
-test("the org that dominates a group wins without covering every bridged member", () => {
-  const nodes = ["ada", "bea", "cam", "dee"];
+test("the org that dominates a group of five wins without covering every bridged member", () => {
+  const council = ["ada", "bea", "cam", "dee", "eve"];
+  const nodes = [...council, "fay"];
   const edges = [
-    edge("ada", "bea", [org("council", "City Council")]),
-    edge("ada", "cam", [org("council", "City Council")]),
-    edge("bea", "cam", [org("council", "City Council")]),
-    edge("ada", "dee", [org("rotary", "Rotary")]),
-    edge("bea", "dee", [org("planning", "Planning Commission")]),
-    edge("cam", "dee", [org("chamber", "Chamber")]),
+    ...clique(council, [org("council", "City Council")]),
+    edge("ada", "fay", [org("rotary", "Rotary")]),
+    edge("bea", "fay", [org("planning", "Planning Commission")]),
+    edge("cam", "fay", [org("chamber", "Chamber")]),
   ];
   const causes = buildClusterCauses(nodes, edges);
   const named = causes.filter((cause) => cause.kind === "org");
   assert.equal(named.some((cause) => cause.orgId === "council"), true);
   assert.equal(
-    named.some((cause) => cause.memberIds.includes("dee") && cause.orgId === "council"),
+    named.some((cause) => cause.memberIds.includes("fay") && cause.orgId === "council"),
     false
   );
   assert.equal(
-    causes.some((cause) => cause.kind === "mixed" && cause.memberIds.includes("dee")),
+    causes.some((cause) => cause.kind === "mixed" && cause.memberIds.includes("fay")),
     false
   );
 });
 
-test("pairs are not clusters", () => {
+test("pairs are not clusters; named size is five", () => {
   const causes = buildClusterCauses(
     ["ada", "bea"],
     [edge("ada", "bea", [org("rotary", "Rotary")])]
   );
   assert.deepEqual(causes, []);
   assert.equal(MIN_CLUSTER_SIZE, 3);
+  assert.equal(MIN_NAMED_CLUSTER_SIZE, 5);
 });
 
-test("mixed lists at most three shared orgs and does not pick a winner", () => {
-  const nodes = ["a", "b", "c", "d"];
+test("a mixed trio under five still folds into Mixed boards, not a named pill", () => {
+  const nodes = ["ada", "bea", "cam"];
   const edges = [
-    edge("a", "b", [org("one", "One")]),
-    edge("b", "c", [org("two", "Two")]),
-    edge("c", "d", [org("three", "Three")]),
-    edge("a", "d", [org("four", "Four")]),
-    edge("a", "c", [org("five", "Five")]),
+    edge("ada", "bea", [org("rotary", "Rotary")]),
+    edge("bea", "cam", [org("planning", "Planning Commission")]),
+    edge("ada", "cam", [org("chamber", "Chamber")]),
   ];
-  const top = topSharedOrgs(nodes, edges, MIXED_ORG_LIST_MAX);
-  assert.equal(top.length, 3);
+  const causes = buildClusterCauses(nodes, edges);
+  assert.equal(causes.length, 1);
+  assert.equal(causes[0].kind, "mixed");
+  assert.deepEqual(
+    causes[0].topOrgs.map((row) => row.label).sort(),
+    ["Chamber", "Planning Commission", "Rotary"]
+  );
+});
+
+test("a group under five does not get a named pill even when one org dominates", () => {
+  const nodes = ["ada", "bea", "cam"];
+  const edges = clique(nodes, [org("council", "City Council")]);
+  const causes = buildClusterCauses(nodes, edges);
+  assert.equal(causes.length, 1);
+  assert.equal(causes[0].kind, "mixed");
+  assert.equal(causes[0].label, MIXED_BOARDS_LABEL);
+  assert.equal(clusterCauseHasWash(causes[0]), false);
+  assert.deepEqual(
+    causes[0].topOrgs.map((row) => row.label),
+    ["City Council"]
+  );
+});
+
+test("smaller groups fold into one Mixed boards heading", () => {
+  const council = ["ada", "bea", "cam"];
+  const rotary = ["dee", "eve", "fay"];
+  const parks = ["gus", "hal", "ida"];
+  const nodes = [...council, ...rotary, ...parks];
+  const edges = [
+    ...clique(council, [org("council", "City Council")]),
+    ...clique(rotary, [org("rotary", "Rotary")]),
+    ...clique(parks, [org("parks", "Parks Commission")]),
+  ];
+  const causes = buildClusterCauses(nodes, edges);
+  assert.equal(causes.length, 1);
+  assert.equal(causes[0].kind, "mixed");
+  assert.equal(causes[0].folded, true);
+  assert.equal(causes[0].label, MIXED_BOARDS_LABEL);
+  assert.equal(clusterCauseHasWash(causes[0]), false);
+  assert.deepEqual(
+    causes[0].topOrgs.map((row) => row.label).sort(),
+    ["City Council", "Parks Commission", "Rotary"]
+  );
+});
+
+test("a named group of five keeps its pill while smaller groups share Mixed boards", () => {
+  const council = ["ada", "bea", "cam", "dee", "eve"];
+  const rotary = ["fay", "gus", "hal"];
+  const parks = ["ida", "jen", "kai"];
+  const nodes = [...council, ...rotary, ...parks];
+  const edges = [
+    ...clique(council, [org("council", "City Council")]),
+    ...clique(rotary, [org("rotary", "Rotary")]),
+    ...clique(parks, [org("parks", "Parks Commission")]),
+  ];
+  const causes = buildClusterCauses(nodes, edges);
+  assert.deepEqual(
+    causes.map((cause) => cause.label).sort(),
+    ["City Council", MIXED_BOARDS_LABEL]
+  );
+  const mixed = causes.find((cause) => cause.kind === "mixed");
+  assert.ok(mixed);
+  assert.equal(mixed.folded, true);
+  assert.equal(clusterCauseHasWash(mixed), false);
+  assert.deepEqual(
+    mixed.topOrgs.map((row) => row.label).sort(),
+    ["Parks Commission", "Rotary"]
+  );
+});
+
+test("mixed lists every smaller org and does not cap at three", () => {
+  const groups = [
+    ["a1", "a2", "a3"],
+    ["b1", "b2", "b3"],
+    ["c1", "c2", "c3"],
+    ["d1", "d2", "d3"],
+  ];
+  const labels = [
+    org("one", "One"),
+    org("two", "Two"),
+    org("three", "Three"),
+    org("four", "Four"),
+  ];
+  const nodes = groups.flat();
+  const edges = groups.flatMap((ids, index) => clique(ids, [labels[index]]));
+  const top = topSharedOrgs(nodes, edges);
+  assert.equal(top.length, 4);
   const causes = buildClusterCauses(nodes, edges);
   assert.equal(causes.length, 1);
   assert.equal(causes[0].kind, "mixed");
   assert.equal(causes[0].orgId, null);
-  assert.equal(causes[0].topOrgs.length, 3);
+  assert.equal(causes[0].folded, true);
+  assert.deepEqual(
+    causes[0].topOrgs.map((row) => row.label).sort(),
+    ["Four", "One", "Three", "Two"]
+  );
 });
 
 test("wash color is stable per org and from the muted set", () => {
@@ -313,12 +404,10 @@ test("a nested board inside a larger sitting group does not get its own pill", (
 });
 
 test("the cream pill uses the full org name", () => {
-  const nodes = ["ada", "bea", "cam"];
-  const edges = [
-    edge("ada", "bea", [org("lwv", "League of Women Voters of the Diablo Valley")]),
-    edge("ada", "cam", [org("lwv", "League of Women Voters of the Diablo Valley")]),
-    edge("bea", "cam", [org("lwv", "League of Women Voters of the Diablo Valley")]),
-  ];
+  const nodes = ["ada", "bea", "cam", "dee", "eve"];
+  const edges = clique(nodes, [
+    org("lwv", "League of Women Voters of the Diablo Valley"),
+  ]);
   const causes = buildClusterCauses(nodes, edges);
   assert.equal(causes.length, 1);
   assert.equal(
@@ -331,4 +420,13 @@ test("the cream pill uses the full org name", () => {
 test("wash stays ground and mixed boards has no wash color", () => {
   assert.equal(CLUSTER_WASH_IS_GROUND, true);
   assert.equal(CLUSTER_WASH_OPACITY, 0.12);
+  assert.equal(clusterCauseHasWash({
+    id: "mixed:x",
+    kind: "mixed",
+    label: MIXED_BOARDS_LABEL,
+    orgId: null,
+    memberIds: ["a", "b", "c"],
+    topOrgs: [],
+    folded: true,
+  }), false);
 });
