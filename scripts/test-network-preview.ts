@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   NETWORK_PREVIEW_FALLBACK_LABEL,
+  ORGS_NETWORK_LIST_LABEL,
+  PEOPLE_NETWORK_LIST_LABEL,
   givenName,
   networkPreviewFits,
   orgNetworkPreviewLabel,
@@ -56,4 +58,22 @@ test("overflow replaces the whole label, never a truncated name", () => {
   assert.equal(overflow.includes("…"), false);
   assert.equal(overflow.includes("..."), false);
   assert.equal(overflow.includes("Lafayette"), false);
+});
+
+test("mobile list door labels overflow to the same whole-control fallback", () => {
+  assert.equal(PEOPLE_NETWORK_LIST_LABEL, "People network map");
+  assert.equal(ORGS_NETWORK_LIST_LABEL, "Organizations network map");
+  assert.equal(
+    resolveNetworkPreviewLabel(PEOPLE_NETWORK_LIST_LABEL, true),
+    "People network map"
+  );
+  assert.equal(
+    resolveNetworkPreviewLabel(ORGS_NETWORK_LIST_LABEL, true),
+    "Organizations network map"
+  );
+  const overflow = resolveNetworkPreviewLabel(ORGS_NETWORK_LIST_LABEL, false);
+  assert.equal(overflow, "View Network Map");
+  assert.equal(overflow.includes("…"), false);
+  assert.equal(overflow.includes("..."), false);
+  assert.equal(overflow.includes("Organizations"), false);
 });
