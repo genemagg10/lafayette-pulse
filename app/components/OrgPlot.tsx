@@ -39,11 +39,16 @@ interface OrgPlotProps {
 
 function usePlotBox() {
   const ref = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState({ w: 0, h: 0 });
+  const [box, setBox] = useState({ w: 640, h: 360 });
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const update = () => setBox({ w: el.clientWidth, h: el.clientHeight });
+    const update = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w < 40 || h < 40) return;
+      setBox({ w, h });
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
@@ -191,8 +196,8 @@ export default function OrgPlot({
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0 gap-2">
-      <div ref={ref} className="relative flex-1 min-h-[320px] bg-canvas">
+    <div className="flex flex-col h-full min-h-0 gap-2 overflow-y-auto">
+      <div ref={ref} className="relative w-full flex-1 min-h-[320px] bg-canvas">
         {data.empty_copy ? (
           <div className="absolute inset-0 flex items-center justify-center p-6">
             <div className="max-w-md text-center space-y-2">
@@ -206,10 +211,13 @@ export default function OrgPlot({
           </div>
         ) : (
           <svg
-            width={box.w}
-            height={box.h}
-            className="block w-full h-full"
+            width="100%"
+            height="100%"
+            viewBox={`0 0 ${box.w} ${box.h}`}
+            preserveAspectRatio="xMidYMid meet"
+            className="absolute inset-0 block"
             role="img"
+            data-plotted-count={layout?.points.length ?? 0}
             aria-label={
               data.view === "structure"
                 ? "Organization structure plot: footprint by shared boards"
