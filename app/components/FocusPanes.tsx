@@ -12,6 +12,8 @@ interface FocusPanesProps {
   vizBackStep?: MobileStep;
   mobileStep: MobileStep;
   onMobileStep: (step: MobileStep) => void;
+  /** Dark “Open {vizLabel}” bar. People/orgs replace this with a preview card. */
+  showOpenControl?: boolean;
 }
 
 export default function FocusPanes({
@@ -22,6 +24,7 @@ export default function FocusPanes({
   vizBackStep = "detail",
   mobileStep,
   onMobileStep,
+  showOpenControl = true,
 }: FocusPanesProps) {
   return (
     <div className="h-full min-h-0">
@@ -59,13 +62,15 @@ export default function FocusPanes({
           {mobileStep === "detail" && (
             <div className="space-y-4">
               {detail}
-              <button
-                type="button"
-                onClick={() => onMobileStep("viz")}
-                className="w-full rounded-none bg-forest-800 text-cream-50 font-heading text-sm py-3 hover:bg-forest-700"
-              >
-                Open {vizLabel}
-              </button>
+              {showOpenControl && (
+                <button
+                  type="button"
+                  onClick={() => onMobileStep("viz")}
+                  className="w-full rounded-none bg-forest-800 text-cream-50 font-heading text-sm py-3 hover:bg-forest-700"
+                >
+                  Open {vizLabel}
+                </button>
+              )}
             </div>
           )}
         </div>
