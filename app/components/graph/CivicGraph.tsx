@@ -22,6 +22,7 @@ import {
   degreesFromEdges,
   dropCollidingLabels,
   FOCUS_LABEL_ALL_ACTORS_MAX,
+  drawWhoHoverRing,
   offsetCollidingLabels,
   topFocusLabelIds,
   truncateGraphLabel,
@@ -40,6 +41,25 @@ import {
 } from "@/lib/graph-edge-pick";
 import { NodeDiamondProgram } from "./NodeDiamondProgram";
 import type { OrgType, SeatType } from "@/lib/types";
+
+/** Who graphs: ring only. Sigma's default hover chip would redraw the name. */
+class WhoSquareProgram extends NodeSquareProgram {
+  drawHover = (
+    context: CanvasRenderingContext2D,
+    data: { x: number; y: number; size: number }
+  ) => {
+    drawWhoHoverRing(context, data, "square");
+  };
+}
+
+class WhoDiamondProgram extends NodeDiamondProgram {
+  drawHover = (
+    context: CanvasRenderingContext2D,
+    data: { x: number; y: number; size: number }
+  ) => {
+    drawWhoHoverRing(context, data, "diamond");
+  };
+}
 
 export interface RenderableNode {
   id: string;
@@ -700,9 +720,17 @@ export default function CivicGraph({
       stagePadding: 64,
       minCameraRatio: 0.15,
       maxCameraRatio: 4,
+      ...(nameEveryNode
+        ? {
+            defaultDrawNodeHover: (
+              context: CanvasRenderingContext2D,
+              data: { x: number; y: number; size: number }
+            ) => drawWhoHoverRing(context, data, "circle"),
+          }
+        : {}),
       nodeProgramClasses: {
-        square: NodeSquareProgram,
-        diamond: NodeDiamondProgram,
+        square: nameEveryNode ? WhoSquareProgram : NodeSquareProgram,
+        diamond: nameEveryNode ? WhoDiamondProgram : NodeDiamondProgram,
       },
     });
 
