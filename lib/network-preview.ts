@@ -4,10 +4,38 @@ export function givenName(fullName: string): string {
   return part || fullName.trim();
 }
 
+export const NETWORK_PREVIEW_FALLBACK_LABEL = "View Network Map";
+
+/** Person: “Carl Anduri” → “Carl's Network Map”. */
 export function personNetworkPreviewLabel(fullName: string): string {
-  return `See who sits with ${givenName(fullName)}`;
+  return `${givenName(fullName)}'s Network Map`;
 }
 
+/** Organization: “Lafayette Chamber of Commerce Network Map”. */
 export function orgNetworkPreviewLabel(orgName: string): string {
-  return `See who overlaps ${orgName}`;
+  const name = orgName.trim() || orgName;
+  return `${name} Network Map`;
+}
+
+/**
+ * Named line when it fits the control; otherwise the whole-control fallback.
+ * Never ellipsis, never a truncated name.
+ */
+export function resolveNetworkPreviewLabel(
+  preferred: string,
+  fits: boolean
+): string {
+  return fits ? preferred : NETWORK_PREVIEW_FALLBACK_LABEL;
+}
+
+export function networkPreviewFits(box: {
+  availableWidth: number;
+  availableHeight: number;
+  contentWidth: number;
+  contentHeight: number;
+}): boolean {
+  return (
+    box.contentWidth <= box.availableWidth &&
+    box.contentHeight <= box.availableHeight
+  );
 }
