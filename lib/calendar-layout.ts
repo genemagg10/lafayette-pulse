@@ -8,9 +8,19 @@ export const EVENT_CHIP_PX = 16;
 export const EVENT_CHIP_GAP_PX = 2;
 export const EVENT_LINE_PX = EVENT_CHIP_PX + EVENT_CHIP_GAP_PX;
 
-/** Equal fractions of leftover viewport height. Not a fixed cell size. */
+/** Full title wraps. Never nowrap / ellipsis — the chip and cell grow instead. */
+export const EVENT_CHIP_TEXT_CLASS =
+  "block w-full whitespace-normal break-words [overflow-wrap:anywhere] text-[12px] leading-4 text-ink";
+
+/**
+ * Week rows share leftover viewport height, then grow with wrapped chips.
+ * `auto` (not 1fr) lets the tallest day in the week set the row. The month
+ * grid scrolls as a whole when the sum exceeds the viewport.
+ */
 export function gridRowTemplate(rowCount: number): string {
-  return `repeat(${Math.max(rowCount, 1)}, minmax(0, 1fr))`;
+  const n = Math.max(rowCount, 1);
+  const gapPx = Math.max(n - 1, 0);
+  return `repeat(${n}, minmax(calc((100% - ${gapPx}px) / ${n}), auto))`;
 }
 
 export function weekRailStacks(
@@ -22,15 +32,20 @@ export function weekRailStacks(
   return (containerWidth - railPx) / 7 < minColPx;
 }
 
+/**
+ * Complete chips that still fit after titles wrap — not one-line slots.
+ * A wrapped title is one chip. Remainder is "N more", never a half-cut chip
+ * and never a substitute for ellipsis.
+ */
 export function cellVisibleCount(
   total: number,
-  maxLines: number
+  fittedChips: number
 ): { show: number; more: number } {
   if (total <= 0) return { show: 0, more: 0 };
-  if (maxLines <= 0) return { show: 0, more: total };
-  if (total <= maxLines) return { show: total, more: 0 };
-  if (maxLines === 1) return { show: 0, more: total };
-  const show = maxLines - 1;
+  if (fittedChips <= 0) return { show: 0, more: total };
+  if (total <= fittedChips) return { show: total, more: 0 };
+  if (fittedChips === 1) return { show: 0, more: total };
+  const show = fittedChips - 1;
   return { show, more: total - show };
 }
 
