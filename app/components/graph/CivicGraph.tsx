@@ -44,7 +44,6 @@ import type { OrgType, SeatType } from "@/lib/types";
 import {
   buildClusterCauses,
   clusterCentroid,
-  clusterLabelAnchor,
   clusterLabelText,
   clusterRadius,
   clusterWashColor,
@@ -952,29 +951,27 @@ export default function CivicGraph({
               wrap.style.display = "none";
               continue;
             }
-            const graphPoints = [];
+            const viewPoints = [];
             for (const id of cause.memberIds) {
               if (!graph.hasNode(id)) continue;
-              graphPoints.push({
-                x: Number(graph.getNodeAttribute(id, "x")) || 0,
-                y: Number(graph.getNodeAttribute(id, "y")) || 0,
-              });
+              viewPoints.push(
+                renderer.graphToViewport({
+                  x: Number(graph.getNodeAttribute(id, "x")) || 0,
+                  y: Number(graph.getNodeAttribute(id, "y")) || 0,
+                })
+              );
             }
-            const anchor =
-              clusterLabelAnchor(graphPoints, 12) ??
-              clusterCentroid(graphPoints);
-            if (!anchor) {
+            const center = clusterCentroid(viewPoints);
+            if (!center) {
               wrap.style.display = "none";
               continue;
             }
-            const view = nudgePointOffNodes(
-              renderer.graphToViewport(anchor),
-              nodeView,
-              14
-            );
+            const view = nudgePointOffNodes(center, nodeView, 16);
+            const x = Math.min(width - 24, Math.max(24, view.x));
+            const y = Math.min(height - 16, Math.max(16, view.y));
             wrap.style.display = "block";
-            wrap.style.left = `${view.x}px`;
-            wrap.style.top = `${view.y}px`;
+            wrap.style.left = `${x}px`;
+            wrap.style.top = `${y}px`;
           }
         }
       }
