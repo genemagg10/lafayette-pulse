@@ -21,8 +21,12 @@ import {
   IdentityHeader,
   StickyDetailChrome,
 } from "./WhoDetailChrome";
+import NetworkListDoor from "./NetworkListDoor";
 import NetworkPreviewCard from "./NetworkPreviewCard";
-import { personNetworkPreviewLabel } from "@/lib/network-preview";
+import {
+  PEOPLE_NETWORK_LIST_LABEL,
+  personNetworkPreviewLabel,
+} from "@/lib/network-preview";
 import type { RenderableEdge } from "./graph/CivicGraph";
 import PeopleOrgEdgeFilter from "./PeopleOrgEdgeFilter";
 import {
@@ -395,6 +399,13 @@ export default function PeopleExplorer({
         <p className="text-[11px] font-body text-ink-muted">
           Ranked by board footprint
         </p>
+        <NetworkListDoor
+          label={PEOPLE_NETWORK_LIST_LABEL}
+          onOpen={() => {
+            clearPerson();
+            setMobileStep("viz");
+          }}
+        />
       </div>
       {listLoading ? (
         <div className="space-y-2 animate-pulse">
@@ -786,6 +797,7 @@ export default function PeopleExplorer({
       vizLabel="Network"
       mobileStep={mobileStep}
       onMobileStep={setMobileStep}
+      vizBackStep={selectedId ? "detail" : "list"}
       showOpenControl={false}
     />
   );

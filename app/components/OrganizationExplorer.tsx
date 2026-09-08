@@ -23,8 +23,12 @@ import {
   IdentityHeader,
   StickyDetailChrome,
 } from "./WhoDetailChrome";
+import NetworkListDoor from "./NetworkListDoor";
 import NetworkPreviewCard from "./NetworkPreviewCard";
-import { orgNetworkPreviewLabel } from "@/lib/network-preview";
+import {
+  ORGS_NETWORK_LIST_LABEL,
+  orgNetworkPreviewLabel,
+} from "@/lib/network-preview";
 import type { RenderableEdge } from "./graph/CivicGraph";
 import {
   buildWhyLinkedModel,
@@ -381,16 +385,25 @@ export default function OrganizationExplorer({
   const master = (
     <div className="space-y-3">
       {tabs}
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search organizations…"
-        className="w-full px-3 py-2 rounded-md border border-line-strong bg-surface font-body text-sm text-ink placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
-      />
-      <p className="text-[11px] font-body text-ink-muted">
-        Ranked by board footprint
-      </p>
+      <div className="flex flex-col gap-2">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search organizations…"
+          className="w-full px-3 py-2 rounded-md border border-line-strong bg-surface font-body text-sm text-ink placeholder:text-forest-400 focus:outline-none focus:ring-2 focus:ring-forest-500/30 focus:border-forest-500"
+        />
+        <p className="text-[11px] font-body text-ink-muted">
+          Ranked by board footprint
+        </p>
+        <NetworkListDoor
+          label={ORGS_NETWORK_LIST_LABEL}
+          onOpen={() => {
+            clearOrg();
+            setMobileStep("viz");
+          }}
+        />
+      </div>
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
@@ -668,6 +681,7 @@ export default function OrganizationExplorer({
       vizLabel="Affinity"
       mobileStep={mobileStep}
       onMobileStep={setMobileStep}
+      vizBackStep={selectedId ? "detail" : "list"}
       showOpenControl={false}
     />
   );
