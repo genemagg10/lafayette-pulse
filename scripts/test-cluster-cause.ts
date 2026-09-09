@@ -4,6 +4,7 @@ import {
   buildClusterCauses,
   clusterCauseHasWash,
   clusterCauseOnStop,
+  clusterStandsApart,
   clusterLabelAnchor,
   clusterLabelText,
   clusterWashColor,
@@ -60,20 +61,22 @@ function clique(
 }
 
 test("cluster of five or more who share one org is named for that org", () => {
-  const nodes = ["ada", "bea", "cam", "dee", "eve"];
-  const edges = clique(nodes, [org("council", "City Council")]);
+  const council = ["ada", "bea", "cam", "dee", "eve"];
+  const nodes = [...council, "out1", "out2"];
+  const edges = clique(council, [org("council", "City Council")]);
   const causes = buildClusterCauses(nodes, edges);
   assert.equal(causes.length, 1);
   assert.equal(causes[0].kind, "org");
   assert.equal(causes[0].label, "City Council");
   assert.equal(causes[0].orgId, "council");
-  assert.deepEqual(causes[0].memberIds, nodes.slice().sort());
+  assert.deepEqual(causes[0].memberIds, council.slice().sort());
   assert.equal(clusterLabelText(causes[0]), "City Council");
   assert.equal(clusterCauseHasWash(causes[0]), true);
 });
 
 test("a group of five or more with no dominant org is Mixed boards", () => {
-  const nodes = ["ada", "bea", "cam", "dee", "eve"];
+  const mixed = ["ada", "bea", "cam", "dee", "eve"];
+  const nodes = [...mixed, "out1", "out2"];
   const edges = [
     edge("ada", "bea", [org("rotary", "Rotary")]),
     edge("bea", "cam", [org("planning", "Planning Commission")]),
@@ -93,9 +96,10 @@ test("a group of five or more with no dominant org is Mixed boards", () => {
 });
 
 test("an org that covers everyone still wins when they also share other boards", () => {
-  const nodes = ["ada", "bea", "cam", "dee", "eve"];
+  const council = ["ada", "bea", "cam", "dee", "eve"];
+  const nodes = [...council, "out1", "out2"];
   const edges = [
-    ...clique(nodes, [org("council", "City Council")]),
+    ...clique(council, [org("council", "City Council")]),
     edge("ada", "bea", [
       org("council", "City Council"),
       org("planning", "Planning Commission"),
@@ -194,7 +198,7 @@ test("the org that dominates a group of five wins without covering every bridged
   );
 });
 
-test("pairs are not clusters; named size is five", () => {
+test("pairs are not clusters; named size floor stays five", () => {
   const causes = buildClusterCauses(
     ["ada", "bea"],
     [edge("ada", "bea", [org("rotary", "Rotary")])]
@@ -204,37 +208,23 @@ test("pairs are not clusters; named size is five", () => {
   assert.equal(MIN_NAMED_CLUSTER_SIZE, 5);
 });
 
-test("a mixed trio under five still folds into Mixed boards, not a named pill", () => {
-  const nodes = ["ada", "bea", "cam"];
+test("a trio under the floor gets no pill and no Mixed boards dump", () => {
+  const nodes = ["ada", "bea", "cam", "out1", "out2"];
   const edges = [
     edge("ada", "bea", [org("rotary", "Rotary")]),
     edge("bea", "cam", [org("planning", "Planning Commission")]),
     edge("ada", "cam", [org("chamber", "Chamber")]),
   ];
-  const causes = buildClusterCauses(nodes, edges);
-  assert.equal(causes.length, 1);
-  assert.equal(causes[0].kind, "mixed");
-  assert.deepEqual(
-    causes[0].topOrgs.map((row) => row.label).sort(),
-    ["Chamber", "Planning Commission", "Rotary"]
-  );
+  assert.deepEqual(buildClusterCauses(nodes, edges), []);
 });
 
-test("a group under five does not get a named pill even when one org dominates", () => {
-  const nodes = ["ada", "bea", "cam"];
-  const edges = clique(nodes, [org("council", "City Council")]);
-  const causes = buildClusterCauses(nodes, edges);
-  assert.equal(causes.length, 1);
-  assert.equal(causes[0].kind, "mixed");
-  assert.equal(causes[0].label, MIXED_BOARDS_LABEL);
-  assert.equal(clusterCauseHasWash(causes[0]), false);
-  assert.deepEqual(
-    causes[0].topOrgs.map((row) => row.label),
-    ["City Council"]
-  );
+test("a group under five does not get a title even when one org dominates", () => {
+  const nodes = ["ada", "bea", "cam", "out1", "out2"];
+  const edges = clique(["ada", "bea", "cam"], [org("council", "City Council")]);
+  assert.deepEqual(buildClusterCauses(nodes, edges), []);
 });
 
-test("smaller groups fold into one Mixed boards heading", () => {
+test("unlabeled small groups are not dumped into Mixed boards", () => {
   const council = ["ada", "bea", "cam"];
   const rotary = ["dee", "eve", "fay"];
   const parks = ["gus", "hal", "ida"];
@@ -244,19 +234,10 @@ test("smaller groups fold into one Mixed boards heading", () => {
     ...clique(rotary, [org("rotary", "Rotary")]),
     ...clique(parks, [org("parks", "Parks Commission")]),
   ];
-  const causes = buildClusterCauses(nodes, edges);
-  assert.equal(causes.length, 1);
-  assert.equal(causes[0].kind, "mixed");
-  assert.equal(causes[0].folded, true);
-  assert.equal(causes[0].label, MIXED_BOARDS_LABEL);
-  assert.equal(clusterCauseHasWash(causes[0]), false);
-  assert.deepEqual(
-    causes[0].topOrgs.map((row) => row.label).sort(),
-    ["City Council", "Parks Commission", "Rotary"]
-  );
+  assert.deepEqual(buildClusterCauses(nodes, edges), []);
 });
 
-test("a named group of five keeps its pill while smaller groups share Mixed boards", () => {
+test("a named stand-apart group of five does not create Mixed boards for smaller groups", () => {
   const council = ["ada", "bea", "cam", "dee", "eve"];
   const rotary = ["fay", "gus", "hal"];
   const parks = ["ida", "jen", "kai"];
@@ -268,20 +249,16 @@ test("a named group of five keeps its pill while smaller groups share Mixed boar
   ];
   const causes = buildClusterCauses(nodes, edges);
   assert.deepEqual(
-    causes.map((cause) => cause.label).sort(),
-    ["City Council", MIXED_BOARDS_LABEL]
+    causes.map((cause) => cause.label),
+    ["City Council"]
   );
-  const mixed = causes.find((cause) => cause.kind === "mixed");
-  assert.ok(mixed);
-  assert.equal(mixed.folded, true);
-  assert.equal(clusterCauseHasWash(mixed), false);
-  assert.deepEqual(
-    mixed.topOrgs.map((row) => row.label).sort(),
-    ["Parks Commission", "Rotary"]
+  assert.equal(
+    causes.some((cause) => cause.kind === "mixed"),
+    false
   );
 });
 
-test("Mixed boards lists the smaller orgs, not an org that already has a named pill", () => {
+test("a small overlapping group does not mint Mixed boards next to a named pill", () => {
   const council = ["ada", "bea", "cam", "dee", "eve"];
   const rotary = ["eve", "fay", "gus"];
   const nodes = ["ada", "bea", "cam", "dee", "eve", "fay", "gus"];
@@ -290,46 +267,29 @@ test("Mixed boards lists the smaller orgs, not an org that already has a named p
     ...clique(rotary, [org("rotary", "Rotary")]),
   ];
   const causes = buildClusterCauses(nodes, edges);
-  const named = causes.filter((cause) => cause.kind === "org");
-  const mixed = causes.filter((cause) => cause.kind === "mixed");
-  assert.equal(named.length, 1);
-  assert.equal(named[0].label, "City Council");
-  assert.equal(mixed.length, 1);
-  assert.deepEqual(
-    mixed[0].topOrgs.map((row) => row.label),
-    ["Rotary"]
-  );
-  assert.equal(mixed[0].memberIds.includes("ada"), false);
-  assert.equal(mixed[0].memberIds.includes("fay"), true);
-  assert.equal(mixed[0].memberIds.includes("gus"), true);
+  assert.equal(causes.length, 1);
+  assert.equal(causes[0].kind, "org");
+  assert.equal(causes[0].label, "City Council");
 });
 
-test("mixed lists every smaller org and does not cap at three", () => {
-  const groups = [
-    ["a1", "a2", "a3"],
-    ["b1", "b2", "b3"],
-    ["c1", "c2", "c3"],
-    ["d1", "d2", "d3"],
+test("stand-apart Mixed boards lists every org and does not cap at three", () => {
+  const mixed = ["a", "b", "c", "d", "e"];
+  const nodes = [...mixed, "out1", "out2"];
+  const edges = [
+    edge("a", "b", [org("one", "One")]),
+    edge("b", "c", [org("two", "Two")]),
+    edge("c", "d", [org("three", "Three")]),
+    edge("d", "e", [org("four", "Four")]),
+    edge("e", "a", [org("five", "Five")]),
+    edge("a", "c", [org("six", "Six")]),
   ];
-  const labels = [
-    org("one", "One"),
-    org("two", "Two"),
-    org("three", "Three"),
-    org("four", "Four"),
-  ];
-  const nodes = groups.flat();
-  const edges = groups.flatMap((ids, index) => clique(ids, [labels[index]]));
-  const top = topSharedOrgs(nodes, edges);
-  assert.equal(top.length, 4);
+  const top = topSharedOrgs(mixed, edges);
+  assert.ok(top.length >= 4);
   const causes = buildClusterCauses(nodes, edges);
   assert.equal(causes.length, 1);
   assert.equal(causes[0].kind, "mixed");
   assert.equal(causes[0].orgId, null);
-  assert.equal(causes[0].folded, true);
-  assert.deepEqual(
-    causes[0].topOrgs.map((row) => row.label).sort(),
-    ["Four", "One", "Three", "Two"]
-  );
+  assert.ok(causes[0].topOrgs.length >= 4);
 });
 
 test("wash color is stable per org and from the muted set", () => {
@@ -369,10 +329,43 @@ test("nudge keeps the pill off a node disc", () => {
   assert.ok(Math.hypot(moved.x, moved.y) >= 24 - 0.01);
 });
 
-test("cluster cause is off on Most involved, on for Wider and All", () => {
+test("cluster cause gate: people Wider and All; organizations All only", () => {
   assert.equal(clusterCauseOnStop("most"), false);
   assert.equal(clusterCauseOnStop("wider"), true);
   assert.equal(clusterCauseOnStop("all"), true);
+  assert.equal(clusterCauseOnStop("most", "people"), false);
+  assert.equal(clusterCauseOnStop("wider", "people"), true);
+  assert.equal(clusterCauseOnStop("all", "people"), true);
+  assert.equal(clusterCauseOnStop("most", "organization"), false);
+  assert.equal(clusterCauseOnStop("wider", "organization"), false);
+  assert.equal(clusterCauseOnStop("all", "organization"), true);
+});
+
+test("a group stands apart when most links stay inside, not out", () => {
+  const blob = ["ada", "bea", "cam", "dee", "eve"];
+  const rest = ["fay", "gus", "hal", "ida", "jen"];
+  const nodes = [...blob, ...rest];
+  const inside = clique(blob, [org("village", "Lamorinda Village")]);
+  assert.equal(clusterStandsApart(blob, nodes, inside), true);
+
+  const buried = [
+    ...inside,
+    ...rest.flatMap((outsider) =>
+      blob.map((member) => edge(member, outsider, [org("mass", "Mass")]))
+    ),
+  ];
+  assert.equal(clusterStandsApart(blob, nodes, buried), false);
+  assert.deepEqual(buildClusterCauses(nodes, buried), []);
+  const named = buildClusterCauses(nodes, inside);
+  assert.equal(named.length, 1);
+  assert.equal(named[0].label, "Lamorinda Village");
+});
+
+test("the whole drawing is not a stand-apart group", () => {
+  const nodes = ["ada", "bea", "cam", "dee", "eve"];
+  const edges = clique(nodes, [org("council", "City Council")]);
+  assert.equal(clusterStandsApart(nodes, nodes, edges), false);
+  assert.deepEqual(buildClusterCauses(nodes, edges), []);
 });
 
 test("dominant org is most members, then most internal edges, else none", () => {
@@ -406,7 +399,8 @@ test("a nested board inside a larger sitting group does not get its own pill", (
   ]);
   assert.deepEqual(pruned, [{ memberIds: ["ada", "bea", "cam", "dee", "eve"] }]);
 
-  const nodes = ["ada", "bea", "cam", "dee", "eve"];
+  const core = ["ada", "bea", "cam", "dee", "eve"];
+  const nodes = [...core, "out1", "out2"];
   const edges = [
     edge("ada", "bea", [org("council", "City Council"), org("planning", "Planning")]),
     edge("ada", "cam", [org("council", "City Council"), org("planning", "Planning")]),
@@ -419,7 +413,7 @@ test("a nested board inside a larger sitting group does not get its own pill", (
     edge("cam", "eve", [org("council", "City Council")]),
     edge("dee", "eve", [org("council", "City Council")]),
   ];
-  const sitting = orgSittingGroups(nodes, edges);
+  const sitting = orgSittingGroups(core, edges);
   assert.equal(sitting.length, 1);
   const causes = buildClusterCauses(nodes, edges);
   assert.equal(causes.length, 1);
@@ -427,8 +421,9 @@ test("a nested board inside a larger sitting group does not get its own pill", (
 });
 
 test("the cream pill uses the full org name", () => {
-  const nodes = ["ada", "bea", "cam", "dee", "eve"];
-  const edges = clique(nodes, [
+  const league = ["ada", "bea", "cam", "dee", "eve"];
+  const nodes = [...league, "out1", "out2"];
+  const edges = clique(league, [
     org("lwv", "League of Women Voters of the Diablo Valley"),
   ]);
   const causes = buildClusterCauses(nodes, edges);

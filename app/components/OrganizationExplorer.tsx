@@ -31,6 +31,11 @@ import {
 } from "@/lib/network-preview";
 import type { RenderableEdge } from "./graph/CivicGraph";
 import {
+  MIXED_BOARDS_LABEL,
+  clusterCauseOnStop,
+  type ClusterCause,
+} from "@/lib/cluster-cause";
+import {
   buildWhyLinkedModel,
   toggleWhyLinkedEdge,
 } from "@/lib/why-linked";
@@ -89,6 +94,7 @@ export default function OrganizationExplorer({
   const [affinity, setAffinity] = useState<OrgAffinityResponse | null>(null);
   const [affinityError, setAffinityError] = useState<string | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<RenderableEdge | null>(null);
+  const [mixedCause, setMixedCause] = useState<ClusterCause | null>(null);
   const [tab, setTab] = useState<OrgTab>("directory");
   const [coActor, setCoActor] = useState<"organization" | "person">("organization");
   const [minShared, setMinShared] = useState(2);
@@ -270,6 +276,18 @@ export default function OrganizationExplorer({
     );
     if (!stillThere) setSelectedEdge(null);
   }, [graphEdges, selectedEdge]);
+
+  useEffect(() => {
+    if (!mixedCause || selectedId) return;
+    if (!clusterCauseOnStop(activeOrgStop, "organization")) {
+      setMixedCause(null);
+      return;
+    }
+    const ids = new Set(graphNodes.map((node) => node.id));
+    if (mixedCause.memberIds.some((id) => !ids.has(id))) {
+      setMixedCause(null);
+    }
+  }, [graphNodes, mixedCause, selectedId, activeOrgStop]);
 
   const whyLinkedModel = useMemo(() => {
     if (!selectedEdge) return null;
@@ -643,14 +661,31 @@ export default function OrganizationExplorer({
             centerId={selectedId}
             nameEveryNode
             selectedEdge={selectedEdge}
+            showClusterCause={
+              !selectedId && clusterCauseOnStop(activeOrgStop, "organization")
+            }
+            onClusterCauseClick={(cause) => {
+              setSelectedEdge(null);
+              if (cause.kind === "org") {
+                setMixedCause(null);
+                selectOrg(cause.orgId);
+                return;
+              }
+              setMixedCause(cause);
+            }}
             onNodeClick={(id) => {
               setSelectedEdge(null);
+              setMixedCause(null);
               selectOrg(id);
             }}
-            onEdgeClick={(edge) =>
-              setSelectedEdge((current) => toggleWhyLinkedEdge(current, edge))
-            }
-            onStageClick={() => setSelectedEdge(null)}
+            onEdgeClick={(edge) => {
+              setMixedCause(null);
+              setSelectedEdge((current) => toggleWhyLinkedEdge(current, edge));
+            }}
+            onStageClick={() => {
+              setSelectedEdge(null);
+              setMixedCause(null);
+            }}
             heightClassName="h-full min-h-[420px]"
           />
         )}
@@ -662,6 +697,63 @@ export default function OrganizationExplorer({
               onClose={() => setSelectedEdge(null)}
               onSelectEntity={selectFromWhyLinked}
             />
+          </div>
+        )}
+        {mixedCause &&
+          !selectedId &&
+          clusterCauseOnStop(activeOrgStop, "organization") && (
+          <div className="absolute inset-x-3 bottom-3 z-20 max-h-[55%] lg:inset-x-auto lg:right-3 lg:left-auto lg:top-3 lg:bottom-auto lg:w-[18rem] lg:max-h-[min(70%,20rem)]">
+            <div className="rounded-md border border-line bg-surface p-3 shadow-[0_8px_24px_rgba(26,36,32,0.1)]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h4 className="font-heading font-semibold text-sm text-ink">
+                    {MIXED_BOARDS_LABEL}
+                  </h4>
+                  <p className="text-xs font-body text-ink-muted mt-0.5">
+                    Shared organizations
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMixedCause(null)}
+                  className="text-sm font-body text-ink-muted hover:text-ink leading-none px-1"
+                  aria-label="Close mixed boards"
+                >
+                  Close
+                </button>
+              </div>
+              {mixedCause.topOrgs.length === 0 ? (
+                <p className="text-sm font-body text-ink-muted mt-2">
+                  No shared organization stands out.
+                </p>
+              ) : (
+                <ul className="mt-2 space-y-1.5">
+                  {mixedCause.topOrgs.map((org) => {
+                    const selectable = Boolean(org.id) && !org.id.startsWith("name:");
+                    return (
+                      <li key={org.id}>
+                        {selectable ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMixedCause(null);
+                              selectOrg(org.id);
+                            }}
+                            className="font-heading font-semibold text-sm text-forest-700 underline hover:text-forest-900 text-left"
+                          >
+                            {org.label}
+                          </button>
+                        ) : (
+                          <span className="font-heading font-semibold text-sm text-ink">
+                            {org.label}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -8,13 +8,26 @@ export const CLUSTER_WASH_OPACITY = 0.12;
 export const CLUSTER_MIXED_STROKE = "#C9C5B8";
 /** Detect a sitting group at 3. Pairs are not groups. */
 export const MIN_CLUSTER_SIZE = 3;
-/** Named org pill only when this many people sit in the group. */
+/**
+ * Floor for a title. A pair or trio never gets a pill.
+ * Separate from the stand-apart test — do not raise this to 10.
+ */
 export const MIN_NAMED_CLUSTER_SIZE = 5;
 /** Wash is ground only. Never lifted over lines. Never used as an edge tint. */
 export const CLUSTER_WASH_IS_GROUND = true;
 
-/** Wide overview only. Most involved stays a named graph — no pill, no wash. */
-export function clusterCauseOnStop(stop: GraphRangeStop): boolean {
+export type ClusterGraphKind = "people" | "organization";
+
+/**
+ * People Wider and All: on. Organizations All: on.
+ * Organizations Wider, Most involved: off.
+ */
+export function clusterCauseOnStop(
+  stop: GraphRangeStop,
+  kind: ClusterGraphKind = "people"
+): boolean {
+  if (stop === "most") return false;
+  if (kind === "organization") return stop === "all";
   return stop === "wider" || stop === "all";
 }
 
@@ -185,6 +198,36 @@ export function topSharedOrgs(
 /** Cream wash only on a named org group. Mixed boards has none. */
 export function clusterCauseHasWash(cause: ClusterCause): boolean {
   return cause.kind === "org";
+}
+
+/**
+ * A sitting group stands apart when it is not the whole drawing and
+ * most of its links stay inside, not out into the rest.
+ * Buried in the middle mass: no pill, even at 10 or 20 people.
+ */
+export function clusterStandsApart(
+  memberIds: readonly string[],
+  nodeIds: readonly string[],
+  edges: readonly ClusterEdge[]
+): boolean {
+  if (memberIds.length === 0) return false;
+  const members = new Set(memberIds);
+  if (nodeIds.every((id) => members.has(id))) return false;
+  let internal = 0;
+  let cut = 0;
+  const seen = new Set<string>();
+  for (const edge of edges) {
+    if (edge.source === edge.target) continue;
+    const key = edgeKey(edge.source, edge.target);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const a = members.has(edge.source);
+    const b = members.has(edge.target);
+    if (a && b) internal += 1;
+    else if (a || b) cut += 1;
+  }
+  if (internal === 0) return false;
+  return internal > cut;
 }
 
 export function coveringOrgs(
@@ -500,35 +543,52 @@ function causeFromMembers(
   };
 }
 
+export interface BuildClusterCausesOptions {
+  /**
+   * Chip list only. Pills never dump the unlabeled mass into Mixed boards.
+   * Default is stand-apart: no heading when nothing stands out.
+   */
+  foldUnlabeled?: boolean;
+}
+
 /**
- * Split the drawn graph into the groups that sit together, then name
- * each group for the org that dominates it (most members, or most
- * internal edges). A named org pill requires 5 or more people. Smaller
- * groups fold into one Mixed boards heading. A group of 5 or more with
- * no dominant org can still be Mixed boards. A thin bridge must not
- * merge separable groups.
+ * Split the drawn graph into the groups that sit together.
+ * A named pill needs the size floor and a group that stands apart
+ * (most links stay inside). Mixed boards only for a stand-apart
+ * group with no dominant org — not a dump of the unlabeled mass.
+ * A thin bridge must not merge separable groups.
  */
 export function buildClusterCauses(
   nodeIds: readonly string[],
-  edges: readonly ClusterEdge[]
+  edges: readonly ClusterEdge[],
+  options: BuildClusterCausesOptions = {}
 ): ClusterCause[] {
   const sitting = orgSittingGroups(nodeIds, edges);
   const named: ClusterCause[] = [];
   const fold: string[][] = [];
+  const foldUnlabeled = Boolean(options.foldUnlabeled);
 
   const consider = (
     memberIds: string[],
     groupEdges: readonly ClusterEdge[]
   ) => {
     if (memberIds.length < MIN_CLUSTER_SIZE) return;
-    if (memberIds.length >= MIN_NAMED_CLUSTER_SIZE) {
-      const cause = causeFromMembers(memberIds, groupEdges);
-      if (cause.kind === "org") {
-        named.push(cause);
-        return;
+    if (foldUnlabeled) {
+      if (memberIds.length >= MIN_NAMED_CLUSTER_SIZE) {
+        const cause = causeFromMembers(memberIds, groupEdges);
+        if (cause.kind === "org") {
+          named.push(cause);
+          return;
+        }
       }
+      fold.push(memberIds);
+      return;
     }
-    fold.push(memberIds);
+    if (memberIds.length < MIN_NAMED_CLUSTER_SIZE) return;
+    if (!clusterStandsApart(memberIds, nodeIds, edges)) return;
+    const cause = causeFromMembers(memberIds, groupEdges);
+    if (cause.kind === "org") named.push(cause);
+    else fold.push(memberIds);
   };
 
   for (const group of sitting) {
