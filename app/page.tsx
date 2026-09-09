@@ -61,8 +61,8 @@ export default function Home() {
   const counts = [
     { label: "People", value: people, href: "/who?tab=people", mark: "oak" },
     { label: "Organizations", value: orgs, href: "/who?tab=orgs", mark: "gold" },
-    { label: "Candidates", value: candidates, href: "/who?tab=candidates", mark: "ridge" },
     { label: "Measures", value: measures, href: "/who?tab=measures", mark: "ink" },
+    { label: "Candidates", value: candidates, href: "/who?tab=candidates", mark: "ridge" },
   ] as const;
 
   return (
