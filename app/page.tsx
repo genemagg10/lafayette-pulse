@@ -59,10 +59,10 @@ export default function Home() {
   const measures = health?.counts.measures ?? null;
 
   const counts = [
-    { label: "People", value: people, href: "/who?tab=people" },
-    { label: "Organizations", value: orgs, href: "/who?tab=orgs" },
-    { label: "Candidates", value: candidates, href: "/who?tab=candidates" },
-    { label: "Measures", value: measures, href: "/who?tab=measures" },
+    { label: "People", value: people, href: "/who?tab=people", mark: "oak" },
+    { label: "Organizations", value: orgs, href: "/who?tab=orgs", mark: "gold" },
+    { label: "Candidates", value: candidates, href: "/who?tab=candidates", mark: "ridge" },
+    { label: "Measures", value: measures, href: "/who?tab=measures", mark: "ink" },
   ] as const;
 
   return (
@@ -114,6 +114,7 @@ export default function Home() {
                 href={item.href}
                 label={item.label}
                 value={countLabel(item.value, unavailable)}
+                mark={item.mark}
               />
             ))}
           </div>
@@ -170,20 +171,23 @@ function CountCell({
   href,
   label,
   value,
+  mark,
 }: {
   href: string;
   label: string;
   value: string;
+  mark: "oak" | "gold" | "ridge" | "ink";
 }) {
+  const markClass = {
+    oak: "bg-oak",
+    gold: "bg-gold",
+    ridge: "bg-ridge",
+    ink: "bg-ink",
+  }[mark];
+
   return (
     <Link href={href} className="px-3 sm:px-5 py-3.5 hover:bg-surface/60">
-      <Image
-        src={lafayetteMark}
-        alt=""
-        height={18}
-        width={20}
-        className="mb-2"
-      />
+      <span className={`block w-8 h-[3px] mb-2 ${markClass}`} aria-hidden="true" />
       <p className="text-[10px] sm:text-[11px] font-body font-semibold uppercase tracking-wider text-ink">
         {label}
       </p>
