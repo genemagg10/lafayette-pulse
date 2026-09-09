@@ -108,10 +108,11 @@ body {
 
 .pulse-home-ridge__sil {
   position: absolute;
-  left: 0;
+  /* Peak is at art x=420; shift so it sits in the triangle. Never cover-scale. */
+  left: -400px;
   top: 0;
   height: 108px;
-  width: 2400px;
+  width: 2600px;
   max-width: none;
   display: block;
 }

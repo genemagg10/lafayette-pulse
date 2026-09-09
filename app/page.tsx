@@ -73,9 +73,9 @@ export default function Home() {
         <div className="pulse-home-ridge__scene" aria-hidden="true">
           <div className="pulse-home-ridge__align max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <img
-              src="/pulse-ridge.svg"
+              src="/pulse-ridge.jpg?v=diablo-2"
               alt=""
-              width={2400}
+              width={2600}
               height={108}
               className="pulse-home-ridge__sil"
             />
