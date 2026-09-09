@@ -126,7 +126,7 @@ export const ORG_TYPE_COLORS: Record<OrgType, string> = {
   other: "#6B6B6B",
 };
 
-export const PERSON_COLOR = "#2C3E2D";
+export const PERSON_COLOR = "#C4D0BE";
 export const SEAT_COLOR = "#56B4E9";
 /** Structural current edges — Facelift ink-faint, not near-black forest-700. */
 export const CURRENT_EDGE_COLOR = "#8A938C";
