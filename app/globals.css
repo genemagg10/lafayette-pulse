@@ -116,6 +116,8 @@ body {
   width: 2600px;
   max-width: none;
   display: block;
+  /* Vector edge — avoid bitmap stairsteps */
+  shape-rendering: geometricPrecision;
 }
 
 @media (min-width: 640px) {
