@@ -80,14 +80,14 @@ export default function Home() {
           className="pulse-home-ridge__photo"
         />
         <div className="pulse-home-ridge__wash" aria-hidden="true" />
-        <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <OakMark />
-            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-ink tracking-tight truncate">
+            <h1 className="font-heading text-xl sm:text-2xl lg:text-3xl font-bold text-ink tracking-tight whitespace-nowrap">
               Lafayette Pulse
             </h1>
           </div>
-          <p className="flex-shrink-0 text-xs sm:text-sm font-body text-ink-muted text-right">
+          <p className="flex-shrink min-w-0 text-[11px] sm:text-sm font-body text-ink-muted text-right leading-snug">
             {freshness.label}
           </p>
         </div>
@@ -195,7 +195,7 @@ function CountCell({
 
   return (
     <Link href={href} className="px-3 sm:px-5 py-3.5 hover:bg-surface/60">
-      <span className={`block w-7 h-0.5 mb-2 ${markClass}`} aria-hidden="true" />
+      <span className={`block w-8 h-[3px] mb-2 ${markClass}`} aria-hidden="true" />
       <p className="text-[10px] sm:text-[11px] font-body font-semibold uppercase tracking-wider text-ink">
         {label}
       </p>
