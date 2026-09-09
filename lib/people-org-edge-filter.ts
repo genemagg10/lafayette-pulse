@@ -81,7 +81,7 @@ export function orgEdgeFilterChips(
   nodeIds: readonly string[],
   edges: readonly ClusterEdge[]
 ): OrgEdgeFilterChip[] {
-  const causes = buildClusterCauses(nodeIds, edges);
+  const causes = buildClusterCauses(nodeIds, edges, { foldUnlabeled: true });
   const named: OrgEdgeFilterChip[] = [];
   const seenNamed = new Set<string>();
   const mixedOrgs = new Map<string, ClusterOrg>();
