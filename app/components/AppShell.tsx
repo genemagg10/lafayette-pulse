@@ -14,6 +14,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const focus = isFocusPath(pathname);
   const hideMobileBrand = pathname === "/map";
+  const isPulseHome = pathname === "/";
 
   useEffect(() => {
     setMoreOpen(false);
@@ -32,8 +33,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div
       className={`min-h-dvh flex flex-col bg-canvas text-ink ${
         hideMobileBrand ? "pulse-shell-map" : ""
-      } ${focus ? "pulse-shell-focus" : ""}`}
+      } ${focus ? "pulse-shell-focus" : ""} ${
+        isPulseHome ? "pulse-shell-home" : ""
+      }`}
     >
+      {!isPulseHome && (
       <header className="hidden md:flex sticky top-0 z-40 h-chrome items-center bg-surface border-b border-line">
         <div className="w-full px-4 flex items-center gap-6">
           <Brand />
@@ -62,8 +66,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
+      )}
 
-      {!hideMobileBrand && (
+      {!isPulseHome && !hideMobileBrand && (
         <div className="md:hidden sticky top-0 z-40 h-12 flex items-center justify-between px-4 bg-surface border-b border-line text-ink">
           <Brand compact />
           <FreshnessChip
@@ -75,13 +80,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <div
         className={`flex-1 min-h-0 ${
-          focus ? "overflow-hidden" : "pb-chrome md:pb-0"
+          isPulseHome ? "" : focus ? "overflow-hidden" : "pb-chrome md:pb-0"
         }`}
       >
         {children}
       </div>
 
-      {!focus && (
+      {!isPulseHome && !focus && (
         <footer className="hidden md:block border-t border-line bg-surface text-ink-muted py-4 text-center text-xs font-body">
           <p>
             Lafayette Pulse &middot; Map, calendar &amp; who&apos;s who &middot;
@@ -107,6 +112,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
+      {!isPulseHome && (
       <nav
         className="md:hidden fixed bottom-0 inset-x-0 z-40 h-chrome bg-surface text-ink border-t border-line"
         aria-label="Primary"
@@ -149,6 +155,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </nav>
+      )}
     </div>
   );
 }

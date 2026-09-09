@@ -3,16 +3,15 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import lafayetteMark from "../public/lafayette-emblem.png";
 import BackendBanner from "./components/BackendBanner";
 import BoardRedirect from "./components/BoardRedirect";
+import PulseHomeMap from "./components/PulseHomeMap";
 import { useHealth } from "@/lib/use-health";
 import {
   fetchCalendarItems,
   todayKeyPacific,
   type CalendarItem,
 } from "@/lib/calendar-items";
-import type { MeasureListItem } from "@/lib/stances";
 
 function countLabel(n: number | null | undefined, unavailable?: boolean): string {
   if (unavailable) return "—";
@@ -20,11 +19,24 @@ function countLabel(n: number | null | undefined, unavailable?: boolean): string
   return String(n);
 }
 
+function meetingWhen(item: CalendarItem): string {
+  const date = new Date(`${item.dayKey}T12:00:00`).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  if (item.timeLabel) {
+    return `${date} · ${item.timeLabel} PT`;
+  }
+  return date;
+}
+
+const COUNT_MARKS = ["oak", "gold", "ridge", "ink"] as const;
+
 export default function Home() {
   const { health, freshness, backendDown } = useHealth();
   const [upcoming, setUpcoming] = useState<CalendarItem[]>([]);
   const [upcomingError, setUpcomingError] = useState<string | null>(null);
-  const [contested, setContested] = useState<number | null>(null);
 
   useEffect(() => {
     const today = todayKeyPacific();
@@ -41,205 +53,155 @@ export default function Home() {
       });
   }, []);
 
-  useEffect(() => {
-    fetch("/api/measures?limit=50&offset=0")
-      .then(async (res) => {
-        const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-        const items: MeasureListItem[] = Array.isArray(data?.items) ? data.items : [];
-        setContested(
-          items.filter((row) => row.support_count > 0 && row.oppose_count > 0).length
-        );
-      })
-      .catch(() => setContested(null));
-  }, []);
-
+  const unavailable = freshness.unavailable;
   const people = health?.counts.people ?? null;
   const orgs = health?.counts.organizations ?? null;
-  const unavailable = freshness.unavailable;
+  const candidates = health?.counts.candidacies ?? null;
+  const measures = health?.counts.measures ?? null;
+
+  const counts = [
+    { label: "People", value: people, href: "/who?tab=people" },
+    { label: "Organizations", value: orgs, href: "/who?tab=orgs" },
+    { label: "Candidates", value: candidates, href: "/who?tab=candidates" },
+    { label: "Measures", value: measures, href: "/who?tab=measures" },
+  ] as const;
 
   return (
-    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+    <div className="bg-canvas min-h-dvh">
       <BoardRedirect />
 
-      <div>
-        <div className="flex items-center gap-3">
-          <Image
-            src={lafayetteMark}
-            alt="City of Lafayette emblem"
-            priority
-            height={44}
-            width={50}
-            className="flex-shrink-0"
-          />
-          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-ink">
-            Lafayette Pulse
-          </h1>
-        </div>
-        <p className="mt-1 text-sm font-body text-forest-600 max-w-2xl">
-          Orientation hub for the civic record — who sits where, what is coming
-          up, and doorways into the map, calendar, and who&apos;s who. Deep
-          graphs live on their own pages.
-        </p>
-      </div>
-
-      {backendDown && <BackendBanner />}
-
-      <section aria-label="Snapshot">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Kpi
-            href="/who?tab=people"
-            label="People"
-            value={countLabel(people, unavailable)}
-          />
-          <Kpi
-            href="/who?tab=orgs"
-            label="Organizations"
-            value={countLabel(orgs, unavailable)}
-          />
-          <Kpi
-            href="/calendar"
-            label="Upcoming meetings"
-            value={countLabel(
-              upcomingError ? null : upcoming.length,
-              unavailable
-            )}
-          />
-          <Kpi
-            href="/who?tab=measures"
-            label="Contested measures"
-            value={countLabel(contested, unavailable)}
-          />
-        </div>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-        <div className="bg-surface border border-line p-4">
-          <div className="flex items-baseline justify-between gap-3 mb-3">
-            <h2 className="font-heading font-bold text-ink">Coming up</h2>
-            <Link
-              href="/calendar"
-              className="text-xs font-body text-forest-600 underline hover:text-ink"
-            >
-              Open calendar
-            </Link>
+      <header className="pulse-home-ridge">
+        <Image
+          src="/pulse-ridge.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="pulse-home-ridge__photo"
+        />
+        <div className="pulse-home-ridge__wash" aria-hidden="true" />
+        <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <OakMark />
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-ink tracking-tight truncate">
+              Lafayette Pulse
+            </h1>
           </div>
-          {upcomingError ? (
-            <p className="text-sm font-body text-ink-muted">
-              Upcoming meetings are temporarily unavailable.
-            </p>
-          ) : upcoming.length === 0 ? (
-            <p className="text-sm font-body text-ink-muted">
-              No upcoming meetings in the current feed.
-            </p>
-          ) : (
-            <ul className="divide-y divide-line">
-              {upcoming.slice(0, 6).map((item) => (
-                <li key={item.id} className="py-2.5">
-                  <p className="text-xs font-body text-ink-muted">
-                    {new Date(`${item.dayKey}T12:00:00`).toLocaleDateString(
-                      "en-US",
-                      {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      }
-                    )}
-                    {item.timeLabel && (
-                      <>
-                        <span className="mx-1.5">·</span>
-                        {item.timeLabel} PT
-                      </>
-                    )}
-                    {item.body && (
-                      <>
-                        <span className="mx-1.5">·</span>
-                        {item.body}
-                      </>
-                    )}
-                    {item.projected && (
-                      <span className="ml-2 text-[10px] uppercase tracking-wide text-ink-muted">
-                        Projected
-                      </span>
-                    )}
-                  </p>
-                  <p className="font-heading font-semibold text-sm text-ink mt-0.5">
-                    {item.title}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
+          <p className="flex-shrink-0 text-xs sm:text-sm font-body text-ink-muted text-right">
+            {freshness.label}
+          </p>
         </div>
+      </header>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Doorway
-            href="/who?tab=people"
-            title="Who's who"
-            body="People, seats, and overlapping membership."
-          />
-          <Doorway
-            href="/who?tab=orgs"
-            title="Orgs & affinity"
-            body="Directory plus shared-membership graph."
-          />
-          <Doorway
-            href="/who?tab=measures"
-            title="Measures"
-            body="Quote-backed support and oppose, including the DEMO-SAFE ribbon."
-          />
-          <Doorway
-            href="/projects"
-            title="Project archive"
-            body="The older project list, under More — not a primary nav item."
-          />
-        </div>
-      </section>
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+        {backendDown && (
+          <div className="mb-4">
+            <BackendBanner />
+          </div>
+        )}
+
+        <section aria-label="Counts" className="border-y border-line">
+          <div className="grid grid-cols-4 divide-x divide-line">
+            {counts.map((item, index) => (
+              <CountCell
+                key={item.label}
+                href={item.href}
+                label={item.label}
+                value={countLabel(item.value, unavailable)}
+                mark={COUNT_MARKS[index]}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+          <Link
+            href="/map"
+            aria-label="Open map"
+            className="relative block h-[min(52vh,520px)] min-h-[300px] overflow-hidden rounded-md bg-canvas"
+          >
+            <div className="absolute inset-0 pointer-events-none">
+              <PulseHomeMap />
+            </div>
+            <span className="absolute bottom-3 right-3 z-10 rounded-md bg-surface border border-line px-3 py-1.5 text-xs font-body text-ink">
+              Open map
+            </span>
+          </Link>
+
+          <aside className="lg:w-[300px]">
+            <h2 className="font-heading font-bold text-ink text-xl">Coming up</h2>
+            {upcomingError ? (
+              <p className="mt-3 text-sm font-body text-ink-muted">
+                Upcoming meetings are temporarily unavailable.
+              </p>
+            ) : upcoming.length === 0 ? (
+              <p className="mt-3 text-sm font-body text-ink-muted">
+                No upcoming meetings in the current feed.
+              </p>
+            ) : (
+              <ul className="mt-2 divide-y divide-line">
+                {upcoming.slice(0, 6).map((item) => (
+                  <li key={item.id}>
+                    <Link href="/calendar" className="block py-3 hover:bg-canvas">
+                      <p className="text-xs font-body text-ink-muted">
+                        {meetingWhen(item)}
+                      </p>
+                      <p className="font-heading font-semibold text-ink mt-0.5">
+                        {item.title}
+                      </p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </aside>
+        </section>
+      </div>
     </div>
   );
 }
 
-function Kpi({
+function OakMark() {
+  return (
+    <svg
+      width="12"
+      height="11"
+      viewBox="0 0 12 11"
+      aria-hidden="true"
+      className="flex-shrink-0 text-oak"
+    >
+      <polygon points="6,0 12,11 0,11" fill="currentColor" />
+    </svg>
+  );
+}
+
+function CountCell({
   href,
   label,
   value,
+  mark,
 }: {
   href: string;
   label: string;
   value: string;
+  mark: (typeof COUNT_MARKS)[number];
 }) {
+  const markClass = {
+    oak: "bg-oak",
+    gold: "bg-gold",
+    ridge: "bg-ridge",
+    ink: "bg-ink",
+  }[mark];
+
   return (
-    <Link
-      href={href}
-      className="bg-surface border border-line p-4 hover:border-accent transition-colors"
-    >
-      <p className="text-[11px] uppercase tracking-wide font-body text-ink-muted">
+    <Link href={href} className="px-3 sm:px-5 py-3.5 hover:bg-surface/60">
+      <span className={`block w-7 h-0.5 mb-2 ${markClass}`} aria-hidden="true" />
+      <p className="text-[10px] sm:text-[11px] font-body font-semibold uppercase tracking-wider text-ink">
         {label}
       </p>
-      <p className="font-heading text-2xl font-bold text-ink mt-1 tabular-nums">
+      <p className="font-heading text-2xl sm:text-3xl font-bold text-ink mt-1 tabular-nums">
         {value}
       </p>
-    </Link>
-  );
-}
-
-function Doorway({
-  href,
-  title,
-  body,
-}: {
-  href: string;
-  title: string;
-  body: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="bg-surface border border-line p-4 hover:border-accent transition-colors flex flex-col"
-    >
-      <h3 className="font-heading font-bold text-ink">{title}</h3>
-      <p className="text-sm font-body text-forest-600 mt-1 flex-1">{body}</p>
-      <span className="text-xs font-body text-ink-muted mt-3">Open →</span>
     </Link>
   );
 }
