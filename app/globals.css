@@ -97,10 +97,7 @@ body {
 
 .pulse-home-ridge__photo-wrap {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 46px;
+  inset: 0;
 }
 
 .pulse-home-ridge__photo {
@@ -113,10 +110,10 @@ body {
   inset: 0;
   background: linear-gradient(
     to bottom,
-    #f7f6f2 0%,
-    #f7f6f2 48%,
-    rgb(247 246 242 / 0.35) 70%,
-    rgb(247 246 242 / 0.7) 88%,
+    rgb(247 246 242 / 0.7) 0%,
+    rgb(247 246 242 / 0.58) 46%,
+    rgb(247 246 242 / 0.48) 68%,
+    rgb(247 246 242 / 0.78) 90%,
     #f7f6f2 100%
   );
   pointer-events: none;

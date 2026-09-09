@@ -81,7 +81,7 @@ export default function Home() {
           />
         </div>
         <div className="pulse-home-ridge__wash" aria-hidden="true" />
-        <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-start justify-between gap-3 pt-3.5">
+        <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <Image
               src={lafayetteMark}
