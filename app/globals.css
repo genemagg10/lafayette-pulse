@@ -95,17 +95,41 @@ body {
   background: #f7f6f2;
 }
 
-.pulse-home-ridge__photo-wrap {
+.pulse-home-ridge__scene {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 46px;
+  inset: 0;
+  overflow: hidden;
 }
 
-.pulse-home-ridge__photo {
-  object-fit: cover;
-  object-position: center 48%;
+.pulse-home-ridge__align {
+  position: relative;
+  height: 108px;
+}
+
+.pulse-home-ridge__sil {
+  position: absolute;
+  /* Crest is at art x=416. Add the title-row padding so the summit
+     lands in the triangle (absolute left is the padding edge). */
+  left: calc(-400px + 1rem);
+  top: 0;
+  height: 108px;
+  width: 2600px;
+  max-width: none;
+  display: block;
+  /* Vector edge — avoid bitmap stairsteps */
+  shape-rendering: geometricPrecision;
+}
+
+@media (min-width: 640px) {
+  .pulse-home-ridge__sil {
+    left: calc(-400px + 1.5rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pulse-home-ridge__sil {
+    left: calc(-400px + 2rem);
+  }
 }
 
 .pulse-home-ridge__wash {
@@ -113,10 +137,10 @@ body {
   inset: 0;
   background: linear-gradient(
     to bottom,
-    #f7f6f2 0%,
-    #f7f6f2 48%,
-    rgb(247 246 242 / 0.35) 70%,
-    rgb(247 246 242 / 0.7) 88%,
+    rgb(247 246 242 / 0.7) 0%,
+    rgb(247 246 242 / 0.58) 46%,
+    rgb(247 246 242 / 0.48) 68%,
+    rgb(247 246 242 / 0.78) 90%,
     #f7f6f2 100%
   );
   pointer-events: none;

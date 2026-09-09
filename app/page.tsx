@@ -70,18 +70,19 @@ export default function Home() {
       <BoardRedirect />
 
       <header className="pulse-home-ridge">
-        <div className="pulse-home-ridge__photo-wrap" aria-hidden="true">
-          <Image
-            src="/pulse-ridge.jpg"
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="pulse-home-ridge__photo"
-          />
+        <div className="pulse-home-ridge__scene" aria-hidden="true">
+          <div className="pulse-home-ridge__align max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <img
+              src="/pulse-ridge.svg?v=lock-2"
+              alt=""
+              width={2600}
+              height={108}
+              className="pulse-home-ridge__sil"
+            />
+          </div>
         </div>
         <div className="pulse-home-ridge__wash" aria-hidden="true" />
-        <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-start justify-between gap-3 pt-3.5">
+        <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <Image
               src={lafayetteMark}
