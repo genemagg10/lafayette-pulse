@@ -95,14 +95,25 @@ body {
   background: #f7f6f2;
 }
 
-.pulse-home-ridge__photo-wrap {
+.pulse-home-ridge__scene {
   position: absolute;
   inset: 0;
+  overflow: hidden;
 }
 
-.pulse-home-ridge__photo {
-  object-fit: cover;
-  object-position: 6% 12%;
+.pulse-home-ridge__align {
+  position: relative;
+  height: 108px;
+}
+
+.pulse-home-ridge__sil {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 108px;
+  width: 2400px;
+  max-width: none;
+  display: block;
 }
 
 .pulse-home-ridge__wash {
