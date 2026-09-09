@@ -63,16 +63,18 @@ test("overflow replaces the whole label, never a truncated name", () => {
   assert.equal(overflow.includes("Lafayette"), false);
 });
 
-test("mobile list door labels overflow to the same whole-control fallback", () => {
-  assert.equal(PEOPLE_NETWORK_LIST_LABEL, "People network map");
-  assert.equal(ORGS_NETWORK_LIST_LABEL, "Organizations network map");
+test("mobile list door labels use the same Title Case as the person card", () => {
+  assert.equal(PEOPLE_NETWORK_LIST_LABEL, "People Network Map");
+  assert.equal(ORGS_NETWORK_LIST_LABEL, "Organizations Network Map");
+  assert.equal(PEOPLE_NETWORK_LIST_LABEL.includes("network map"), false);
+  assert.equal(ORGS_NETWORK_LIST_LABEL.includes("network map"), false);
   assert.equal(
     resolveNetworkPreviewLabel(PEOPLE_NETWORK_LIST_LABEL, true),
-    "People network map"
+    "People Network Map"
   );
   assert.equal(
     resolveNetworkPreviewLabel(ORGS_NETWORK_LIST_LABEL, true),
-    "Organizations network map"
+    "Organizations Network Map"
   );
   const overflow = resolveNetworkPreviewLabel(ORGS_NETWORK_LIST_LABEL, false);
   assert.equal(overflow, "View Network Map");

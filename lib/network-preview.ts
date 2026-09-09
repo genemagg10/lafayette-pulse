@@ -6,9 +6,9 @@ export function givenName(fullName: string): string {
 
 export const NETWORK_PREVIEW_FALLBACK_LABEL = "View Network Map";
 
-/** Mobile list door (unselected). Not the selected-person / selected-org card. */
-export const PEOPLE_NETWORK_LIST_LABEL = "People network map";
-export const ORGS_NETWORK_LIST_LABEL = "Organizations network map";
+/** Mobile list door (unselected). Same Title Case as the person/org cards. */
+export const PEOPLE_NETWORK_LIST_LABEL = "People Network Map";
+export const ORGS_NETWORK_LIST_LABEL = "Organizations Network Map";
 
 /** Quiet well on the shared mobile Who card. Label must fit beside it. */
 export const WHO_NETWORK_WELL_SIZE = 44;

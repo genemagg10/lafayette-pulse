@@ -9,8 +9,9 @@ import {
 } from "@/lib/network-preview";
 
 const WELL = WHO_NETWORK_WELL_SIZE;
+/** One label style on every door — same face, size, weight as the person card. Ink. */
 const LABEL_CLASS =
-  "font-heading font-bold text-sm leading-snug text-oak";
+  "font-heading font-semibold text-[15px] leading-snug text-ink";
 
 function OverviewSchematic() {
   return (
@@ -65,7 +66,7 @@ function Schematic({ kind }: { kind: WhoNetworkSchematic }) {
 
 /**
  * One mobile Who card family. Same chrome on every door — surface, hairline,
- * quiet well on the left, oak label. Only the drawing inside the well changes.
+ * quiet well on the left, ink label. Only the drawing inside the well changes.
  */
 export default function WhoNetworkCard({
   label,
@@ -113,7 +114,7 @@ export default function WhoNetworkCard({
       type="button"
       onClick={onOpen}
       aria-label={label}
-      className="lg:hidden w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-left hover:bg-canvas focus:outline-none focus:ring-2 focus:ring-oak/20"
+      className="lg:hidden w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ink/20"
     >
       <span className="flex items-center gap-3">
         <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-md bg-surface-muted">
