@@ -108,13 +108,26 @@ body {
 
 .pulse-home-ridge__sil {
   position: absolute;
-  /* Peak is at art x=420; shift so it sits in the triangle. Never cover-scale. */
-  left: -400px;
+  /* Crest is at art x=416. Add the title-row padding so the summit
+     lands in the triangle (absolute left is the padding edge). */
+  left: calc(-400px + 1rem);
   top: 0;
   height: 108px;
   width: 2600px;
   max-width: none;
   display: block;
+}
+
+@media (min-width: 640px) {
+  .pulse-home-ridge__sil {
+    left: calc(-400px + 1.5rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pulse-home-ridge__sil {
+    left: calc(-400px + 2rem);
+  }
 }
 
 .pulse-home-ridge__wash {
