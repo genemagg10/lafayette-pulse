@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import lafayetteMark from "../public/lafayette-emblem.png";
 import BackendBanner from "./components/BackendBanner";
 import BoardRedirect from "./components/BoardRedirect";
 import PulseHomeMap from "./components/PulseHomeMap";
@@ -30,8 +31,6 @@ function meetingWhen(item: CalendarItem): string {
   }
   return date;
 }
-
-const COUNT_MARKS = ["oak", "gold", "ridge", "ink"] as const;
 
 export default function Home() {
   const { health, freshness, backendDown } = useHealth();
@@ -82,7 +81,14 @@ export default function Home() {
         <div className="pulse-home-ridge__wash" aria-hidden="true" />
         <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <OakMark />
+            <Image
+              src={lafayetteMark}
+              alt=""
+              priority
+              height={28}
+              width={32}
+              className="flex-shrink-0"
+            />
             <h1 className="font-heading text-xl sm:text-2xl lg:text-3xl font-bold text-ink tracking-tight whitespace-nowrap">
               Lafayette Pulse
             </h1>
@@ -102,13 +108,12 @@ export default function Home() {
 
         <section aria-label="Counts" className="border-y border-line">
           <div className="grid grid-cols-4 divide-x divide-line">
-            {counts.map((item, index) => (
+            {counts.map((item) => (
               <CountCell
                 key={item.label}
                 href={item.href}
                 label={item.label}
                 value={countLabel(item.value, unavailable)}
-                mark={COUNT_MARKS[index]}
               />
             ))}
           </div>
@@ -161,41 +166,24 @@ export default function Home() {
   );
 }
 
-function OakMark() {
-  return (
-    <svg
-      width="12"
-      height="11"
-      viewBox="0 0 12 11"
-      aria-hidden="true"
-      className="flex-shrink-0 text-oak"
-    >
-      <polygon points="6,0 12,11 0,11" fill="currentColor" />
-    </svg>
-  );
-}
-
 function CountCell({
   href,
   label,
   value,
-  mark,
 }: {
   href: string;
   label: string;
   value: string;
-  mark: (typeof COUNT_MARKS)[number];
 }) {
-  const markClass = {
-    oak: "bg-oak",
-    gold: "bg-gold",
-    ridge: "bg-ridge",
-    ink: "bg-ink",
-  }[mark];
-
   return (
     <Link href={href} className="px-3 sm:px-5 py-3.5 hover:bg-surface/60">
-      <span className={`block w-8 h-[3px] mb-2 ${markClass}`} aria-hidden="true" />
+      <Image
+        src={lafayetteMark}
+        alt=""
+        height={18}
+        width={20}
+        className="mb-2"
+      />
       <p className="text-[10px] sm:text-[11px] font-body font-semibold uppercase tracking-wider text-ink">
         {label}
       </p>
