@@ -499,6 +499,7 @@ export default function PeopleExplorer({
           />
         </StickyDetailChrome>
         <NetworkPreviewCard
+          door="person"
           label={personNetworkPreviewLabel(selected.full_name)}
           onOpen={() => setMobileStep("viz")}
         />

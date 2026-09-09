@@ -27,6 +27,7 @@ const config: Config = {
           soft: "var(--accent-soft)",
         },
         oak: "#3A5340",
+        sage: "#9AA58B",
         gold: "#A8944E",
         ridge: "#6F7B65",
         stance: {

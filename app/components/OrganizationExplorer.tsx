@@ -534,6 +534,7 @@ export default function OrganizationExplorer({
             />
           </StickyDetailChrome>
           <NetworkPreviewCard
+            door="org"
             label={orgNetworkPreviewLabel(detail.name)}
             onOpen={() => setMobileStep("viz")}
           />

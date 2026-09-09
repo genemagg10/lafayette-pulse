@@ -4,11 +4,14 @@ import {
   NETWORK_PREVIEW_FALLBACK_LABEL,
   ORGS_NETWORK_LIST_LABEL,
   PEOPLE_NETWORK_LIST_LABEL,
+  WHO_NETWORK_WELL_SIZE,
   givenName,
+  looksLikeScrapeId,
   networkPreviewFits,
   orgNetworkPreviewLabel,
   personNetworkPreviewLabel,
   resolveNetworkPreviewLabel,
+  whoNetworkSchematic,
 } from "../lib/network-preview.ts";
 
 test("person preview is first name plus Network Map", () => {
@@ -41,13 +44,13 @@ test("overflow replaces the whole label, never a truncated name", () => {
   );
   assert.equal(networkPreviewFits({
     availableWidth: 200,
-    availableHeight: 52,
+    availableHeight: WHO_NETWORK_WELL_SIZE,
     contentWidth: 180,
     contentHeight: 40,
   }), true);
   assert.equal(networkPreviewFits({
     availableWidth: 200,
-    availableHeight: 52,
+    availableHeight: WHO_NETWORK_WELL_SIZE,
     contentWidth: 240,
     contentHeight: 20,
   }), false);
@@ -76,4 +79,22 @@ test("mobile list door labels overflow to the same whole-control fallback", () =
   assert.equal(overflow.includes("…"), false);
   assert.equal(overflow.includes("..."), false);
   assert.equal(overflow.includes("Organizations"), false);
+});
+
+test("Who doors share one family: overview vs ego drawings", () => {
+  assert.equal(whoNetworkSchematic("list"), "overview");
+  assert.equal(whoNetworkSchematic("person"), "person");
+  assert.equal(whoNetworkSchematic("org"), "org");
+});
+
+test("scrape ids never become the visible Network Map label", () => {
+  const id = "3f1c9a2e-7b44-4c11-9d0a-12ab34cd56ef";
+  assert.equal(looksLikeScrapeId(id), true);
+  assert.equal(looksLikeScrapeId("Carl"), false);
+  assert.equal(looksLikeScrapeId("Lafayette Chamber of Commerce"), false);
+  assert.equal(personNetworkPreviewLabel(id), "View Network Map");
+  assert.equal(orgNetworkPreviewLabel(id), "View Network Map");
+  assert.equal(resolveNetworkPreviewLabel(id, true), "View Network Map");
+  assert.equal(personNetworkPreviewLabel(id).includes(id), false);
+  assert.equal(orgNetworkPreviewLabel(id).includes(id), false);
 });
