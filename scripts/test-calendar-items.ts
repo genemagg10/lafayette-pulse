@@ -122,6 +122,12 @@ test("projection markers are stripped from displayed description", () => {
     ),
     "Confirmed official listing."
   );
+  assert.equal(
+    displayEventDescription(
+      "MMMAC Meeting #1 — M3 project introduction. [confidence=high; UPDATE_LOCATION_FROM_GRANICUS view_id=3 event_id=1468]"
+    ),
+    "MMMAC Meeting #1 — M3 project introduction."
+  );
 });
 
 test("upcoming window is today plus the next 6 days (7 civil days)", () => {

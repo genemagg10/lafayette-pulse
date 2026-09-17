@@ -107,9 +107,9 @@ export function isProjectedEvent(event: {
 }
 
 const SCRAPE_BRACKET_RE =
-  /\[[^\]]*(?:RECURRING_PROJECTION|[A-Z_]*FROM_CITY_CALENDAR|confidence\s*[=-]\s*[\w-]+)[^\]]*\]/gi;
+  /\[[^\]]*(?:RECURRING_PROJECTION|[A-Z_]*FROM_(?:CITY_CALENDAR|GRANICUS)|confidence\s*[=-]\s*[\w-]+)[^\]]*\]/gi;
 const SCRAPE_TOKEN_RE =
-  /(?:RECURRING_PROJECTION|[A-Z_]*FROM_CITY_CALENDAR|confidence\s*[=-]\s*[\w-]+)/gi;
+  /(?:RECURRING_PROJECTION|[A-Z_]*FROM_(?:CITY_CALENDAR|GRANICUS)|confidence\s*[=-]\s*[\w-]+)/gi;
 
 /** Strip scrape metadata. Never invent a time, place, or name. */
 export function displayEventDescription(description: string | null): string | null {

@@ -83,6 +83,7 @@ After deploy, open [`/api/health`](https://lafayette-pulse.vercel.app/api/health
    - `supabase/migrations/010_seed_candidates_measures.sql` (2026 City Council candidates + seats, ballot measures H/L, org affinities, and quote-backed stances; idempotent, source-backed)
    - `supabase/migrations/011_seed_org_members.sql` (Lafayette Community Foundation board + Sustainable Lafayette; backfills orgs that showed zero members; idempotent, source-backed)
    - `supabase/migrations/012_seed_karen_maggio_involvement.sql` (Karen Maggio's ~25-year civic history — Planning Commission, Library/LLLC, Sustainable Lafayette, Environmental Task Force; adds the LLLC Foundation and Environmental Task Force orgs; idempotent, source-backed)
+   - `supabase/migrations/013_seed_m3_granicus_pack.sql` (Granicus M3 / MMMAC scout pack: update Sep 21 2026 meeting location; upsert 8 downtown mobility projects by slug tag; idempotent, source-backed. Pack CSVs in `data/scout/granicus-m3/`)
 4. Copy the project URL and anon key from Settings > API
 
 Civic graph tables are **public read, service-role write**. They do not use the older `FOR ALL USING (true)` policy from 001.
