@@ -1,5 +1,9 @@
--- Enable PostGIS for geospatial queries
-CREATE EXTENSION IF NOT EXISTS postgis;
+-- Enable PostGIS for geospatial queries.
+-- Install in `extensions` on new projects so spatial_ref_sys is not
+-- exposed on the public Data API. IF NOT EXISTS is a no-op when PostGIS
+-- is already in public (production today).
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA extensions;
 
 -- ============================================
 -- CATEGORIES REFERENCE
@@ -61,14 +65,17 @@ CREATE TABLE projects (
 
 -- Auto-populate geom from lat/lng
 CREATE OR REPLACE FUNCTION update_geom()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public, extensions
+AS $$
 BEGIN
   IF NEW.latitude IS NOT NULL AND NEW.longitude IS NOT NULL THEN
     NEW.geom = ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326);
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE TRIGGER trg_update_geom
   BEFORE INSERT OR UPDATE ON projects
@@ -156,12 +163,15 @@ CREATE POLICY "Service write" ON scraped_sources FOR ALL USING (true) WITH CHECK
 -- UPDATED_AT TRIGGER
 -- ============================================
 CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public, extensions
+AS $$
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE TRIGGER trg_projects_updated
   BEFORE UPDATE ON projects
