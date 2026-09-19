@@ -1,5 +1,6 @@
--- Enable pgvector for semantic search
-CREATE EXTENSION IF NOT EXISTS vector;
+-- Enable pgvector for semantic search (keep out of the public API schema)
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
 
 -- ============================================
 -- DOCUMENT CHUNKS (for RAG retrieval)
@@ -81,7 +82,9 @@ RETURNS TABLE (
   source_url TEXT,
   similarity FLOAT
 )
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql
+SET search_path = public, extensions
+AS $$
 BEGIN
   RETURN QUERY
   SELECT
@@ -89,7 +92,7 @@ BEGIN
     dc.category, dc.meeting_body, dc.meeting_date,
     dc.project_title, dc.source_url,
     1 - (dc.embedding <=> query_embedding) AS similarity
-  FROM document_chunks dc
+  FROM public.document_chunks dc
   WHERE
     dc.embedding IS NOT NULL
     AND (filter_category IS NULL OR dc.category = filter_category)

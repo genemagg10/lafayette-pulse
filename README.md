@@ -83,9 +83,12 @@ After deploy, open [`/api/health`](https://lafayette-pulse.vercel.app/api/health
    - `supabase/migrations/010_seed_candidates_measures.sql` (2026 City Council candidates + seats, ballot measures H/L, org affinities, and quote-backed stances; idempotent, source-backed)
    - `supabase/migrations/011_seed_org_members.sql` (Lafayette Community Foundation board + Sustainable Lafayette; backfills orgs that showed zero members; idempotent, source-backed)
    - `supabase/migrations/012_seed_karen_maggio_involvement.sql` (Karen Maggio's ~25-year civic history — Planning Commission, Library/LLLC, Sustainable Lafayette, Environmental Task Force; adds the LLLC Foundation and Environmental Task Force orgs; idempotent, source-backed)
+   - `supabase/migrations/013_security_advisor_hardening.sql` (PostGIS Data API revokes, pinned `search_path` on app functions, revoke SECURITY DEFINER RPC, civic_graph_proposals deny policies)
 4. Copy the project URL and anon key from Settings > API
 
-Civic graph tables are **public read, service-role write**. They do not use the older `FOR ALL USING (true)` policy from 001.
+Civic graph tables are **public read, service-role write**. They do not use the older `FOR ALL USING (true)` policy from 001. `civic_graph_proposals` is **service-role only** (staging for extract scripts).
+
+On a brand-new project, install PostGIS and pgvector in the `extensions` schema (001 / 005 do this). Production currently has PostGIS in `public`; 013 revokes API-role access to `spatial_ref_sys` instead of dropping the extension. Apply 013 to the live project after review — it is not auto-applied.
 
 ### Run Locally
 

@@ -2,8 +2,9 @@
 -- Idempotent: safe to re-run on databases that already have this table
 -- (production was loaded from a first-batch extract before this file landed).
 --
--- RLS: enabled, no policies. anon/authenticated cannot read or write.
--- service_role bypasses RLS and is used by extract-civic-graph.py.
+-- RLS: enabled. 013 adds explicit deny policies for anon/authenticated
+-- and revokes table grants. service_role bypasses RLS and is used by
+-- extract-civic-graph.py / extract-stances.py.
 
 CREATE TABLE IF NOT EXISTS civic_graph_proposals (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -136,5 +137,7 @@ CREATE INDEX IF NOT EXISTS idx_cgp_dedupe ON civic_graph_proposals (dedupe_key);
 
 ALTER TABLE civic_graph_proposals ENABLE ROW LEVEL SECURITY;
 
--- No SELECT/INSERT/UPDATE/DELETE policies for anon or authenticated.
--- Writes and reads go through service_role (bypasses RLS).
+-- No SELECT/INSERT/UPDATE/DELETE policies for anon or authenticated
+-- in this file. 013 adds deny-all policies + REVOKE so the table is
+-- not exposed via the Data API. Writes and reads go through
+-- service_role (bypasses RLS).
