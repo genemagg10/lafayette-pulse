@@ -182,6 +182,22 @@ Add these secrets to the GitHub repo (Settings > Secrets > Actions):
 
 The daily scraper runs every day at 2am PST (`0 10 * * *` UTC) via **Collect & Classify**. GitHub may disable scheduled workflows after repository inactivity; re-enable from the Actions tab if the last scrape timestamp in `/api/health` goes stale.
 
+### Database grants (explicit-grants model)
+
+Since Supabase's October 30, 2026 change, new tables in `public` are **not** exposed to the Data API automatically. Migration `014_lock_writes_and_default_privileges.sql` applies the same model here: default privileges give `anon` / `authenticated` nothing on new tables, sequences, or functions (`service_role` keeps access).
+
+Every migration that creates a table or RPC must grant access explicitly, in the same file:
+
+```sql
+-- public read-only data (app reads with the anon key; RLS still applies)
+GRANT SELECT ON public.your_table TO anon, authenticated;
+GRANT ALL ON public.your_table TO service_role;
+-- RPC callable from the app
+GRANT EXECUTE ON FUNCTION public.your_fn(...) TO anon, authenticated, service_role;
+```
+
+Writes go through the service-role key (scripts), which bypasses RLS. Do not add `FOR ALL ... USING (true)` policies for API roles. Missing grants surface as PostgREST error `42501` with the exact `GRANT` in the hint.
+
 ## Architecture
 
 ```
