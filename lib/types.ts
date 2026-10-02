@@ -141,6 +141,9 @@ export type EventType =
   | "deadline"
   | "other";
 
+/** Civic-graph `events.status`. Absent or null means scheduled. */
+export type EventStatus = "scheduled" | "cancelled";
+
 export type MeasureStatus =
   | "proposed"
   | "qualified"
@@ -212,6 +215,8 @@ export interface CivicEvent {
   source_url: string | null;
   linked_project_id: number | null;
   category: ProjectCategory | null;
+  /** Omitted or null before the status migration; treat as scheduled. */
+  status?: EventStatus | null;
   created_at: string;
   updated_at: string;
 }

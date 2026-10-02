@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { CATEGORIES, migrateCategory } from "@/lib/categories";
+import { omitCancelledEvents } from "@/lib/event-status";
 import type { CivicEvent, Organization, Project } from "@/lib/types";
 
 const MapContainer = dynamic(
@@ -63,7 +64,7 @@ export default function PulseHomeMap() {
         .catch(() => []),
     ]).then(([eventData, orgData, projectData]) => {
       if (cancelled) return;
-      setEvents(asList<CivicEvent>(eventData).filter(hasCoords));
+      setEvents(omitCancelledEvents(asList<CivicEvent>(eventData)).filter(hasCoords));
       setOrganizations(asList<Organization>(orgData).filter(hasCoords));
       setProjects(asList<Project>(projectData).filter(hasCoords));
     });

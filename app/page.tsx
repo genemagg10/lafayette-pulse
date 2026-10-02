@@ -13,6 +13,7 @@ import {
   todayKeyPacific,
   type CalendarItem,
 } from "@/lib/calendar-items";
+import CancelledBadge from "./components/CancelledBadge";
 
 function countLabel(n: number | null | undefined, unavailable?: boolean): string {
   if (unavailable) return "—";
@@ -152,10 +153,17 @@ export default function Home() {
                 {upcoming.slice(0, 6).map((item) => (
                   <li key={item.id}>
                     <Link href="/calendar" className="block py-3 hover:bg-canvas">
-                      <p className="text-xs font-body text-ink-muted">
-                        {meetingWhen(item)}
+                      <p className="text-xs font-body text-ink-muted flex flex-wrap items-center gap-2">
+                        <span className={item.cancelled ? "line-through" : undefined}>
+                          {meetingWhen(item)}
+                        </span>
+                        {item.cancelled ? <CancelledBadge /> : null}
                       </p>
-                      <p className="font-heading font-semibold text-ink mt-0.5">
+                      <p
+                        className={`font-heading font-semibold mt-0.5 ${
+                          item.cancelled ? "text-ink-muted" : "text-ink"
+                        }`}
+                      >
                         {item.title}
                       </p>
                     </Link>

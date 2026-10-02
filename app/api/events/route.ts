@@ -17,6 +17,9 @@ export async function GET(request: NextRequest) {
     const limit = parseLimit(request);
 
     return await safeList((supabase) => {
+      // Status is not filtered in SQL. `select("*")` works before the column
+      // exists, and calendars still need cancelled rows. Map pins and
+      // upcoming counts drop them with omitCancelledEvents.
       let query = supabase
         .from("events")
         .select("*")

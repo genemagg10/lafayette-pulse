@@ -15,6 +15,11 @@ import {
   upcomingWindow,
 } from "../lib/calendar-time.ts";
 import {
+  eventStatus,
+  isCancelledEvent,
+  omitCancelledEvents,
+} from "../lib/event-status.ts";
+import {
   CALENDAR_CATEGORY_TOKENS,
   EVENT_CHIP_TEXT_CLASS,
   EVENT_LINE_PX,
@@ -289,4 +294,29 @@ test("rail month window is the civil month, not a 7-day Upcoming cap", () => {
 test("evening UTC timestamps keep Pacific clock time", () => {
   assert.equal(formatTimePacific("2026-09-15T02:00:00.000Z"), "7:00 PM");
   assert.equal(formatTimePacific("2026-09-15"), null);
+});
+
+test("missing or null event status counts as scheduled", () => {
+  assert.equal(eventStatus(undefined), "scheduled");
+  assert.equal(eventStatus(null), "scheduled");
+  assert.equal(eventStatus(""), "scheduled");
+  assert.equal(eventStatus("scheduled"), "scheduled");
+  assert.equal(eventStatus("cancelled"), "cancelled");
+  assert.equal(isCancelledEvent(undefined), false);
+  assert.equal(isCancelledEvent({ status: null }), false);
+  assert.equal(isCancelledEvent({}), false);
+  assert.equal(isCancelledEvent({ status: "cancelled" }), true);
+});
+
+test("map pins and upcoming counts omit cancelled events and keep legacy rows", () => {
+  const rows = [
+    { id: "scheduled", status: "scheduled" as const },
+    { id: "legacy", status: null },
+    { id: "missing" },
+    { id: "cancelled", status: "cancelled" as const },
+  ];
+  assert.deepEqual(
+    omitCancelledEvents(rows).map((event) => event.id),
+    ["scheduled", "legacy", "missing"]
+  );
 });
