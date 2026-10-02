@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { calendarCategoryToken } from "@/lib/calendar-layout";
 import type { CalendarItem } from "@/lib/calendar-items";
+import CancelledBadge from "./CancelledBadge";
 
 interface CalendarItemCardProps {
   item: CalendarItem;
@@ -33,12 +34,16 @@ export default function CalendarItemCard({
             }
           : undefined
       }
-      className={`bg-surface border border-line p-3 text-left ${
-        onToggle ? "cursor-pointer hover:border-line-strong" : ""
-      }`}
+      className={`border border-line p-3 text-left ${
+        item.cancelled ? "bg-canvas" : "bg-surface"
+      } ${onToggle ? "cursor-pointer hover:border-line-strong" : ""}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="font-heading text-[14px] font-semibold leading-snug text-ink min-w-0">
+        <h3
+          className={`font-heading text-[14px] font-semibold leading-snug min-w-0 ${
+            item.cancelled ? "text-ink-muted" : "text-ink"
+          }`}
+        >
           {item.title}
         </h3>
         <span
@@ -53,9 +58,18 @@ export default function CalendarItemCard({
         </span>
       </div>
 
-      {item.timeLabel ? (
-        <p className="text-[12px] font-body tabular-nums text-ink mt-1">
-          {item.timeLabel}
+      {item.timeLabel || item.cancelled ? (
+        <p
+          className={`text-[12px] font-body tabular-nums mt-1 flex flex-wrap items-center gap-2 ${
+            item.cancelled ? "text-ink-muted" : "text-ink"
+          }`}
+        >
+          {item.timeLabel ? (
+            <span className={item.cancelled ? "line-through" : undefined}>
+              {item.timeLabel}
+            </span>
+          ) : null}
+          {item.cancelled ? <CancelledBadge /> : null}
         </p>
       ) : null}
 

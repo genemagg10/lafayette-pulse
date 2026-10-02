@@ -229,7 +229,7 @@ Vercel (Next.js)          GitHub Actions (daily)
 
 Ask lives under More — there is no global chat FAB. Primary nav is Pulse, Map, Calendar, Who.
 
-`/calendar` (and Home → Coming up) reads both `GET /api/events?since=&until=` and `GET /api/agenda-items`. Event days use `starts_at` in **America/Los_Angeles**. A subtle **Projected** badge marks recurring-schedule meetings until Granicus or lovelafayette.org confirms; this PR does not invent cancellations or scrape the city calendar.
+`/calendar` (and Home → Coming up) reads both `GET /api/events?since=&until=` and `GET /api/agenda-items`. Event days use `starts_at` in **America/Los_Angeles**. A subtle **Projected** badge marks recurring-schedule meetings until Granicus or lovelafayette.org confirms. `events.status` of `cancelled` stays on calendars and lists with a Cancelled mark (missing or null status counts as scheduled) and is left off map pins.
 
 ## Civic graph APIs
 

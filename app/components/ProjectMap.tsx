@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORIES } from "@/lib/categories";
+import { omitCancelledEvents } from "@/lib/event-status";
 import { ORG_TYPE_LABELS, type CivicEvent, type Organization, type Project } from "@/lib/types";
 
 import dynamic from "next/dynamic";
@@ -108,7 +109,7 @@ export default function ProjectMap({
         .catch(() => ({ items: [] })),
     ]).then(([eventData, orgData]) => {
       if (cancelled) return;
-      setEvents(asList<CivicEvent>(eventData).filter(hasCoords));
+      setEvents(omitCancelledEvents(asList<CivicEvent>(eventData)).filter(hasCoords));
       setOrganizations(asList<Organization>(orgData).filter(hasCoords));
       setOverlayReady(true);
     });

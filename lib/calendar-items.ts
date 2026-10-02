@@ -7,6 +7,7 @@ import {
   isProjectedEvent,
   ptBoundIso,
 } from "./calendar-time";
+import { isCancelledEvent } from "./event-status";
 import type { AgendaItem, CivicEvent, EventType, ProjectCategory } from "./types";
 
 export {
@@ -46,6 +47,8 @@ export interface CalendarItem {
   tags: string[];
   event_type: EventType | null;
   projected: boolean;
+  /** True only when events.status is exactly "cancelled". */
+  cancelled: boolean;
   organization_id: string | null;
 }
 
@@ -85,6 +88,7 @@ export function agendaToCalendarItem(item: AgendaItem): CalendarItem {
     tags: Array.isArray(item.tags) ? item.tags : [],
     event_type: null,
     projected: false,
+    cancelled: false,
     organization_id: null,
   };
 }
@@ -105,6 +109,7 @@ export function eventToCalendarItem(event: CivicEvent): CalendarItem {
     tags: [],
     event_type: event.event_type ?? "other",
     projected: isProjectedEvent(event),
+    cancelled: isCancelledEvent(event),
     organization_id: event.organization_id ?? null,
   };
 }
