@@ -474,7 +474,11 @@ function DayCell({
       </span>
       {compact ? (
         items.length > 0 ? (
-          <span className="block w-1 h-1 mt-0.5 bg-forest" />
+          <span
+            className={`block w-1 h-1 mt-0.5 ${
+              items.every((item) => item.cancelled) ? "bg-ink-faint" : "bg-forest"
+            }`}
+          />
         ) : null
       ) : (
         <div data-event-well className="flex flex-col gap-0.5 mt-1">
@@ -486,11 +490,19 @@ function DayCell({
                 className={EVENT_CHIP_TEXT_CLASS}
                 style={{
                   backgroundColor: token.color,
+                  color: item.cancelled ? "var(--ink-muted)" : undefined,
                   padding: "2px 6px",
                   borderRadius: 4,
                 }}
               >
-                {eventChipText(item)}
+                {item.cancelled ? "Cancelled · " : null}
+                <span
+                  style={
+                    item.cancelled ? { textDecoration: "line-through" } : undefined
+                  }
+                >
+                  {eventChipText(item)}
+                </span>
               </span>
             );
           })}
