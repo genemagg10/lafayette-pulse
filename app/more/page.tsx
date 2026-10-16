@@ -12,7 +12,7 @@ export default function MorePage() {
         <h1 className="font-heading text-2xl font-bold text-ink">More</h1>
         <p className="text-sm font-body text-forest-600 mt-1">
           Secondary tools. Projects stay here so they do not compete with Pulse,
-          Map, Calendar, and Who.
+          Map, Calendar, Who, and the Nov 3 guide.
         </p>
       </div>
 

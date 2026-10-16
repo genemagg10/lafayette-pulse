@@ -117,12 +117,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         className="md:hidden fixed bottom-0 inset-x-0 z-40 h-chrome bg-surface text-ink border-t border-line"
         aria-label="Primary"
       >
-        <div className="h-full grid grid-cols-5">
+        <div className="h-full grid grid-cols-6">
           {PRIMARY_NAV.map((item) => (
             <Link
               key={item.id}
               href={item.href}
-              className={`flex flex-col items-center justify-center text-[11px] font-body ${
+              className={`flex flex-col items-center justify-center text-center leading-tight px-0.5 text-[11px] font-body ${
                 isActive(pathname, item.href)
                   ? "text-ink font-semibold bg-canvas"
                   : "text-ink-muted"
