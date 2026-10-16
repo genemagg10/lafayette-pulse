@@ -109,6 +109,10 @@ export default function PeopleExplorer({
   const [mixedCause, setMixedCause] = useState<ClusterCause | null>(null);
   const [rangeStop, setRangeStop] = useState<GraphRangeStop>("most");
   const [edgeOrgId, setEdgeOrgId] = useState<string | null>(null);
+  const [detailDismissed, setDetailDismissed] = useState(false);
+  useEffect(() => {
+    setDetailDismissed(false);
+  }, [selectedId]);
   const selectedPersonIdRef = useRef(selectedPersonId);
   selectedPersonIdRef.current = selectedPersonId;
   const selectedIdRef = useRef(selectedId);
@@ -609,13 +613,24 @@ export default function PeopleExplorer({
           {selectedId ? "Network" : "Shared boards"}
         </h3>
         {selectedId && (
-          <button
-            type="button"
-            onClick={clearPerson}
-            className="text-[11px] font-body text-forest-700 underline hover:text-forest-900"
-          >
-            Clear focus
-          </button>
+          <div className="flex items-center gap-3">
+            {detailDismissed && (
+              <button
+                type="button"
+                onClick={() => setDetailDismissed(false)}
+                className="hidden lg:inline text-[11px] font-body text-forest-700 underline hover:text-forest-900"
+              >
+                Show details
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={clearPerson}
+              className="text-[11px] font-body text-forest-700 underline hover:text-forest-900"
+            >
+              Clear focus
+            </button>
+          </div>
         )}
       </div>
       <p className="text-xs font-body text-ink-muted">
@@ -800,6 +815,10 @@ export default function PeopleExplorer({
       onMobileStep={setMobileStep}
       vizBackStep={selectedId ? "detail" : "list"}
       showOpenControl={false}
+      detailMode="overlay"
+      detailOpen={Boolean(selectedId) && !detailDismissed}
+      onCloseDetail={() => setDetailDismissed(true)}
+      detailTitle={selected?.full_name ?? "Person"}
     />
   );
 }
