@@ -5,6 +5,7 @@ export const PRIMARY_NAV = [
   { href: "/map", label: "Map", id: "map" },
   { href: "/calendar", label: "Calendar", id: "calendar" },
   { href: "/who", label: "Who", id: "who" },
+  { href: "/election", label: "Nov 3", id: "election" },
 ] as const;
 
 export type PrimaryNavId = (typeof PRIMARY_NAV)[number]["id"];
